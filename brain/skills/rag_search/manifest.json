@@ -1,0 +1,95 @@
+{
+ "id": "rag_search",
+ "name": "Rag Search",
+ "version": "2.0.0",
+ "description": "Retrieve-ground-cite answering; extractive fallback without an adapter, generative with one; explicit not-found.",
+ "purpose": "Answers without receipts are unaccountable; every substantive claim must carry its source or admit absence.",
+ "tags": [
+  "rag"
+ ],
+ "inputs": {
+  "schema_inline": {
+   "type": "object",
+   "required": [
+    "question"
+   ],
+   "additionalProperties": false,
+   "properties": {
+    "question": {
+     "type": "string",
+     "minLength": 3
+    },
+    "mission_id": {
+     "type": "string"
+    },
+    "corpora": {
+     "type": "array",
+     "items": {
+      "type": "string"
+     }
+    },
+    "cross_corpus": {
+     "type": "boolean"
+    },
+    "top_k": {
+     "type": "integer",
+     "default": 4
+    }
+   }
+  }
+ },
+ "outputs": {
+  "schema_inline": {
+   "type": "object",
+   "required": [
+    "found",
+    "citations",
+    "scope"
+   ],
+   "properties": {
+    "found": {
+     "type": "boolean"
+    },
+    "citations": {
+     "type": "array"
+    }
+   }
+  }
+ },
+ "memory": {
+  "root_param": null,
+  "read": [],
+  "write": [],
+  "append_only": [],
+  "immutable": []
+ },
+ "execution": {
+  "contract": "skill.md",
+  "steps": [
+   "RETRIEVE",
+   "GROUND",
+   "ANSWER",
+   "CITE"
+  ],
+  "runtime": {
+   "type": "python",
+   "entrypoint": "aios_core.runtime.drivers.library_drivers:run_rag_search"
+  }
+ },
+ "dependencies": [
+  {
+   "id": "book_ingestion",
+   "version": ">=1.0.0 <3.0.0",
+   "optional": false
+  },
+  {
+   "id": "retrieve_context",
+   "version": ">=1.0.0 <3.0.0",
+   "optional": false
+  }
+ ],
+ "evaluation": {
+  "contract": "skill.md",
+  "must": []
+ }
+}

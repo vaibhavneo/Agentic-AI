@@ -1,0 +1,10 @@
+{
+  "name": "corpus_qa",
+  "description": "W3: refresh a corpus, then answer a question scoped to it (gateway provenance).",
+  "steps": [
+    {"step": "ingest", "skill": "book_ingestion", "inputs": {"corpus_id": "curated-wiki"}},
+    {"step": "answer", "skill": "rag_search",
+     "inputs": {"question": "What separates an AI agent from a plain chatbot?",
+                "corpora": ["curated-wiki"]}}
+  ]
+}

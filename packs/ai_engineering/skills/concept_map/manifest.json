@@ -1,0 +1,18 @@
+{
+  "id": "concept_map",
+  "name": "Concept Map",
+  "version": "1.0.0",
+  "description": "Build the concept sub-graph (nodes + typed edges) from the verified concept store, optionally filtered by tag/domain.",
+  "purpose": "Turn the flat concept store into a navigable graph so a domain's mental models and their relationships can be explored, not just listed.",
+  "tags": ["ai-engineering", "knowledge", "graph", "pack"],
+  "inputs": {"schema_inline": {"type": "object", "additionalProperties": false,
+    "properties": {"min_confidence": {"type": "number", "default": 0.0},
+                   "name_contains": {"type": "string"}}}},
+  "outputs": {"schema_inline": {"type": "object", "required": ["nodes", "edges", "n"],
+    "properties": {"n": {"type": "integer"}, "nodes": {"type": "array"}, "edges": {"type": "array"}}}},
+  "memory": {"root_param": null, "read": [], "write": [], "append_only": [], "immutable": []},
+  "execution": {"contract": "skill.md", "steps": ["LOAD_STORE", "FILTER", "BUILD_GRAPH"],
+    "runtime": {"type": "python", "entrypoint": "packs.ai_engineering.drivers.concept_map:run"}},
+  "dependencies": [],
+  "evaluation": {"contract": "../../evaluation.md", "must": []}
+}

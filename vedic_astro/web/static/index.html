@@ -1,0 +1,932 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Jyotish — Vedic Astrology AI</title>
+<style>
+  :root {
+    --bg:       #0a0a14;
+    --surface:  #111120;
+    --card:     #161628;
+    --border:   #2a2a4a;
+    --gold:     #c9a227;
+    --gold2:    #e8c55a;
+    --purple:   #7c5cbf;
+    --blue:     #4a8fe8;
+    --teal:     #2dd4bf;
+    --pink:     #e879f9;
+    --text:     #e2e2f0;
+    --muted:    #7878a0;
+    --glow:     rgba(201,162,39,0.15);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    min-height: 100vh;
+  }
+
+  /* ── Header ── */
+  header {
+    background: linear-gradient(135deg, #0d0d1f 0%, #1a1035 50%, #0d0d1f 100%);
+    border-bottom: 1px solid var(--border);
+    padding: 24px 32px;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+  }
+  header::before {
+    content: '';
+    position: absolute; inset: 0;
+    background: radial-gradient(ellipse at 50% 0%, rgba(201,162,39,0.12) 0%, transparent 70%);
+    pointer-events: none;
+  }
+  .header-symbol { font-size: 2.5rem; margin-bottom: 8px; }
+  header h1 {
+    font-size: 2rem; font-weight: 700;
+    background: linear-gradient(135deg, var(--gold) 0%, var(--gold2) 50%, var(--gold) 100%);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    letter-spacing: 0.05em;
+  }
+  header p { color: var(--muted); font-size: 0.9rem; margin-top: 6px; }
+
+  /* ── Layout ── */
+  .app { display: flex; height: calc(100vh - 105px); overflow: hidden; }
+
+  /* ── Left panel ── */
+  .sidebar {
+    width: 360px; min-width: 360px;
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    overflow-y: auto;
+    padding: 24px 20px;
+    display: flex; flex-direction: column; gap: 20px;
+  }
+
+  /* ── Main area ── */
+  .main {
+    flex: 1; overflow-y: auto;
+    padding: 24px 28px;
+    display: flex; flex-direction: column; gap: 24px;
+  }
+
+  /* ── Cards ── */
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+  }
+  .card-title {
+    font-size: 0.75rem; font-weight: 600; text-transform: uppercase;
+    letter-spacing: 0.1em; color: var(--gold); margin-bottom: 16px;
+  }
+
+  /* ── Form ── */
+  label { font-size: 0.8rem; color: var(--muted); display: block; margin-bottom: 5px; margin-top: 12px; }
+  label:first-of-type { margin-top: 0; }
+  input, select {
+    width: 100%; padding: 10px 12px;
+    background: #0d0d1e; border: 1px solid var(--border);
+    border-radius: 8px; color: var(--text); font-size: 0.9rem;
+    transition: border-color 0.2s;
+  }
+  input:focus, select:focus {
+    outline: none; border-color: var(--gold);
+    box-shadow: 0 0 0 3px var(--glow);
+  }
+  .geo-row { display: flex; gap: 8px; margin-top: 8px; }
+  .geo-row input { font-size: 0.8rem; }
+
+  /* ── Buttons ── */
+  .btn {
+    width: 100%; padding: 12px;
+    border: none; border-radius: 8px;
+    font-size: 0.95rem; font-weight: 600; cursor: pointer;
+    transition: all 0.2s; letter-spacing: 0.02em;
+  }
+  .btn-primary {
+    background: linear-gradient(135deg, #b8860b, var(--gold), #b8860b);
+    color: #0a0a14;
+  }
+  .btn-primary:hover { filter: brightness(1.15); transform: translateY(-1px); }
+  .btn-secondary {
+    background: transparent; border: 1px solid var(--border);
+    color: var(--text); margin-top: 8px;
+  }
+  .btn-secondary:hover { border-color: var(--gold); color: var(--gold); }
+  .btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+  /* ── Status bar ── */
+  #status-bar {
+    display: none; align-items: center; gap: 10px;
+    padding: 12px 16px; border-radius: 8px;
+    background: rgba(124,92,191,0.15); border: 1px solid rgba(124,92,191,0.3);
+    font-size: 0.85rem; color: var(--text);
+  }
+  .spinner {
+    width: 18px; height: 18px; flex-shrink: 0;
+    border: 2px solid rgba(201,162,39,0.3);
+    border-top-color: var(--gold);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── Tabs ── */
+  .tabs { display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 20px; }
+  .tab {
+    padding: 7px 14px; border-radius: 6px; font-size: 0.8rem;
+    border: 1px solid var(--border); background: transparent;
+    color: var(--muted); cursor: pointer; transition: all 0.15s;
+  }
+  .tab:hover { border-color: var(--gold); color: var(--gold); }
+  .tab.active { background: var(--gold); color: #0a0a14; border-color: var(--gold); font-weight: 600; }
+
+  /* ── Chart grid (ASCII) ── */
+  .chart-ascii {
+    font-family: 'Courier New', monospace;
+    font-size: 0.78rem; line-height: 1.5;
+    color: var(--teal);
+    background: #070710; border-radius: 8px;
+    padding: 14px; overflow-x: auto;
+    white-space: pre;
+  }
+
+  /* ── Planet table ── */
+  .planet-table {
+    font-family: 'Courier New', monospace;
+    font-size: 0.78rem; line-height: 1.6;
+    color: var(--text);
+    background: #070710; border-radius: 8px;
+    padding: 14px; overflow-x: auto;
+    white-space: pre;
+    margin-top: 12px;
+  }
+
+  /* ── Dasha table ── */
+  .dasha-list { display: flex; flex-direction: column; gap: 6px; }
+  .dasha-row {
+    display: flex; align-items: center; gap: 12px;
+    padding: 8px 12px; border-radius: 6px;
+    background: #0d0d1e; border: 1px solid var(--border);
+    font-size: 0.82rem;
+  }
+  .dasha-row.current {
+    border-color: var(--gold);
+    background: rgba(201,162,39,0.08);
+  }
+  .dasha-lord { font-weight: 700; color: var(--gold); width: 80px; }
+  .dasha-period { color: var(--muted); flex: 1; }
+  .dasha-badge {
+    background: var(--gold); color: #0a0a14;
+    font-size: 0.68rem; font-weight: 700;
+    padding: 2px 7px; border-radius: 4px;
+  }
+
+  /* ── Reading sections ── */
+  .reading-section {
+    border-radius: 12px; padding: 22px;
+    border: 1px solid var(--border);
+    background: var(--card);
+    animation: fadeIn 0.4s ease;
+  }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+  .section-header {
+    display: flex; align-items: center; gap: 10px;
+    font-size: 1rem; font-weight: 700; color: var(--gold2);
+    margin-bottom: 16px; padding-bottom: 12px;
+    border-bottom: 1px solid var(--border);
+  }
+  .section-emoji { font-size: 1.3rem; }
+  .section-body {
+    color: var(--text); font-size: 0.9rem; line-height: 1.75;
+    white-space: pre-wrap;
+  }
+  .section-body strong { color: var(--gold2); }
+
+  /* ── Chat ── */
+  .chat-container {
+    display: flex; flex-direction: column; gap: 12px;
+    max-height: 500px; overflow-y: auto;
+    padding: 4px;
+  }
+  .msg {
+    padding: 12px 16px; border-radius: 10px;
+    font-size: 0.88rem; line-height: 1.6;
+    max-width: 85%; animation: fadeIn 0.3s ease;
+  }
+  .msg-user {
+    background: rgba(74,143,232,0.15); border: 1px solid rgba(74,143,232,0.3);
+    color: #b8d4f8; align-self: flex-end;
+  }
+  .msg-jyoti {
+    background: rgba(124,92,191,0.12); border: 1px solid rgba(124,92,191,0.3);
+    color: var(--text); align-self: flex-start;
+    white-space: pre-wrap;
+  }
+  .msg-jyoti strong { color: var(--gold2); }
+  .chat-input-row { display: flex; gap: 8px; margin-top: 4px; }
+  .chat-input-row input {
+    flex: 1; padding: 10px 14px;
+    background: #0d0d1e; border: 1px solid var(--border);
+    border-radius: 8px; color: var(--text); font-size: 0.9rem;
+  }
+  .chat-input-row input:focus { outline: none; border-color: var(--purple); }
+  .send-btn {
+    padding: 10px 18px; border-radius: 8px; border: none;
+    background: var(--purple); color: white; cursor: pointer;
+    font-size: 0.9rem; font-weight: 600; transition: background 0.2s;
+  }
+  .send-btn:hover { background: #9b77e0; }
+  .send-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  /* ── Welcome screen ── */
+  #welcome {
+    display: flex; flex-direction: column; align-items: center;
+    justify-content: center; text-align: center;
+    flex: 1; gap: 16px; color: var(--muted);
+    padding: 40px;
+  }
+  .welcome-symbol { font-size: 4rem; opacity: 0.4; }
+  #welcome h2 { color: var(--text); font-size: 1.3rem; }
+  #welcome p { max-width: 380px; font-size: 0.9rem; line-height: 1.6; }
+
+  /* ── Yoga badges ── */
+  .yoga-list { display: flex; flex-wrap: wrap; gap: 8px; }
+  .yoga-badge {
+    padding: 5px 12px; border-radius: 20px; font-size: 0.78rem;
+    background: rgba(201,162,39,0.12); border: 1px solid rgba(201,162,39,0.3);
+    color: var(--gold2);
+  }
+
+  /* ── Responsive ── */
+  @media (max-width: 768px) {
+    .app { flex-direction: column; height: auto; }
+    .sidebar { width: 100%; min-width: unset; }
+    .main { padding: 16px; }
+  }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--muted); }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-symbol">🪐</div>
+  <h1>JYOTISH — VEDIC ASTROLOGY AI</h1>
+  <p>D-1 · D-2 · D-3 · D-7 · D-9 · D-10 · Dasha · Nakshatra · 6 AI Specialist Agents · 23 Classical Books</p>
+</header>
+
+<div class="app">
+
+  <!-- ── Sidebar: Birth Data Input ── -->
+  <div class="sidebar">
+    <div class="card">
+      <div class="card-title">✦ Birth Data</div>
+
+      <label>Date of Birth</label>
+      <input type="date" id="inp-date" placeholder="YYYY-MM-DD">
+
+      <label>Time of Birth (local)</label>
+      <input type="time" id="inp-time" placeholder="HH:MM">
+
+      <label>Place of Birth</label>
+      <div style="display:flex;gap:8px">
+        <input type="text" id="inp-place" placeholder="City, Country" style="flex:1">
+        <button class="btn btn-secondary" style="width:auto;padding:10px 12px;margin:0" onclick="doGeocode()" title="Lookup coordinates">📍</button>
+      </div>
+
+      <label style="margin-top:10px;font-size:0.72rem;color:var(--muted)">Coordinates (auto-filled or enter manually)</label>
+      <div class="geo-row">
+        <input type="number" id="inp-lat" placeholder="Latitude" step="0.0001">
+        <input type="number" id="inp-lon" placeholder="Longitude" step="0.0001">
+        <input type="number" id="inp-tz" placeholder="UTC±" step="0.5" style="width:80px">
+      </div>
+
+      <div style="margin-top:18px; display:flex; flex-direction:column; gap:8px">
+        <button class="btn btn-primary" onclick="calculateChart()" id="btn-calc">
+          ✦ Calculate Chart
+        </button>
+        <button class="btn btn-secondary" onclick="runReading()" id="btn-reading" style="display:none">
+          🔮 Generate Full Reading
+        </button>
+        <button class="btn btn-secondary" onclick="loadDemo()">
+          🎭 Demo: Gandhi's Chart
+        </button>
+      </div>
+    </div>
+
+    <!-- Status bar -->
+    <div id="status-bar">
+      <div class="spinner"></div>
+      <span id="status-msg">Working...</span>
+    </div>
+
+    <!-- Quick yogas (shown after chart calc) -->
+    <div class="card" id="yoga-card" style="display:none">
+      <div class="card-title">✦ Key Yogas</div>
+      <div class="yoga-list" id="yoga-list"></div>
+    </div>
+
+    <!-- Current dasha -->
+    <div class="card" id="dasha-card" style="display:none">
+      <div class="card-title">✦ Vimshottari Dasha</div>
+      <div class="dasha-list" id="dasha-list"></div>
+    </div>
+  </div>
+
+  <!-- ── Main Area ── -->
+  <div class="main" id="main-area">
+
+    <!-- Welcome screen -->
+    <div id="welcome">
+      <div class="welcome-symbol">🌙</div>
+      <h2>Enter Your Birth Data</h2>
+      <p>Provide your date, time, and place of birth to receive your complete Vedic horoscope — including all divisional charts and a deep AI reading covering career, wealth, relationships, soul purpose, and life lessons.</p>
+      <p style="margin-top:12px;font-size:0.78rem;opacity:0.6">Powered by Swiss Ephemeris · Lahiri Ayanamsa · 23 Classical Books</p>
+    </div>
+
+    <!-- Charts panel (hidden until calculated) -->
+    <div id="charts-panel" style="display:none">
+      <div class="tabs" id="chart-tabs">
+        <!-- Populated dynamically in showChartsPanel() — full 16-varga Shodasavarga set -->
+      </div>
+
+      <div class="card">
+        <div class="card-title" id="chart-label">D-1 Rasi (Natal)</div>
+        <div id="chart-display"></div>
+      </div>
+    </div>
+
+    <!-- Reading sections (streamed in) -->
+    <div id="reading-area"></div>
+
+    <!-- Chat -->
+    <div class="card" id="chat-card" style="display:none">
+      <div class="card-title">🙏 Ask Jyoti Anything About Your Chart</div>
+      <div class="chat-container" id="chat-messages"></div>
+      <div class="chat-input-row" style="margin-top:12px">
+        <input type="text" id="chat-input" placeholder="e.g. When will I get married? What career suits me?" onkeydown="if(event.key==='Enter')sendChat()">
+        <button class="send-btn" id="send-btn" onclick="sendChat()">Send</button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+// Auto-detect base URL — works whether opened via file:// or http://localhost:5050
+const API_BASE = (location.protocol === 'file:' || !location.hostname)
+  ? 'http://localhost:5050'
+  : '';
+
+// ── State ──────────────────────────────────────────────────────────────────
+let chartData = null;
+let readingContext = '';
+let chatHistory = [];
+let fullReadingText = '';   // narrative reading prose only (chart facts come from the server)
+
+// ── Helpers ────────────────────────────────────────────────────────────────
+function setStatus(msg, show=true) {
+  const bar = document.getElementById('status-bar');
+  bar.style.display = show ? 'flex' : 'none';
+  document.getElementById('status-msg').textContent = msg;
+}
+
+function disableInputs(disabled) {
+  document.getElementById('btn-calc').disabled = disabled;
+  document.getElementById('btn-reading').disabled = disabled;
+}
+
+// ── Geocoding ──────────────────────────────────────────────────────────────
+async function doGeocode() {
+  const place = document.getElementById('inp-place').value.trim();
+  if (!place) return alert('Enter a place first');
+  setStatus('Looking up coordinates...');
+  try {
+    const r = await fetch(API_BASE + '/api/geocode', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({place}),
+    });
+    const data = await r.json();
+    if (data.error) throw new Error(data.error);
+    document.getElementById('inp-lat').value = data.lat.toFixed(4);
+    document.getElementById('inp-lon').value = data.lon.toFixed(4);
+    document.getElementById('inp-tz').value  = data.timezone_offset_hours.toFixed(1);
+    setStatus('✅ ' + data.display_name);
+    setTimeout(() => setStatus('', false), 3000);
+  } catch(e) {
+    setStatus('❌ ' + e.message);
+  }
+}
+
+// ── Demo: Gandhi ───────────────────────────────────────────────────────────
+async function loadDemo() {
+  document.getElementById('inp-date').value  = '1869-10-02';
+  document.getElementById('inp-time').value  = '07:11';
+  document.getElementById('inp-place').value = 'Porbandar, India';
+  document.getElementById('inp-lat').value   = '21.6417';
+  document.getElementById('inp-lon').value   = '69.6293';
+  document.getElementById('inp-tz').value    = '5.5';
+  await calculateChart();
+}
+
+// ── Calculate Chart ────────────────────────────────────────────────────────
+async function calculateChart() {
+  const date  = document.getElementById('inp-date').value;
+  const time  = document.getElementById('inp-time').value;
+  const place = document.getElementById('inp-place').value.trim();
+  const lat   = parseFloat(document.getElementById('inp-lat').value);
+  const lon   = parseFloat(document.getElementById('inp-lon').value);
+  const tz    = parseFloat(document.getElementById('inp-tz').value);
+
+  if (!date || !time) return alert('Please enter date and time of birth.');
+  if (!lat || !lon)   return alert('Please enter coordinates (click 📍 to auto-fill).');
+
+  disableInputs(true);
+  setStatus('⚡ Calculating sidereal chart...');
+  document.getElementById('welcome').style.display = 'none';
+  document.getElementById('reading-area').innerHTML = '';
+
+  try {
+    const r = await fetch(API_BASE + '/api/chart', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({date, time, place, lat, lon, tz_offset: tz}),
+    });
+    const data = await r.json();
+    if (data.error) throw new Error(data.error);
+    chartData = data;
+
+    showChartsPanel(data);
+    showDashas(data.dashas);
+    detectYogas(data);
+
+    document.getElementById('btn-reading').style.display = 'block';
+    document.getElementById('chat-card').style.display = 'block';
+
+    // Build reading context for chat
+    readingContext = buildReadingContext(data);
+    setStatus('✅ Chart calculated! Click Generate Full Reading.', true);
+    setTimeout(() => setStatus('', false), 3000);
+  } catch(e) {
+    setStatus('❌ ' + e.message);
+  } finally {
+    disableInputs(false);
+  }
+}
+
+// ── Display Charts ─────────────────────────────────────────────────────────
+// Full Shodasavarga (16-varga) display order + friendly tab labels
+const VARGA_LABELS = {
+  d1: 'D-1 Rasi', d2: 'D-2 Wealth', d3: 'D-3 Drekkana', d4: 'D-4 Fortune',
+  d7: 'D-7 Children', d9: 'D-9 Navamsa', d10: 'D-10 Career', d12: 'D-12 Parents',
+  d16: 'D-16 Vehicles', d20: 'D-20 Spirituality', d24: 'D-24 Education',
+  d27: 'D-27 Strength', d30: 'D-30 Misfortune', d40: 'D-40 Auspicious',
+  d45: 'D-45 Character', d60: 'D-60 Overall',
+};
+const VARGA_ORDER = ['d1','d2','d3','d4','d7','d9','d10','d12','d16','d20','d24','d27','d30','d40','d45','d60'];
+
+function showChartsPanel(data) {
+  document.getElementById('charts-panel').style.display = 'block';
+  const tabsEl = document.getElementById('chart-tabs');
+  tabsEl.innerHTML = '';
+  let firstBtn = null;
+  VARGA_ORDER.forEach((key) => {
+    if (!data[key]) return;
+    const btn = document.createElement('button');
+    btn.className = 'tab' + (firstBtn ? '' : ' active');
+    btn.textContent = VARGA_LABELS[key] || key.toUpperCase();
+    btn.onclick = () => showChart(key, btn);
+    tabsEl.appendChild(btn);
+    if (!firstBtn) firstBtn = btn;
+  });
+  if (firstBtn) showChart('d1', firstBtn);
+}
+
+function showChart(key, tabEl) {
+  if (!chartData) return;
+  const chart = chartData[key];
+  if (!chart) return;
+
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  if (tabEl) tabEl.classList.add('active');
+
+  document.getElementById('chart-label').textContent = chart.label;
+  document.getElementById('chart-display').innerHTML =
+    renderNorthIndianChart(chart) +
+    `<div class="planet-table">${escHtml(chart.table_ascii)}</div>`;
+}
+
+// ── North Indian Chart SVG Renderer (AstroSage style) ─────────────────────
+// Correct North Indian layout — H1 (Lagna) at top-center, houses clockwise:
+//  [H12] [H1]  [H2]  [H3]
+//  [H11]  [center]   [H4]
+//  [H10]  [center]   [H5]
+//  [H9]  [H8]  [H7]  [H6]
+// ── Planet / Sign constants ──────────────────────────────────────────────────
+const PLANET_ABBR_MAP = {
+  Sun:'Su', Moon:'Mo', Mars:'Ma', Mercury:'Me',
+  Jupiter:'Ju', Venus:'Ve', Saturn:'Sa', Rahu:'Ra', Ketu:'Ke',
+};
+const PLANET_COLORS = {
+  Sun:'#f59e0b', Moon:'#38bdf8', Mars:'#ef4444', Mercury:'#4ade80',
+  Jupiter:'#facc15', Venus:'#f472b6', Saturn:'#94a3b8', Rahu:'#a78bfa', Ketu:'#fb923c',
+};
+const SIGNS_ORDER = ['Aries','Taurus','Gemini','Cancer','Leo','Virgo',
+                     'Libra','Scorpio','Sagittarius','Capricorn','Aquarius','Pisces'];
+const SIGN_ABBR = {Aries:'Ar',Taurus:'Ta',Gemini:'Ge',Cancer:'Ca',Leo:'Le',
+  Virgo:'Vi',Libra:'Li',Scorpio:'Sc',Sagittarius:'Sg',Capricorn:'Cp',Aquarius:'Aq',Pisces:'Pi'};
+
+function renderNorthIndianChart(chart) {
+  // ── Geometry ────────────────────────────────────────────────────────────
+  // Square S×S, key points:
+  //   TL TC TR       corners and midpoints
+  //   LC CE RC       CE=center, P1-P4=inner intersections
+  //   BL BC BR
+  //   P1=(S/4,S/4)  P2=(3S/4,S/4)
+  //   P3=(3S/4,3S/4) P4=(S/4,3S/4)
+  //
+  // 6 inner lines: TL↔BR, TR↔BL (full diagonals)
+  //                TC↔LC, TC↔RC, BC↔LC, BC↔RC (inner diamond)
+  // → 12 cells: 4 diamonds (top/left/bottom/right) + 8 triangles
+  // North Indian convention: H1 (Lagna) = TOP diamond, houses run
+  // COUNTERCLOCKWISE → H1 top, H2 top-LEFT tri, H3 left-upper tri,
+  // H4 left diamond, ... H10 right diamond, H12 upper-right triangle.
+
+  const S = 440;
+  const [s2, s4, s34] = [S/2, S/4, S*3/4];
+
+  const TL=[0,0],   TC=[s2,0],  TR=[S,0],
+        LC=[0,s2],  CE=[s2,s2], RC=[S,s2],
+        BL=[0,S],   BC=[s2,S],  BR=[S,S],
+        P1=[s4,s4], P2=[s34,s4], P3=[s34,s34], P4=[s4,s34];
+
+  // 12 slots in geometric (clockwise) order starting at the TOP diamond.
+  // Each slot: [polygon, labelXY, sign-anchor]. House for slot i is
+  // assigned as h = i+1 below, which walks these geometric slots
+  // COUNTERCLOCKWISE from H1 (top) — H2 lands top-left, H3 left-upper,
+  // H4 left diamond, ..., H10 right diamond, H12 top-right.
+  const SLOTS = [
+    [[TC,P1,CE,P2], [s2,  20],  'middle'],   // H1  top diamond
+    [[TL,TC,P1],    [s4,  18],  'middle'],   // H2  top-left tri
+    [[TL,LC,P1],    [14,  60],  'start' ],   // H3  left-upper tri
+    [[CE,P4,LC,P1], [14,  s2],  'start' ],   // H4  left diamond
+    [[BL,LC,P4],    [14,  388], 'start' ],   // H5  lower-left tri
+    [[BC,BL,P4],    [s4,  428], 'middle'],   // H6  bottom-left tri
+    [[CE,P3,BC,P4], [s2,  428], 'middle'],   // H7  bottom diamond
+    [[BR,BC,P3],    [s34, 428], 'middle'],   // H8  bottom-right tri
+    [[RC,BR,P3],    [S-14,388], 'end'   ],   // H9  right-lower tri
+    [[CE,P2,RC,P3], [S-14,s2],  'end'   ],   // H10 right diamond
+    [[TR,RC,P2],    [S-14,60],  'end'   ],   // H11 right-upper tri
+    [[TC,TR,P2],    [s34, 18],  'middle'],   // H12 top-right tri
+  ];
+
+  const planets = chart.planets || {};
+  const asc     = chart.ascendant || {};
+  const ascSign = asc.sign || '';
+  const ascIdx  = SIGNS_ORDER.indexOf(ascSign);
+
+  const houseSign = {};
+  for (let h = 1; h <= 12; h++)
+    houseSign[h] = SIGNS_ORDER[(ascIdx + h - 1) % 12];
+
+  const hp = {};
+  for (const [name, p] of Object.entries(planets)) {
+    if (!hp[p.house]) hp[p.house] = [];
+    const abbr  = PLANET_ABBR_MAP[name] || name.slice(0,2);
+    const retro = p.retrograde && name !== 'Rahu' && name !== 'Ketu' ? 'R' : '';
+    hp[p.house].push({ abbr: abbr+retro, color: PLANET_COLORS[name] || '#94a3b8' });
+  }
+
+  const cen = poly => [
+    poly.reduce((s,p)=>s+p[0],0)/poly.length,
+    poly.reduce((s,p)=>s+p[1],0)/poly.length,
+  ];
+
+  // ── Build house cells (polygons + labels) ─────────────────────────────
+  let houseSvg = '';
+  SLOTS.forEach((slot, i) => {
+    const h        = i + 1;   // slot0→H1, slot1→H2, ... slot11→H12 (counterclockwise)
+    const [poly, [lx, ly], anchor] = slot;
+    const pts      = poly.map(p=>p.join(',')).join(' ');
+    const [cx,cy]  = cen(poly);
+    const isLagna  = h === 1;
+    const sign     = houseSign[h] || '';
+    const sa       = SIGN_ABBR[sign] || sign.slice(0,2);
+    const plist    = hp[h] || [];
+
+    // Cell fill (highlight Lagna)
+    houseSvg += `<polygon points="${pts}" fill="${isLagna?'rgba(109,40,217,0.20)':'rgba(5,13,30,0.7)'}"
+      stroke="none"/>`;
+
+    // House number + sign abbreviation near the outer wall (two-color tspan)
+    houseSvg += `<text x="${lx}" y="${ly}" text-anchor="${anchor}" font-size="11" font-family="monospace">
+      <tspan fill="${isLagna?'#a78bfa':'#4b5563'}" font-weight="bold">${h}</tspan>
+      <tspan fill="${isLagna?'#7c3aed':'#3b4659'}" dx="3">${sa}</tspan></text>`;
+
+    // Planets stacked at centroid
+    const n = plist.length;
+    plist.forEach((pl, j) => {
+      const py = cy + (j - (n-1)/2) * 17;
+      houseSvg += `<text x="${cx}" y="${py+5}" text-anchor="middle"
+        font-size="14" font-weight="700" font-family="'Segoe UI',sans-serif"
+        fill="${pl.color}">${pl.abbr}</text>`;
+    });
+
+    // Lagna label inside H1 (top diamond)
+    if (isLagna) {
+      houseSvg += `<text x="${cx}" y="${cy+24+(n>0?n*9:0)}" text-anchor="middle"
+        font-size="9" font-family="sans-serif" fill="#7c3aed" font-weight="bold">Lagna</text>`;
+    }
+  });
+
+  // ── Chart label at center ───────────────────────────────────────────────
+  const chartLabel = (chart.label||'D-1').split('(')[0].trim();
+  const centerSvg = `
+    <text x="${s2}" y="${s2-10}" text-anchor="middle" font-size="12"
+      font-family="'Segoe UI',sans-serif" fill="#475569">${chartLabel}</text>
+    <text x="${s2}" y="${s2+8}" text-anchor="middle" font-size="13"
+      font-family="'Segoe UI',sans-serif" font-weight="700" fill="#6d28d9">${escHtml(ascSign)}</text>`;
+
+  // ── Structural lines (drawn on top of fills, under text) ─────────────
+  const lineColor = '#1e3a5f';
+  const lw = '1.5';
+  const linesSvg = `
+    <line x1="0"   y1="0"   x2="${S}"  y2="${S}"  stroke="${lineColor}" stroke-width="${lw}"/>
+    <line x1="${S}" y1="0"   x2="0"    y2="${S}"  stroke="${lineColor}" stroke-width="${lw}"/>
+    <line x1="${s2}" y1="0"  x2="0"   y2="${s2}" stroke="${lineColor}" stroke-width="${lw}"/>
+    <line x1="${s2}" y1="0"  x2="${S}" y2="${s2}" stroke="${lineColor}" stroke-width="${lw}"/>
+    <line x1="${s2}" y1="${S}" x2="0"  y2="${s2}" stroke="${lineColor}" stroke-width="${lw}"/>
+    <line x1="${s2}" y1="${S}" x2="${S}" y2="${s2}" stroke="${lineColor}" stroke-width="${lw}"/>
+    <rect width="${S}" height="${S}" fill="none" stroke="${lineColor}" stroke-width="2"/>`;
+
+  return `<div style="display:flex;justify-content:center;margin-bottom:20px">
+    <svg width="${S}" height="${S}" viewBox="0 0 ${S} ${S}"
+      xmlns="http://www.w3.org/2000/svg"
+      style="max-width:100%;background:#060e1e;border:1px solid #1e3a5f;border-radius:4px">
+      <rect width="${S}" height="${S}" fill="#060e1e"/>
+      ${houseSvg}
+      ${linesSvg}
+      ${centerSvg}
+    </svg>
+  </div>`;
+}
+
+// ── Dashas ─────────────────────────────────────────────────────────────────
+function showDashas(dashas) {
+  const now = new Date();
+  const nowStr = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0');
+
+  const list = document.getElementById('dasha-list');
+  list.innerHTML = '';
+  document.getElementById('dasha-card').style.display = 'block';
+
+  dashas.slice(0, 7).forEach(d => {
+    const isCurrent = d.start <= nowStr && nowStr <= d.end;
+    const row = document.createElement('div');
+    row.className = 'dasha-row' + (isCurrent ? ' current' : '');
+    row.innerHTML = `
+      <span class="dasha-lord">${d.lord}</span>
+      <span class="dasha-period">${d.start} → ${d.end} (${d.years}yr)</span>
+      ${isCurrent ? '<span class="dasha-badge">NOW</span>' : ''}
+    `;
+    list.appendChild(row);
+  });
+}
+
+// ── Yoga detection (client-side rough check) ───────────────────────────────
+function detectYogas(data) {
+  const planets = data.d1.planets;
+  const yogas = [];
+
+  // Vargottama + cross-chart same-sign strength — from the server's
+  // chart/strength.py (single source of truth across all 16 vargas,
+  // instead of a client-side D-1/D-9-only reimplementation).
+  const vargottama = data.strength?.vargottama || {};
+  for (const [varga, names] of Object.entries(vargottama)) {
+    if (!names.length) continue;
+    const label = varga === 'D9' ? 'Vargottama' : `Same-sign strength D-1/${varga}`;
+    names.forEach(name => yogas.push(`${label}: ${name} in ${planets[name]?.sign || ''}`));
+  }
+  // Budhaditya
+  if (planets.Sun && planets.Mercury && planets.Sun.sign === planets.Mercury.sign) {
+    yogas.push(`Budhaditya (Sun+Mercury in ${planets.Sun.sign})`);
+  }
+  // Gajakesari
+  if (planets.Jupiter && planets.Moon) {
+    const diff = Math.abs(planets.Jupiter.house - planets.Moon.house) % 4;
+    if (diff === 0) yogas.push(`Gajakesari (Jupiter-Moon Kendra)`);
+  }
+  // Pancha Mahapurusha
+  const exaltOwn = {
+    Jupiter: ['Cancer','Sagittarius','Pisces'],
+    Venus:   ['Taurus','Libra','Pisces'],
+    Mars:    ['Aries','Scorpio','Capricorn'],
+    Saturn:  ['Libra','Capricorn','Aquarius'],
+    Mercury: ['Gemini','Virgo'],
+  };
+  const kendras = [1,4,7,10];
+  const yogaNames = {Jupiter:'Hamsa',Venus:'Malavya',Mars:'Ruchaka',Saturn:'Sasha',Mercury:'Bhadra'};
+  for (const [pl, signs] of Object.entries(exaltOwn)) {
+    if (planets[pl] && signs.includes(planets[pl].sign) && kendras.includes(planets[pl].house)) {
+      yogas.push(`${yogaNames[pl]} Yoga (${pl} in ${planets[pl].sign} H${planets[pl].house})`);
+    }
+  }
+
+  const card = document.getElementById('yoga-card');
+  const list = document.getElementById('yoga-list');
+  if (yogas.length > 0) {
+    list.innerHTML = yogas.map(y => `<span class="yoga-badge">${y}</span>`).join('');
+    card.style.display = 'block';
+  }
+}
+
+// ── Streaming Reading ──────────────────────────────────────────────────────
+const SECTION_META = {
+  career:       {emoji: '💼', color: '#4a8fe8'},
+  wealth:       {emoji: '💰', color: '#c9a227'},
+  relationships:{emoji: '💝', color: '#e879f9'},
+  soul_purpose: {emoji: '🔮', color: '#2dd4bf'},
+  life_lessons: {emoji: '📖', color: '#7c5cbf'},
+  synthesis:    {emoji: '🌟', color: '#e8c55a'},
+};
+
+async function runReading() {
+  if (!chartData) return;
+  disableInputs(true);
+  document.getElementById('reading-area').innerHTML = '';
+  setStatus('🔮 Running 6-agent deep analysis...');
+
+  const payload = {
+    birth_info: {
+      date:      chartData.birth_info.date,
+      time:      chartData.birth_info.time,
+      place:     chartData.birth_info.place,
+      lat:       chartData.birth_info.lat,
+      lon:       chartData.birth_info.lon,
+      tz_offset: chartData.birth_info.tz_offset,
+    },
+  };
+
+  try {
+    const resp = await fetch(API_BASE + '/api/reading/stream', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify(payload),
+    });
+
+    const reader = resp.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+    let fullReading = '';
+
+    while (true) {
+      const {done, value} = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, {stream: true});
+
+      const lines = buffer.split('\n');
+      buffer = lines.pop();
+
+      for (const line of lines) {
+        if (line.startsWith('event: ')) {
+          const evtName = line.slice(7).trim();
+          // next non-empty line should be data:
+          continue;
+        }
+        if (line.startsWith('data: ')) {
+          let evt = '';
+          let data = {};
+          try {
+            data = JSON.parse(line.slice(6));
+            // Find event from previous lines (simplify: use data keys)
+            if (data.msg && !data.key) {
+              // status event
+              setStatus(data.msg);
+            } else if (data.key) {
+              // section event
+              const meta = SECTION_META[data.key] || {emoji:'✦', color: '#e2e2f0'};
+              const div = document.createElement('div');
+              div.className = 'reading-section';
+              div.id = 'section-' + data.key;
+              div.innerHTML = `
+                <div class="section-header">
+                  <span class="section-emoji">${meta.emoji}</span>
+                  <span style="color:${meta.color}">${data.title.toUpperCase()}</span>
+                </div>
+                <div class="section-body">${formatText(data.content)}</div>
+              `;
+              document.getElementById('reading-area').appendChild(div);
+              div.scrollIntoView({behavior:'smooth', block:'start'});
+              fullReading += `\n\n## ${data.title}\n${data.content}`;
+            } else if (data.msg === 'Reading complete') {
+              setStatus('✅ Reading complete!', true);
+              setTimeout(() => setStatus('', false), 3000);
+              readingContext += '\n\n' + fullReading;
+              fullReadingText = fullReading;   // persist for chat (narrative context)
+            }
+          } catch {}
+        }
+      }
+    }
+  } catch(e) {
+    setStatus('❌ ' + e.message);
+  } finally {
+    disableInputs(false);
+  }
+}
+
+// ── Chat ───────────────────────────────────────────────────────────────────
+async function sendChat() {
+  const input = document.getElementById('chat-input');
+  const q = input.value.trim();
+  if (!q) return;
+  input.value = '';
+
+  appendMsg('user', q);
+  document.getElementById('send-btn').disabled = true;
+  appendMsg('jyoti', '⏳ Jyoti is consulting the stars...');
+
+  try {
+    const r = await fetch(API_BASE + '/api/chat', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({
+        question: q,
+        history: chatHistory,
+        // Server recomputes the authoritative chart from birth_info — this is
+        // the fix for Jyoti inventing placements. The narrative reading is
+        // passed separately as secondary context.
+        birth_info: chartData ? chartData.birth_info : null,
+        reading: fullReadingText,
+        chart_context: readingContext,   // legacy fallback only
+      }),
+    });
+    const data = await r.json();
+    // Remove loading
+    const msgs = document.getElementById('chat-messages');
+    msgs.removeChild(msgs.lastChild);
+
+    const answer = data.answer || data.error || 'No response';
+    appendMsg('jyoti', answer);
+    chatHistory.push({role:'user', content:q});
+    chatHistory.push({role:'assistant', content:answer});
+  } catch(e) {
+    const msgs = document.getElementById('chat-messages');
+    msgs.removeChild(msgs.lastChild);
+    appendMsg('jyoti', '❌ Error: ' + e.message);
+  } finally {
+    document.getElementById('send-btn').disabled = false;
+    input.focus();
+  }
+}
+
+function appendMsg(role, text) {
+  const msgs = document.getElementById('chat-messages');
+  const div = document.createElement('div');
+  div.className = 'msg msg-' + role;
+  div.innerHTML = role === 'jyoti' ? formatText(text) : escHtml(text);
+  msgs.appendChild(div);
+  msgs.scrollTop = msgs.scrollHeight;
+}
+
+// ── Utils ──────────────────────────────────────────────────────────────────
+function escHtml(s) {
+  return String(s)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function formatText(text) {
+  // Bold **text**, headers ## Text
+  return escHtml(text)
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/^## (.+)$/gm, '<br><strong style="color:var(--gold2);font-size:0.95em">$1</strong><br>')
+    .replace(/^### (.+)$/gm, '<strong style="color:var(--teal)">$1</strong>')
+    .replace(/\n/g, '<br>');
+}
+
+function buildReadingContext(data) {
+  let ctx = `BIRTH: ${data.birth_info.date} ${data.birth_info.time} in ${data.birth_info.place}\n`;
+  ctx += `D-1 Ascendant: ${data.d1.ascendant.sign} ${data.d1.ascendant.degrees}°\n`;
+  ctx += 'PLANETS:\n';
+  for (const [name, p] of Object.entries(data.d1.planets)) {
+    ctx += `  ${name}: ${p.sign} House ${p.house} ${p.dignity !== 'neutral' ? '('+p.dignity+')' : ''} ${p.nakshatra} P${p.pada}\n`;
+  }
+  ctx += '\nD-9 NAVAMSA Ascendant: ' + data.d9.ascendant.sign + '\n';
+  ctx += 'D-10 DASAMSA Ascendant: ' + data.d10.ascendant.sign + '\n';
+  return ctx;
+}
+</script>
+</body>
+</html>

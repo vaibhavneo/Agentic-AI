@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__plugin_pdf-viewer_pdf__read_pdf_bytes",
+      "Bash(python3)",
+      "Bash(python3 docs/validate_repo_consistency.py)",
+      "Bash(echo \"exit=$?\")",
+      "Bash(python3 -c ' *)"
+    ]
+  }
+}

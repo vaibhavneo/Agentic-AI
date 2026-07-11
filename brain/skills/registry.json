@@ -1,0 +1,121 @@
+{
+ "registry_version": "1.0.0",
+ "skills": [
+  {
+   "id": "recursive_planner",
+   "version": "1.0.0",
+   "manifest_path": "recursive_planner/manifest.json"
+  },
+  {
+   "id": "book_ingestion",
+   "version": "1.0.0",
+   "manifest_path": "book_ingestion/manifest.json"
+  },
+  {
+   "id": "retrieve_context",
+   "version": "1.0.0",
+   "manifest_path": "retrieve_context/manifest.json"
+  },
+  {
+   "id": "rag_search",
+   "version": "1.0.0",
+   "manifest_path": "rag_search/manifest.json"
+  },
+  {
+   "id": "evidence_validation",
+   "version": "1.0.0",
+   "manifest_path": "evidence_validation/manifest.json"
+  },
+  {
+   "id": "critic",
+   "version": "1.0.0",
+   "manifest_path": "critic/manifest.json"
+  },
+  {
+   "id": "evaluator",
+   "version": "1.0.0",
+   "manifest_path": "evaluator/manifest.json"
+  },
+  {
+   "id": "memory_compression",
+   "version": "1.0.0",
+   "manifest_path": "memory_compression/manifest.json"
+  },
+  {
+   "id": "concept_distillation",
+   "version": "1.0.0",
+   "manifest_path": "concept_distillation/manifest.json"
+  },
+  {
+   "id": "hypothesis_generation",
+   "version": "1.0.0",
+   "manifest_path": "hypothesis_generation/manifest.json"
+  },
+  {
+   "id": "teacher",
+   "version": "1.0.0",
+   "manifest_path": "teacher/manifest.json"
+  },
+  {
+   "id": "echo",
+   "version": "1.0.0",
+   "manifest": {
+    "id": "echo",
+    "name": "Echo (runtime test skill)",
+    "version": "1.0.0",
+    "description": "Built-in python skill for runtime and composition tests.",
+    "tags": [
+     "test"
+    ],
+    "inputs": {
+     "schema_inline": {
+      "type": "object",
+      "required": [
+       "message"
+      ],
+      "properties": {
+       "message": {
+        "type": "string"
+       }
+      }
+     }
+    },
+    "outputs": {
+     "schema_inline": {
+      "type": "object",
+      "required": [
+       "echoed"
+      ],
+      "properties": {
+       "echoed": {
+        "type": "string"
+       }
+      }
+     }
+    },
+    "memory": {
+     "root_param": null,
+     "read": [],
+     "write": [],
+     "append_only": [],
+     "immutable": []
+    },
+    "execution": {
+     "contract": "",
+     "steps": [
+      "ECHO"
+     ],
+     "runtime": {
+      "type": "python",
+      "entrypoint": "aios_core.runtime.drivers.echo_driver:run"
+     }
+    },
+    "dependencies": [],
+    "evaluation": {
+     "must": []
+    },
+    "purpose": "Deterministic fixture for runtime and composition tests."
+   }
+  }
+ ]
+}

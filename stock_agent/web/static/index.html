@@ -1,0 +1,1164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Stock Agent AI — 7-Agent Research Platform</title>
+<style>
+  :root {
+    --bg:       #080c14;
+    --bg2:      #0d1220;
+    --bg3:      #111827;
+    --border:   #1e2d45;
+    --accent:   #00d4ff;
+    --accent2:  #7c3aed;
+    --green:    #00e676;
+    --red:      #ff1744;
+    --yellow:   #ffea00;
+    --text:     #e0e6f0;
+    --muted:    #6b7fa3;
+    --card-bg:  #0f1929;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: 'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 14px; min-height: 100vh; }
+
+  /* Header */
+  .header { background: linear-gradient(135deg, #0a0f1e 0%, #0d1a2d 100%); border-bottom: 1px solid var(--border); padding: 14px 24px; display: flex; align-items: center; gap: 16px; position: sticky; top: 0; z-index: 100; backdrop-filter: blur(10px); }
+  .logo { display: flex; align-items: center; gap: 10px; }
+  .logo-icon { width: 36px; height: 36px; background: linear-gradient(135deg, var(--accent), var(--accent2)); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 18px; }
+  .logo-text h1 { font-size: 18px; font-weight: 700; background: linear-gradient(90deg, var(--accent), #a78bfa); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+  .logo-text p { font-size: 11px; color: var(--muted); }
+  .badges { display: flex; gap: 8px; margin-left: auto; }
+  .badge { padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; border: 1px solid; }
+  .badge.live { color: var(--green); border-color: var(--green); background: rgba(0,230,118,.08); }
+  .badge.agents { color: var(--accent); border-color: var(--accent); background: rgba(0,212,255,.08); }
+  .badge.quant { color: #a78bfa; border-color: #a78bfa; background: rgba(167,139,250,.08); }
+
+  /* Search */
+  .search-bar { background: var(--bg2); border-bottom: 1px solid var(--border); padding: 16px 24px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .ticker-input { background: var(--bg3); border: 1px solid var(--border); color: var(--text); padding: 10px 16px; border-radius: 8px; font-size: 20px; font-weight: 700; width: 140px; letter-spacing: 2px; text-transform: uppercase; outline: none; transition: border-color .2s; }
+  .ticker-input:focus { border-color: var(--accent); }
+  .btn-analyze { background: linear-gradient(135deg, #00b4d8, var(--accent2)); border: none; color: #fff; padding: 10px 24px; border-radius: 8px; font-size: 15px; font-weight: 700; cursor: pointer; transition: opacity .2s, transform .1s; }
+  .btn-analyze:hover { opacity: .9; transform: translateY(-1px); }
+  .btn-analyze:disabled { opacity: .5; cursor: not-allowed; transform: none; }
+  .quick-picks { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+  .quick-picks span { color: var(--muted); font-size: 12px; }
+  .qbtn { background: var(--bg3); border: 1px solid var(--border); color: var(--text); padding: 5px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 600; transition: all .2s; }
+  .qbtn:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* Progress */
+  .progress-bar { background: var(--bg2); border-bottom: 1px solid var(--border); padding: 10px 24px; display: none; }
+  .progress-steps { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
+  .step { padding: 4px 10px; border-radius: 20px; font-size: 11px; border: 1px solid var(--border); color: var(--muted); transition: all .3s; }
+  .step.active { border-color: var(--accent); color: var(--accent); background: rgba(0,212,255,.1); animation: pulse 1s infinite; }
+  .step.done { border-color: var(--green); color: var(--green); background: rgba(0,230,118,.08); }
+  @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:.6; } }
+  .progress-msg { color: var(--muted); font-size: 12px; }
+
+  /* Layout */
+  .main { padding: 20px 24px; max-width: 1400px; margin: 0 auto; }
+  .empty-state { text-align: center; padding: 80px 20px; color: var(--muted); }
+  .empty-state h2 { font-size: 28px; color: var(--text); margin-bottom: 8px; }
+  .empty-state p { font-size: 15px; margin-bottom: 20px; }
+  .feature-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; max-width: 900px; margin: 0 auto; }
+  .feature-card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 10px; padding: 16px; text-align: left; }
+  .feature-card .icon { font-size: 24px; margin-bottom: 8px; }
+  .feature-card h4 { font-size: 13px; color: var(--text); margin-bottom: 4px; }
+  .feature-card p { font-size: 11px; color: var(--muted); line-height: 1.5; }
+
+  /* Dashboard */
+  .dashboard { display: none; }
+  .top-row { display: grid; grid-template-columns: 320px 1fr; gap: 16px; margin-bottom: 16px; }
+  .mid-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+  .bottom-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+  .full-row { margin-bottom: 16px; }
+
+  /* Cards */
+  .card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 12px; padding: 18px; }
+  .card-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); margin-bottom: 14px; display: flex; align-items: center; gap: 6px; }
+
+  /* Verdict */
+  .verdict-card { background: var(--card-bg); border: 2px solid var(--border); border-radius: 16px; padding: 20px; position: relative; overflow: hidden; }
+  .verdict-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; }
+  .verdict-card.buy::before { background: linear-gradient(90deg, var(--green), #00c853); border-color: var(--green); }
+  .verdict-card.sell::before { background: linear-gradient(90deg, var(--red), #d50000); border-color: var(--red); }
+  .verdict-card.hold::before { background: linear-gradient(90deg, var(--yellow), #ff8f00); border-color: var(--yellow); }
+  .verdict-badge { display: inline-flex; align-items: center; gap: 8px; padding: 8px 18px; border-radius: 30px; font-size: 22px; font-weight: 900; letter-spacing: 2px; margin-bottom: 12px; }
+  .verdict-badge.buy { background: rgba(0,230,118,.15); color: var(--green); border: 2px solid var(--green); }
+  .verdict-badge.sell { background: rgba(255,23,68,.15); color: var(--red); border: 2px solid var(--red); }
+  .verdict-badge.hold { background: rgba(255,234,0,.12); color: var(--yellow); border: 2px solid var(--yellow); }
+  .verdict-company { font-size: 16px; font-weight: 700; color: var(--text); margin-bottom: 4px; }
+  .verdict-price { font-size: 28px; font-weight: 900; margin-bottom: 4px; }
+  .verdict-change { font-size: 13px; }
+  .price-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-top: 14px; }
+  .price-item { background: var(--bg3); border-radius: 8px; padding: 10px; text-align: center; }
+  .price-item .label { font-size: 10px; color: var(--muted); text-transform: uppercase; margin-bottom: 4px; }
+  .price-item .value { font-size: 14px; font-weight: 700; }
+  .price-item .value.green { color: var(--green); }
+  .price-item .value.red { color: var(--red); }
+  .price-item .value.yellow { color: var(--yellow); }
+  .conviction-row { display: flex; align-items: center; gap: 8px; margin-top: 12px; }
+  .conviction-label { font-size: 11px; color: var(--muted); }
+  .conviction-badge { padding: 3px 10px; border-radius: 12px; font-size: 11px; font-weight: 700; }
+  .conviction-badge.HIGH { background: rgba(0,230,118,.2); color: var(--green); }
+  .conviction-badge.MEDIUM { background: rgba(255,234,0,.2); color: var(--yellow); }
+  .conviction-badge.LOW { background: rgba(255,23,68,.15); color: var(--red); }
+  .verdict-summary { font-size: 12px; color: var(--muted); line-height: 1.6; margin-top: 12px; font-style: italic; }
+
+  /* Grounded analysis panel */
+  .grounded-card { background: var(--card-bg); border: 1px solid #1a3a1a; border-radius: 12px; padding: 18px; margin-top: 16px; }
+  .grounded-header { display: flex; align-items: center; gap:10px; margin-bottom: 14px; }
+  .grounded-badge { font-size: 10px; font-weight: 700; text-transform: uppercase; padding: 3px 10px; border-radius: 10px; letter-spacing: 1px; }
+  .grounded-badge.strategy { background: rgba(0,230,118,.15); color: var(--green); border: 1px solid rgba(0,230,118,.3); }
+  .grounded-badge.none { background: rgba(255,234,0,.12); color: var(--yellow); border: 1px solid rgba(255,234,0,.3); }
+  .grounded-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 14px; }
+  .grounded-item { background: var(--bg3); border-radius: 8px; padding: 10px; text-align: center; }
+  .grounded-item .gl { font-size: 9px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
+  .grounded-item .gv { font-size: 13px; font-weight: 700; }
+  .grounded-note { font-size: 11px; color: var(--muted); line-height: 1.5; border-top: 1px solid var(--border); padding-top: 10px; }
+  .strategy-signals { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+  .sig-pill { font-size: 10px; padding: 2px 8px; border-radius: 8px; font-weight: 600; }
+  .sig-pill.bull { background: rgba(0,230,118,.15); color: var(--green); }
+  .sig-pill.bear { background: rgba(255,23,68,.12); color: var(--red); }
+  .sig-pill.flat { background: var(--bg3); color: var(--muted); }
+  /* Track history table */
+  .track-table { width: 100%; border-collapse: collapse; font-size: 11px; margin-top: 10px; }
+  .track-table th { color: var(--muted); font-size: 9px; text-transform: uppercase; letter-spacing: 0.5px; padding: 4px 6px; text-align: left; border-bottom: 1px solid var(--border); }
+  .track-table td { padding: 5px 6px; border-bottom: 1px solid rgba(255,255,255,.04); }
+  .track-table .pos { color: var(--green); } .track-table .neg { color: var(--red); }
+
+  /* Sparkline chart */
+  .chart-card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 12px; padding: 18px; }
+  #sparkline-canvas { width: 100%; height: 140px; }
+
+  /* Signal meter */
+  .signal-meter { margin-bottom: 12px; }
+  .meter-track { background: linear-gradient(90deg, #ff1744, #ffea00 50%, #00e676); border-radius: 20px; height: 10px; position: relative; margin: 8px 0; }
+  .meter-needle { position: absolute; top: -4px; width: 18px; height: 18px; border-radius: 50%; background: #fff; border: 2px solid var(--bg); box-shadow: 0 2px 6px rgba(0,0,0,.5); transform: translateX(-50%); transition: left 1s cubic-bezier(.34,1.56,.64,1); }
+  .meter-labels { display: flex; justify-content: space-between; font-size: 10px; color: var(--muted); }
+  .signal-score { font-size: 32px; font-weight: 900; text-align: center; margin: 4px 0; }
+  .signal-direction { text-align: center; font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; }
+
+  /* Indicators grid */
+  .indicators-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .ind-item { background: var(--bg3); border-radius: 8px; padding: 10px; }
+  .ind-name { font-size: 10px; color: var(--muted); text-transform: uppercase; margin-bottom: 3px; }
+  .ind-value { font-size: 14px; font-weight: 700; }
+  .ind-signal { font-size: 10px; margin-top: 2px; }
+
+  /* Algo signals */
+  .algo-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .algo-item { background: var(--bg3); border-radius: 8px; padding: 10px; }
+  .algo-name { font-size: 10px; color: var(--muted); text-transform: uppercase; margin-bottom: 3px; }
+  .algo-value { font-size: 13px; font-weight: 700; }
+  .algo-sub { font-size: 10px; color: var(--muted); margin-top: 2px; }
+
+  /* Monte Carlo */
+  .mc-bar { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; font-size: 12px; }
+  .mc-label { width: 80px; color: var(--muted); }
+  .mc-track { flex: 1; background: var(--bg3); border-radius: 4px; height: 8px; position: relative; }
+  .mc-fill { height: 100%; border-radius: 4px; }
+  .mc-price { width: 70px; text-align: right; font-weight: 700; }
+
+  /* Signals list */
+  .signals-list { list-style: none; }
+  .signals-list li { padding: 6px 8px; border-radius: 6px; font-size: 12px; margin-bottom: 4px; display: flex; align-items: flex-start; gap: 6px; }
+  .signals-list li.bull { background: rgba(0,230,118,.07); color: #81c784; }
+  .signals-list li.bear { background: rgba(255,23,68,.07); color: #e57373; }
+  .signals-list li.neutral { background: rgba(255,255,255,.04); color: var(--muted); }
+  .sig-dot { width: 6px; height: 6px; border-radius: 50%; margin-top: 5px; flex-shrink: 0; }
+  .bull .sig-dot { background: var(--green); }
+  .bear .sig-dot { background: var(--red); }
+  .neutral .sig-dot { background: var(--muted); }
+
+  /* Social sentiment */
+  .social-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px; }
+  .social-source { background: var(--bg3); border-radius: 10px; padding: 12px; }
+  .social-source h4 { font-size: 12px; color: var(--muted); margin-bottom: 8px; }
+  .social-bar { display: flex; gap: 4px; height: 8px; border-radius: 4px; overflow: hidden; margin-bottom: 6px; }
+  .social-bull { background: var(--green); }
+  .social-bear { background: var(--red); }
+  .social-stats { display: flex; justify-content: space-between; font-size: 11px; }
+  .st-bull { color: var(--green); font-weight: 700; }
+  .st-bear { color: var(--red); font-weight: 700; }
+  .reddit-posts { list-style: none; }
+  .reddit-posts li { padding: 6px 0; border-bottom: 1px solid var(--border); font-size: 11px; color: var(--muted); }
+  .reddit-posts li:last-child { border-bottom: none; }
+  .reddit-sub { color: var(--accent); font-weight: 600; }
+
+  /* Fundamentals table */
+  .fund-table { width: 100%; border-collapse: collapse; }
+  .fund-table tr { border-bottom: 1px solid var(--border); }
+  .fund-table td { padding: 7px 4px; font-size: 12px; }
+  .fund-table td:first-child { color: var(--muted); }
+  .fund-table td:last-child { font-weight: 700; text-align: right; }
+
+  /* Analysis sections */
+  .analysis-tabs { display: flex; gap: 4px; margin-bottom: 12px; flex-wrap: wrap; }
+  .tab-btn { padding: 6px 14px; border-radius: 6px; border: 1px solid var(--border); background: none; color: var(--muted); cursor: pointer; font-size: 12px; transition: all .2s; }
+  .tab-btn.active { background: var(--accent2); border-color: var(--accent2); color: #fff; }
+  .tab-content { display: none; }
+  .tab-content.active { display: block; }
+  .analysis-text { font-size: 13px; line-height: 1.8; color: var(--text); white-space: pre-wrap; }
+  .streaming-cursor { display: inline-block; width: 8px; height: 14px; background: var(--accent); animation: blink .7s infinite; vertical-align: text-bottom; }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+
+  /* News */
+  .news-list { list-style: none; }
+  .news-item { padding: 10px 0; border-bottom: 1px solid var(--border); }
+  .news-item:last-child { border-bottom: none; }
+  .news-title { font-size: 13px; color: var(--text); margin-bottom: 4px; }
+  .news-meta { font-size: 11px; color: var(--muted); }
+
+  /* Cases */
+  .cases-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .case-box { background: var(--bg3); border-radius: 10px; padding: 14px; }
+  .case-box.bull { border-left: 3px solid var(--green); }
+  .case-box.bear { border-left: 3px solid var(--red); }
+  .case-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
+  .case-box.bull .case-title { color: var(--green); }
+  .case-box.bear .case-title { color: var(--red); }
+  .case-text { font-size: 12px; color: var(--muted); line-height: 1.6; }
+
+  /* Catalysts */
+  .catalysts-list { list-style: none; }
+  .catalysts-list li { padding: 5px 0; font-size: 12px; color: var(--muted); border-bottom: 1px solid var(--border); display: flex; gap: 6px; }
+  .catalysts-list li:last-child { border-bottom: none; }
+  .catalyst-dot { color: var(--accent); }
+
+  /* Candlestick patterns */
+  .pattern-list { list-style: none; }
+  .pattern-list li { padding: 5px 8px; border-radius: 6px; font-size: 11px; margin-bottom: 4px; background: rgba(124,58,237,.1); color: #c4b5fd; border: 1px solid rgba(124,58,237,.2); }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+  /* Colors */
+  .green { color: var(--green); }
+  .red { color: var(--red); }
+  .yellow { color: var(--yellow); }
+  .accent { color: var(--accent); }
+  .muted { color: var(--muted); }
+
+  /* Responsive */
+  @media (max-width: 900px) {
+    .top-row, .mid-row, .bottom-row { grid-template-columns: 1fr; }
+    .cases-grid, .social-grid, .indicators-grid, .algo-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="logo">
+    <div class="logo-icon">📈</div>
+    <div class="logo-text">
+      <h1>STOCK AGENT AI</h1>
+      <p>7-Agent Research · Quant Signals · Social Intelligence</p>
+    </div>
+  </div>
+  <div class="badges">
+    <div class="badge live">● LIVE</div>
+    <div class="badge agents">7 AI Agents</div>
+    <div class="badge quant">Quant + Social</div>
+  </div>
+</div>
+
+<div class="search-bar">
+  <input type="text" class="ticker-input" id="ticker" placeholder="AAPL" value="" maxlength="10">
+  <button class="btn-analyze" id="analyzeBtn" onclick="analyze()">🔍 Analyze Stock</button>
+  <div class="quick-picks">
+    <span>Quick:</span>
+    <button class="qbtn" onclick="quickAnalyze('AAPL')">AAPL</button>
+    <button class="qbtn" onclick="quickAnalyze('MSFT')">MSFT</button>
+    <button class="qbtn" onclick="quickAnalyze('NVDA')">NVDA</button>
+    <button class="qbtn" onclick="quickAnalyze('TSLA')">TSLA</button>
+    <button class="qbtn" onclick="quickAnalyze('GOOGL')">GOOGL</button>
+    <button class="qbtn" onclick="quickAnalyze('META')">META</button>
+    <button class="qbtn" onclick="quickAnalyze('AMZN')">AMZN</button>
+    <button class="qbtn" onclick="quickAnalyze('SPY')">SPY</button>
+    <button class="qbtn" onclick="quickAnalyze('BTC-USD')">BTC</button>
+  </div>
+</div>
+
+<div class="progress-bar" id="progressBar">
+  <div class="progress-steps" id="progressSteps">
+    <div class="step" id="step-data">📡 Data</div>
+    <div class="step" id="step-social_data">📱 Social Data</div>
+    <div class="step" id="step-research">📰 Research</div>
+    <div class="step" id="step-fundamentals">📊 Fundamentals</div>
+    <div class="step" id="step-technical">📈 Technical</div>
+    <div class="step" id="step-risk">⚠️ Risk</div>
+    <div class="step" id="step-social">💬 Social Agent</div>
+    <div class="step" id="step-algo">🔢 Algo</div>
+    <div class="step" id="step-prediction">🎯 Prediction</div>
+    <div class="step" id="step-grounding">🧮 Grounding</div>
+  </div>
+  <div class="progress-msg" id="progressMsg">Starting analysis...</div>
+</div>
+
+<div class="main">
+  <div class="empty-state" id="emptyState">
+    <h2>AI-Powered Stock Intelligence</h2>
+    <p>7 specialist AI agents + quantitative models + social sentiment analysis</p>
+    <div class="feature-grid">
+      <div class="feature-card"><div class="icon">📰</div><h4>News & Research</h4><p>Web search, Yahoo Finance news, macro context</p></div>
+      <div class="feature-card"><div class="icon">💬</div><h4>Social Sentiment</h4><p>Reddit (WSB, stocks, investing), StockTwits, financial forums</p></div>
+      <div class="feature-card"><div class="icon">🔢</div><h4>Quant Algo</h4><p>Z-score, momentum, linear regression, Monte Carlo GBM</p></div>
+      <div class="feature-card"><div class="icon">📊</div><h4>Fundamentals</h4><p>PE, EV/EBITDA, margins, growth, analyst targets</p></div>
+      <div class="feature-card"><div class="icon">📈</div><h4>Technical Analysis</h4><p>RSI, MACD, Bollinger Bands, ADX, OBV, 15+ indicators</p></div>
+      <div class="feature-card"><div class="icon">🎯</div><h4>AI Prediction</h4><p>BUY/SELL/HOLD with entry, target, stop-loss, R:R ratio</p></div>
+    </div>
+  </div>
+
+  <div class="dashboard" id="dashboard">
+
+    <!-- Row 1: Verdict + Chart -->
+    <div class="top-row">
+      <div class="verdict-card" id="verdictCard">
+        <div id="verdictLoading" style="color:var(--muted);text-align:center;padding:40px 0">
+          <div style="font-size:24px;margin-bottom:8px">🎯</div>
+          <div>Generating prediction...</div>
+        </div>
+        <div id="verdictContent" style="display:none">
+          <div id="verdictBadge" class="verdict-badge">--</div>
+          <div class="verdict-company" id="verdictCompany"></div>
+          <div class="verdict-price" id="verdictPrice"></div>
+          <div class="verdict-change" id="verdictChange"></div>
+          <div class="price-grid">
+            <div class="price-item">
+              <div class="label">Entry</div>
+              <div class="value accent" id="predEntry">--</div>
+            </div>
+            <div class="price-item">
+              <div class="label">Target</div>
+              <div class="value green" id="predTarget">--</div>
+            </div>
+            <div class="price-item">
+              <div class="label">Stop Loss</div>
+              <div class="value red" id="predStop">--</div>
+            </div>
+            <div class="price-item">
+              <div class="label">Upside</div>
+              <div class="value green" id="predUpside">--</div>
+            </div>
+            <div class="price-item">
+              <div class="label">Risk:Reward</div>
+              <div class="value yellow" id="predRR">--</div>
+            </div>
+            <div class="price-item">
+              <div class="label">Horizon</div>
+              <div class="value accent" id="predHorizon">--</div>
+            </div>
+          </div>
+          <div class="conviction-row">
+            <span class="conviction-label">Conviction:</span>
+            <span class="conviction-badge" id="convictionBadge">--</span>
+            <span class="conviction-label" style="margin-left:8px">Horizon:</span>
+            <span id="timeHorizon" style="font-size:11px;color:var(--muted)">--</span>
+          </div>
+          <div class="verdict-summary" id="verdictSummary"></div>
+        </div>
+      </div>
+
+      <div class="chart-card">
+        <div class="card-title">📊 Price History</div>
+        <canvas id="sparkline-canvas" height="140"></canvas>
+        <div style="display:flex;justify-content:space-between;margin-top:8px;font-size:11px;color:var(--muted)">
+          <span id="chartLow"></span>
+          <span id="chartTicker" style="color:var(--accent);font-weight:700"></span>
+          <span id="chartHigh"></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Row 2: Signal Meter + Technical Indicators + Algo Score -->
+    <div class="mid-row">
+      <div class="card">
+        <div class="card-title">📡 Technical Signal Score</div>
+        <div class="signal-meter">
+          <div class="signal-score" id="signalScore">--</div>
+          <div class="signal-direction" id="signalDirection"></div>
+          <div class="meter-track">
+            <div class="meter-needle" id="meterNeedle" style="left:50%"></div>
+          </div>
+          <div class="meter-labels"><span class="red">BEARISH</span><span class="muted">NEUTRAL</span><span class="green">BULLISH</span></div>
+        </div>
+        <div style="display:flex;gap:16px;margin-top:8px">
+          <div><div style="font-size:10px;color:var(--muted)">BULL SIGNALS</div><div style="font-size:18px;font-weight:700;color:var(--green)" id="bullCount">--</div></div>
+          <div><div style="font-size:10px;color:var(--muted)">BEAR SIGNALS</div><div style="font-size:18px;font-weight:700;color:var(--red)" id="bearCount">--</div></div>
+        </div>
+        <div style="margin-top:12px">
+          <div style="font-size:10px;color:var(--muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:1px">Active Signals</div>
+          <ul class="signals-list" id="signalsList"></ul>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">📈 Key Indicators</div>
+        <div class="indicators-grid" id="indicatorsGrid"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">🔢 Algo Trading Signals</div>
+        <div id="algoScore" style="text-align:center;margin-bottom:12px">
+          <div style="font-size:28px;font-weight:900" id="algoScoreNum">--</div>
+          <div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px" id="algoDir"></div>
+          <div style="font-size:10px;color:var(--muted);margin-top:2px">Quantitative Score /100</div>
+        </div>
+        <div class="algo-grid" id="algoGrid"></div>
+      </div>
+    </div>
+
+    <!-- Row 3: Social + Monte Carlo -->
+    <div class="bottom-row">
+      <div class="card">
+        <div class="card-title">💬 Social Sentiment</div>
+        <div class="social-grid">
+          <div class="social-source">
+            <h4>Reddit</h4>
+            <div style="font-size:22px;font-weight:900;color:var(--accent)" id="redditMentions">0</div>
+            <div style="font-size:10px;color:var(--muted)">mentions this week</div>
+            <div style="margin-top:6px;font-size:11px;color:var(--muted)" id="redditSubs"></div>
+          </div>
+          <div class="social-source">
+            <h4>StockTwits</h4>
+            <div class="social-bar" id="stBar">
+              <div class="social-bull" id="stBullBar" style="width:50%"></div>
+              <div class="social-bear" id="stBearBar" style="width:50%"></div>
+            </div>
+            <div class="social-stats">
+              <span class="st-bull" id="stBullPct">--</span>
+              <span style="color:var(--muted);font-size:11px" id="stTotal">-- messages</span>
+              <span class="st-bear" id="stBearPct">--</span>
+            </div>
+          </div>
+        </div>
+        <div style="margin-top:10px">
+          <div style="font-size:10px;color:var(--muted);text-transform:uppercase;margin-bottom:6px">Top Reddit Posts</div>
+          <ul class="reddit-posts" id="redditPosts"></ul>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">🎲 Monte Carlo Simulation (30 days, 1000 paths)</div>
+        <div id="mcChart" style="margin-bottom:12px"></div>
+        <div style="margin-top:8px">
+          <div style="font-size:10px;color:var(--muted);text-transform:uppercase;margin-bottom:6px">Candlestick Patterns</div>
+          <ul class="pattern-list" id="patternList"></ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- Analysis Tabs -->
+    <div class="full-row">
+      <div class="card">
+        <div class="card-title">🤖 AI Agent Analysis</div>
+        <div class="analysis-tabs">
+          <button class="tab-btn active" onclick="showTab('research')">📰 Research</button>
+          <button class="tab-btn" onclick="showTab('fundamentals')">📊 Fundamentals</button>
+          <button class="tab-btn" onclick="showTab('technical')">📈 Technical</button>
+          <button class="tab-btn" onclick="showTab('risk')">⚠️ Risk</button>
+          <button class="tab-btn" onclick="showTab('social')">💬 Social</button>
+          <button class="tab-btn" onclick="showTab('algo')">🔢 Algo</button>
+        </div>
+        <div class="tab-content active" id="tab-research"><div class="analysis-text" id="text-research"><span class="muted">Waiting for analysis...</span></div></div>
+        <div class="tab-content" id="tab-fundamentals"><div class="analysis-text" id="text-fundamentals"><span class="muted">Waiting for analysis...</span></div></div>
+        <div class="tab-content" id="tab-technical"><div class="analysis-text" id="text-technical"><span class="muted">Waiting for analysis...</span></div></div>
+        <div class="tab-content" id="tab-risk"><div class="analysis-text" id="text-risk"><span class="muted">Waiting for analysis...</span></div></div>
+        <div class="tab-content" id="tab-social"><div class="analysis-text" id="text-social"><span class="muted">Waiting for analysis...</span></div></div>
+        <div class="tab-content" id="tab-algo"><div class="analysis-text" id="text-algo"><span class="muted">Waiting for analysis...</span></div></div>
+      </div>
+    </div>
+
+    <!-- Bull/Bear + Catalysts + News -->
+    <div class="bottom-row">
+      <div class="card">
+        <div class="card-title">⚡ Bull vs Bear Case</div>
+        <div class="cases-grid">
+          <div class="case-box bull">
+            <div class="case-title">Bull Case</div>
+            <div class="case-text" id="bullCase">—</div>
+          </div>
+          <div class="case-box bear">
+            <div class="case-title">Bear Case</div>
+            <div class="case-text" id="bearCase">—</div>
+          </div>
+        </div>
+        <div style="margin-top:14px">
+          <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">Key Catalysts to Watch</div>
+          <ul class="catalysts-list" id="catalystsList"></ul>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">📰 Latest News</div>
+        <ul class="news-list" id="newsList"></ul>
+        <div style="margin-top:14px">
+          <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">Fundamentals</div>
+          <table class="fund-table" id="fundTable"></table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Grounded Analysis Row -->
+    <div class="full-row" id="groundingRow" style="display:none">
+      <div class="grounded-card">
+        <div class="grounded-header">
+          <div class="card-title" style="margin:0">🧮 Grounded Analysis</div>
+          <span class="grounded-badge" id="groundingBadge">—</span>
+          <span style="font-size:11px;color:var(--muted);margin-left:4px" id="groundingStrategyName">—</span>
+        </div>
+        <div class="grounded-grid">
+          <div class="grounded-item">
+            <div class="gl">Entry (computed)</div>
+            <div class="gv accent" id="gEntry">—</div>
+          </div>
+          <div class="grounded-item">
+            <div class="gl">Target (2:1 R:R)</div>
+            <div class="gv" style="color:var(--green)" id="gTarget">—</div>
+          </div>
+          <div class="grounded-item">
+            <div class="gl">Stop (1.5×ATR)</div>
+            <div class="gv" style="color:var(--red)" id="gStop">—</div>
+          </div>
+          <div class="grounded-item">
+            <div class="gl">ATR-14</div>
+            <div class="gv" style="color:var(--muted)" id="gAtr">—</div>
+          </div>
+          <div class="grounded-item">
+            <div class="gl">Backtest Sharpe</div>
+            <div class="gv" id="gSharpe">—</div>
+          </div>
+          <div class="grounded-item">
+            <div class="gl">Defl. Sharpe (dSR)</div>
+            <div class="gv" id="gDsr">—</div>
+          </div>
+          <div class="grounded-item">
+            <div class="gl">Kelly Size</div>
+            <div class="gv" style="color:var(--accent)" id="gKelly">—</div>
+          </div>
+          <div class="grounded-item">
+            <div class="gl">Hist. Hit Rate</div>
+            <div class="gv" id="gHitRate">—</div>
+          </div>
+        </div>
+        <div class="grounded-note" id="groundingNote"></div>
+        <div class="strategy-signals" id="strategySignals"></div>
+      </div>
+    </div>
+
+    <!-- Track History Row -->
+    <div class="full-row" id="trackRow" style="display:none">
+      <div class="card">
+        <div class="card-title">📋 Recommendation History <span id="trackCount" style="font-size:11px;color:var(--muted);font-weight:400;margin-left:8px"></span></div>
+        <table class="track-table">
+          <thead><tr><th>Date</th><th>Ticker</th><th>Action</th><th>Entry</th><th>Target</th><th>Stop</th><th>Strategy</th><th>Conviction</th><th>Outcome</th></tr></thead>
+          <tbody id="trackBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+  </div><!-- /dashboard -->
+</div><!-- /main -->
+
+<script>
+// Auto-detect API base URL — works whether opened via file:// or http://
+const API_BASE = (location.protocol === 'file:' || !location.hostname)
+  ? 'http://localhost:5051'
+  : '';
+
+let currentResult = null;
+
+// Check server status on load
+async function checkStatus() {
+  try {
+    const r = await fetch(API_BASE + '/api/status');
+    if (!r.ok) throw new Error('server down');
+    const s = await r.json();
+    if (!s.key_set) {
+      showKeyBanner();
+    } else {
+      hideKeyBanner();
+    }
+  } catch(e) {
+    showKeyBanner('Server not running. Open Terminal and run: cd ~/Desktop/"Agentic AI"/stock_agent && python3 web/app.py');
+  }
+}
+
+function showKeyBanner(msg) {
+  let b = document.getElementById('keyBanner');
+  if (!b) {
+    b = document.createElement('div');
+    b.id = 'keyBanner';
+    b.style.cssText = 'background:#1a0a00;border-bottom:1px solid #ff6d00;padding:12px 24px;display:flex;align-items:center;gap:12px;font-size:13px;';
+    document.body.insertBefore(b, document.body.children[1]);
+  }
+  b.innerHTML = msg || `
+    <span style="color:#ff9800;font-size:18px">⚠️</span>
+    <span style="color:#ffcc80"><b>DeepSeek API key not set.</b> Get a free key at <b>platform.deepseek.com</b>, then create this file:</span>
+    <code style="background:#000;padding:4px 10px;border-radius:4px;color:#69f0ae;font-size:12px">stock_agent/.env</code>
+    <span style="color:#ffcc80">with content:</span>
+    <code style="background:#000;padding:4px 10px;border-radius:4px;color:#69f0ae;font-size:12px">DEEPSEEK_API_KEY=sk-your-key-here</code>
+    <span style="color:#ffcc80">then restart the server.</span>
+    <button onclick="checkStatus()" style="margin-left:auto;background:#ff9800;border:none;color:#000;padding:5px 14px;border-radius:6px;cursor:pointer;font-weight:700">Recheck</button>
+  `;
+}
+
+function hideKeyBanner() {
+  const b = document.getElementById('keyBanner');
+  if (b) b.remove();
+}
+
+window.addEventListener('load', () => setTimeout(checkStatus, 500));
+
+const STEPS = ['data','social_data','research','fundamentals','technical','risk','social','algo','prediction','grounding'];
+
+function setStep(stage, done) {
+  const el = document.getElementById('step-' + stage);
+  if (!el) return;
+  STEPS.forEach(s => {
+    const e = document.getElementById('step-' + s);
+    if (e) e.classList.remove('active');
+  });
+  if (!done) el.classList.add('active');
+  else el.classList.add('done');
+}
+
+function quickAnalyze(ticker) {
+  document.getElementById('ticker').value = ticker;
+  analyze();
+}
+
+async function analyze() {
+  const ticker = document.getElementById('ticker').value.trim().toUpperCase();
+  if (!ticker) { alert('Please enter a ticker symbol'); return; }
+
+  document.getElementById('emptyState').style.display = 'none';
+  document.getElementById('dashboard').style.display = 'block';
+  document.getElementById('progressBar').style.display = 'block';
+  document.getElementById('analyzeBtn').disabled = true;
+  document.getElementById('analyzeBtn').textContent = '⏳ Analyzing...';
+
+  // Reset UI
+  STEPS.forEach(s => {
+    const e = document.getElementById('step-' + s);
+    if (e) { e.className = 'step'; }
+  });
+  document.getElementById('verdictLoading').style.display = 'block';
+  document.getElementById('verdictContent').style.display = 'none';
+  ['research','fundamentals','technical','risk','social','algo'].forEach(t => {
+    document.getElementById('text-' + t).innerHTML = '<span class="muted">Agent running...</span>';
+  });
+  document.getElementById('bullCase').textContent = '—';
+  document.getElementById('bearCase').textContent = '—';
+  document.getElementById('catalystsList').innerHTML = '';
+  document.getElementById('newsList').innerHTML = '';
+  document.getElementById('fundTable').innerHTML = '';
+  document.getElementById('signalsList').innerHTML = '';
+  document.getElementById('indicatorsGrid').innerHTML = '';
+  document.getElementById('algoGrid').innerHTML = '';
+  document.getElementById('redditPosts').innerHTML = '';
+  document.getElementById('mcChart').innerHTML = '';
+  document.getElementById('patternList').innerHTML = '';
+
+  // First do quick data fetch for immediate display
+  try {
+    const qr = await fetch(API_BASE + '/api/quick', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ticker})
+    });
+    if (qr.ok) {
+      const q = await qr.json();
+      renderQuickData(q);
+    }
+  } catch(e) {}
+
+  // Stream full analysis
+  const es = new EventSource(API_BASE + '/api/analyze/stream?_=' + Date.now());
+
+  // We need POST, so use fetch + ReadableStream
+  es.close();
+
+  const resp = await fetch(API_BASE + '/api/analyze/stream', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ticker})
+  });
+
+  const reader = resp.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+
+  const done = () => {
+    document.getElementById('analyzeBtn').disabled = false;
+    document.getElementById('analyzeBtn').textContent = '🔍 Analyze Stock';
+    STEPS.forEach(s => {
+      const e = document.getElementById('step-' + s);
+      if (e && !e.classList.contains('done')) e.classList.remove('active');
+    });
+    setTimeout(() => {
+      document.getElementById('progressBar').style.display = 'none';
+    }, 2000);
+  };
+
+  while (true) {
+    const {value, done: streamDone} = await reader.read();
+    if (streamDone) { done(); break; }
+    buffer += decoder.decode(value, {stream: true});
+    const parts = buffer.split('\n\n');
+    buffer = parts.pop();
+    for (const part of parts) {
+      if (!part.trim()) continue;
+      const lines = part.split('\n');
+      let evtType = 'message', evtData = '';
+      for (const line of lines) {
+        if (line.startsWith('event: ')) evtType = line.slice(7).trim();
+        if (line.startsWith('data: ')) evtData = line.slice(6);
+      }
+      if (evtType === 'done') { done(); return; }
+      try {
+        const payload = JSON.parse(evtData);
+        handleEvent(evtType, payload);
+      } catch(e) {}
+    }
+  }
+}
+
+function handleEvent(type, payload) {
+  if (type === 'progress') {
+    document.getElementById('progressMsg').textContent = payload.msg || '';
+    setStep(payload.stage, false);
+    // Mark previous steps done
+    const idx = STEPS.indexOf(payload.stage);
+    for (let i = 0; i < idx; i++) setStep(STEPS[i], true);
+    return;
+  }
+  if (type === 'result') {
+    currentResult = payload;
+    renderFullResult(payload);
+    STEPS.forEach(s => setStep(s, true));
+  }
+  if (type === 'error') {
+    document.getElementById('progressMsg').textContent = 'Error: ' + (payload.error || 'Unknown error');
+    document.getElementById('analyzeBtn').disabled = false;
+    document.getElementById('analyzeBtn').textContent = '🔍 Analyze Stock';
+  }
+}
+
+function renderQuickData(q) {
+  // Price chart
+  if (q.sparkline && q.sparkline.length > 0) drawSparkline(q.sparkline, q.ticker);
+
+  // Signal meter
+  const sig = q.signal_summary || {};
+  document.getElementById('signalScore').textContent = sig.score ?? '--';
+  const dir = sig.direction || 'NEUTRAL';
+  document.getElementById('signalDirection').textContent = dir;
+  document.getElementById('signalDirection').className = 'signal-direction ' + (dir === 'BULLISH' ? 'green' : dir === 'BEARISH' ? 'red' : 'muted');
+  const needle = document.getElementById('meterNeedle');
+  needle.style.left = (sig.score ?? 50) + '%';
+  document.getElementById('bullCount').textContent = sig.bull_signals ?? '--';
+  document.getElementById('bearCount').textContent = sig.bear_signals ?? '--';
+
+  // Signals list
+  const sl = document.getElementById('signalsList');
+  sl.innerHTML = '';
+  (sig.signals || []).forEach(s => {
+    const isBull = s.includes('bullish') || s.includes('oversold') || s.includes('above') || s.includes('golden');
+    const isBear = s.includes('bearish') || s.includes('overbought') || s.includes('below') || s.includes('death');
+    const cls = isBull ? 'bull' : isBear ? 'bear' : 'neutral';
+    sl.innerHTML += `<li class="${cls}"><span class="sig-dot"></span>${s}</li>`;
+  });
+
+  // Indicators grid
+  const ind = q.indicators || {};
+  const fundData = q.fundamentals || {};
+  const ig = document.getElementById('indicatorsGrid');
+  ig.innerHTML = '';
+  const indItems = [
+    {label:'RSI (14)', value: ind.rsi_14, signal: ind.rsi_signal, format: v => v?.toFixed(1)},
+    {label:'MACD', value: ind.macd, signal: ind.macd_cross, format: v => v?.toFixed(3)},
+    {label:'SMA 50', value: ind.sma_50, signal: ind.above_sma_50 ? 'above' : 'below', format: v => '$'+v?.toFixed(2)},
+    {label:'SMA 200', value: ind.sma_200, signal: ind.ma_cross, format: v => v ? '$'+v?.toFixed(2) : 'N/A'},
+    {label:'BB %', value: ind.bb_pct, signal: ind.bb_pct > 80 ? 'upper' : ind.bb_pct < 20 ? 'lower' : 'middle', format: v => v?.toFixed(0)+'%'},
+    {label:'ADX', value: ind.adx, signal: ind.trend_strength, format: v => v?.toFixed(1)},
+    {label:'Vol Ratio', value: ind.volume_ratio, signal: ind.volume_ratio > 1.5 ? 'high' : 'normal', format: v => v?.toFixed(2)+'x'},
+    {label:'ATR (14)', value: ind.atr_14, signal: '', format: v => '$'+v?.toFixed(2)},
+  ];
+  indItems.forEach(item => {
+    const sigColor = item.signal?.includes('bull') || item.signal === 'golden' || item.signal === 'above' || item.signal === 'oversold' ? 'var(--green)' :
+                     item.signal?.includes('bear') || item.signal === 'death' || item.signal === 'below' || item.signal === 'overbought' ? 'var(--red)' : 'var(--accent)';
+    ig.innerHTML += `
+      <div class="ind-item">
+        <div class="ind-name">${item.label}</div>
+        <div class="ind-value" style="color:${sigColor}">${item.value != null ? item.format(item.value) : 'N/A'}</div>
+        <div class="ind-signal" style="color:var(--muted)">${item.signal || ''}</div>
+      </div>`;
+  });
+
+  // Algo signals
+  const algo = q.algo_signals || {};
+  const as = document.getElementById('algoScoreNum');
+  const ad = document.getElementById('algoDir');
+  as.textContent = algo.algo_score ?? '--';
+  as.style.color = algo.algo_direction === 'BULLISH' ? 'var(--green)' : algo.algo_direction === 'BEARISH' ? 'var(--red)' : 'var(--yellow)';
+  ad.textContent = algo.algo_direction || '';
+  ad.style.color = as.style.color;
+
+  const ag = document.getElementById('algoGrid');
+  ag.innerHTML = '';
+  const algoItems = [
+    {name:'Mean Reversion', value: algo.mean_reversion_signal, sub: `Z=${algo.mean_reversion_zscore}`},
+    {name:'Momentum', value: algo.momentum_signal, sub: `3M: ${algo.momentum_3m}%`},
+    {name:'Lin Reg Trend', value: algo.linreg_signal, sub: `R²=${algo.linreg_r_squared}`},
+    {name:'Vol Regime', value: algo.vol_regime, sub: `HV=${algo.historical_volatility_20d}%`},
+    {name:'Vol-Price', value: algo.volume_price_signal, sub: '5-day signal'},
+    {name:'Momentum 1M', value: algo.momentum_1m != null ? (algo.momentum_1m > 0 ? '+' : '') + algo.momentum_1m + '%' : 'N/A', sub: 'vs prior month'},
+  ];
+  algoItems.forEach(item => {
+    const isBull = String(item.value).includes('BULL') || String(item.value).includes('BUY') || String(item.value).includes('UPTREND') || String(item.value).includes('BREAKOUT');
+    const isBear = String(item.value).includes('BEAR') || String(item.value).includes('SELL') || String(item.value).includes('DOWN') || String(item.value).includes('BREAKDOWN');
+    const c = isBull ? 'var(--green)' : isBear ? 'var(--red)' : 'var(--yellow)';
+    ag.innerHTML += `
+      <div class="algo-item">
+        <div class="algo-name">${item.name}</div>
+        <div class="algo-value" style="color:${c}">${item.value ?? 'N/A'}</div>
+        <div class="algo-sub">${item.sub || ''}</div>
+      </div>`;
+  });
+
+  // Monte Carlo
+  renderMonteCarlo(algo, q.indicators?.current_price);
+
+  // Candlestick patterns
+  const pl = document.getElementById('patternList');
+  pl.innerHTML = '';
+  (algo.candlestick_patterns || []).forEach(p => {
+    pl.innerHTML += `<li>${p}</li>`;
+  });
+
+  // News
+  const nl = document.getElementById('newsList');
+  nl.innerHTML = '';
+  (q.news || []).forEach(n => {
+    nl.innerHTML += `
+      <li class="news-item">
+        <div class="news-title">${n.title}</div>
+        <div class="news-meta">${n.publisher} · ${n.published}</div>
+      </li>`;
+  });
+
+  // Fundamentals table
+  const ft = document.getElementById('fundTable');
+  const fRows = [
+    ['P/E Ratio', fundData.pe != null ? fundData.pe.toFixed(1) + 'x' : 'N/A'],
+    ['Forward P/E', fundData.forward_pe != null ? fundData.forward_pe.toFixed(1) + 'x' : 'N/A'],
+    ['Market Cap', formatMCap(fundData.market_cap)],
+    ['Analyst Target', fundData.target_price != null ? '$'+fundData.target_price.toFixed(2) : 'N/A'],
+    ['52W High', fundData['52w_high'] != null ? '$'+fundData['52w_high'].toFixed(2) : 'N/A'],
+    ['52W Low', fundData['52w_low'] != null ? '$'+fundData['52w_low'].toFixed(2) : 'N/A'],
+    ['Beta', fundData.beta != null ? fundData.beta.toFixed(2) : 'N/A'],
+    ['Short Ratio', fundData.short_ratio != null ? fundData.short_ratio.toFixed(1) + ' days' : 'N/A'],
+    ['Profit Margin', fundData.profit_margin != null ? (fundData.profit_margin*100).toFixed(1) + '%' : 'N/A'],
+    ['ROE', fundData.roe != null ? (fundData.roe*100).toFixed(1) + '%' : 'N/A'],
+    ['Rev Growth', fundData.revenue_growth != null ? (fundData.revenue_growth*100).toFixed(1) + '%' : 'N/A'],
+    ['Dividend', fundData.dividend != null ? (fundData.dividend*100).toFixed(2) + '%' : 'N/A'],
+  ];
+  ft.innerHTML = fRows.map(([k,v]) => `<tr><td>${k}</td><td>${v}</td></tr>`).join('');
+}
+
+function renderFullResult(r) {
+  // Update chart ticker label
+  document.getElementById('chartTicker').textContent = r.ticker;
+
+  // Verdict card
+  const pred = r.prediction || {};
+  const action = (pred.action || 'HOLD').toUpperCase();
+  const cls = action === 'BUY' ? 'buy' : action === 'SELL' ? 'sell' : 'hold';
+  const vc = document.getElementById('verdictCard');
+  vc.className = 'verdict-card ' + cls;
+  document.getElementById('verdictBadge').textContent = (action === 'BUY' ? '↑ ' : action === 'SELL' ? '↓ ' : '→ ') + action;
+  document.getElementById('verdictBadge').className = 'verdict-badge ' + cls;
+  document.getElementById('verdictCompany').textContent = r.company_name || r.ticker;
+  const price = r.current_price;
+  document.getElementById('verdictPrice').textContent = price != null ? '$' + price.toFixed(2) : '--';
+  const chg = r.indicators?.price_change_pct;
+  const chgEl = document.getElementById('verdictChange');
+  if (chg != null) {
+    chgEl.textContent = (chg >= 0 ? '+' : '') + chg.toFixed(2) + '% today';
+    chgEl.className = 'verdict-change ' + (chg >= 0 ? 'green' : 'red');
+  }
+  document.getElementById('predEntry').textContent = pred.entry_price || '--';
+  document.getElementById('predTarget').textContent = pred.target_price || '--';
+  document.getElementById('predStop').textContent = pred.stop_loss || '--';
+  document.getElementById('predUpside').textContent = pred.upside_pct != null ? '+' + pred.upside_pct + '%' : (pred.upside_pct || '--');
+  document.getElementById('predRR').textContent = pred.risk_reward || '--';
+  document.getElementById('predHorizon').textContent = (pred.time_horizon || '--').replace(/\s*\(.*\)/, '');
+  const cb = document.getElementById('convictionBadge');
+  cb.textContent = pred.conviction || '--';
+  cb.className = 'conviction-badge ' + (pred.conviction || 'MEDIUM');
+  document.getElementById('timeHorizon').textContent = pred.time_horizon || '--';
+  document.getElementById('verdictSummary').textContent = pred.summary || '';
+  document.getElementById('verdictLoading').style.display = 'none';
+  document.getElementById('verdictContent').style.display = 'block';
+
+  // Grounded analysis panel
+  renderGrounding(pred, r.ticker);
+
+  // Analysis texts
+  const agentMap = {
+    research: r.research,
+    fundamentals: r.fundamentals_analysis,
+    technical: r.technical_analysis,
+    risk: r.risk_analysis,
+    social: r.social_analysis,
+    algo: r.algo_analysis,
+  };
+  Object.entries(agentMap).forEach(([key, text]) => {
+    if (text) document.getElementById('text-' + key).textContent = text;
+  });
+
+  // Bull/Bear cases
+  document.getElementById('bullCase').textContent = pred.bull_case || '—';
+  document.getElementById('bearCase').textContent = pred.bear_case || '—';
+
+  // Catalysts
+  const cl = document.getElementById('catalystsList');
+  cl.innerHTML = '';
+  (pred.key_catalysts || []).forEach(c => {
+    cl.innerHTML += `<li><span class="catalyst-dot">◆</span>${c}</li>`;
+  });
+
+  // Reddit data
+  const rd = r.reddit || {};
+  document.getElementById('redditMentions').textContent = rd.mention_count || 0;
+  document.getElementById('redditSubs').textContent = (rd.subreddits || []).map(s => 'r/'+s).join(', ');
+  const rpl = document.getElementById('redditPosts');
+  rpl.innerHTML = '';
+  (rd.posts || []).slice(0, 5).forEach(p => {
+    rpl.innerHTML += `<li><span class="reddit-sub">r/${p.subreddit}</span> · ${p.title.slice(0, 80)}${p.title.length > 80 ? '...' : ''} <span class="muted">(▲${p.score})</span></li>`;
+  });
+
+  // StockTwits
+  const st = r.stocktwits || {};
+  const total = (st.bullish || 0) + (st.bearish || 0);
+  document.getElementById('stTotal').textContent = total + ' messages';
+  if (total > 0) {
+    const bPct = Math.round(st.bullish / total * 100);
+    document.getElementById('stBullPct').textContent = bPct + '% Bull';
+    document.getElementById('stBearPct').textContent = (100-bPct) + '% Bear';
+    document.getElementById('stBullBar').style.width = bPct + '%';
+    document.getElementById('stBearBar').style.width = (100-bPct) + '%';
+  }
+}
+
+function renderMonteCarlo(algo, currentPrice) {
+  if (!algo.mc_price_median || !currentPrice) return;
+  const mc = document.getElementById('mcChart');
+  const prices = [
+    {label:'5th %ile (bear)', price: algo.mc_price_5pct, pct: algo.mc_downside_pct, color:'var(--red)'},
+    {label:'25th %ile', price: algo.mc_price_25pct, pct: null, color:'#ff7043'},
+    {label:'Median (50th)', price: algo.mc_price_median, pct: algo.mc_expected_pct, color:'var(--yellow)'},
+    {label:'75th %ile', price: algo.mc_price_75pct, pct: null, color:'#66bb6a'},
+    {label:'95th %ile (bull)', price: algo.mc_price_95pct, pct: algo.mc_upside_pct, color:'var(--green)'},
+  ];
+  const maxP = algo.mc_price_95pct;
+  const minP = algo.mc_price_5pct;
+  const range = maxP - minP;
+  mc.innerHTML = prices.map(p => {
+    const barPct = range > 0 ? ((p.price - minP) / range * 80 + 10) : 50;
+    const pctText = p.pct != null ? ` (${p.pct > 0 ? '+' : ''}${p.pct}%)` : '';
+    return `<div class="mc-bar">
+      <div class="mc-label" style="color:${p.color};font-size:10px">${p.label}</div>
+      <div class="mc-track"><div class="mc-fill" style="width:${barPct}%;background:${p.color}"></div></div>
+      <div class="mc-price" style="color:${p.color}">$${p.price}${pctText}</div>
+    </div>`;
+  }).join('');
+  mc.innerHTML += `<div style="font-size:10px;color:var(--muted);margin-top:4px">Current: $${currentPrice?.toFixed(2)} · 30-day GBM simulation · 1,000 paths</div>`;
+}
+
+function drawSparkline(closes, ticker) {
+  const canvas = document.getElementById('sparkline-canvas');
+  const ctx = canvas.getContext('2d');
+  canvas.width = canvas.offsetWidth * window.devicePixelRatio || 800;
+  canvas.height = 140 * window.devicePixelRatio || 140;
+  ctx.scale(window.devicePixelRatio || 1, window.devicePixelRatio || 1);
+  const W = canvas.offsetWidth || 800;
+  const H = 140;
+  ctx.clearRect(0, 0, W, H);
+
+  const min = Math.min(...closes);
+  const max = Math.max(...closes);
+  const range = max - min || 1;
+  const pad = 12;
+  const n = closes.length;
+
+  const x = i => pad + (i / (n-1)) * (W - 2*pad);
+  const y = v => H - pad - ((v - min) / range) * (H - 2*pad);
+
+  // Gradient fill
+  const grad = ctx.createLinearGradient(0, 0, 0, H);
+  const lastClose = closes[closes.length-1];
+  const firstClose = closes[0];
+  const up = lastClose >= firstClose;
+  const color = up ? '#00e676' : '#ff1744';
+  grad.addColorStop(0, up ? 'rgba(0,230,118,0.3)' : 'rgba(255,23,68,0.3)');
+  grad.addColorStop(1, 'rgba(0,0,0,0)');
+
+  ctx.beginPath();
+  ctx.moveTo(x(0), y(closes[0]));
+  for (let i = 1; i < n; i++) ctx.lineTo(x(i), y(closes[i]));
+  ctx.lineTo(x(n-1), H);
+  ctx.lineTo(x(0), H);
+  ctx.closePath();
+  ctx.fillStyle = grad;
+  ctx.fill();
+
+  // Line
+  ctx.beginPath();
+  ctx.moveTo(x(0), y(closes[0]));
+  for (let i = 1; i < n; i++) ctx.lineTo(x(i), y(closes[i]));
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 2;
+  ctx.stroke();
+
+  // Current price dot
+  ctx.beginPath();
+  ctx.arc(x(n-1), y(lastClose), 5, 0, Math.PI*2);
+  ctx.fillStyle = color;
+  ctx.fill();
+
+  // Labels
+  document.getElementById('chartLow').textContent = '$'+min.toFixed(2);
+  document.getElementById('chartHigh').textContent = '$'+max.toFixed(2);
+  document.getElementById('chartTicker').textContent = ticker || '';
+}
+
+function showTab(name) {
+  document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(t => t.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  event.target.classList.add('active');
+}
+
+function formatMCap(v) {
+  if (!v) return 'N/A';
+  if (v >= 1e12) return '$' + (v/1e12).toFixed(2) + 'T';
+  if (v >= 1e9)  return '$' + (v/1e9).toFixed(2) + 'B';
+  if (v >= 1e6)  return '$' + (v/1e6).toFixed(2) + 'M';
+  return '$' + v;
+}
+
+function renderGrounding(pred, ticker) {
+  const grounding = pred.grounding || 'none';
+  const row = document.getElementById('groundingRow');
+  row.style.display = 'block';
+
+  const badge = document.getElementById('groundingBadge');
+  if (grounding === 'strategy') {
+    badge.textContent = '✓ Strategy-Grounded';
+    badge.className = 'grounded-badge strategy';
+  } else {
+    badge.textContent = '⚠ LLM-Only (no strategy agrees)';
+    badge.className = 'grounded-badge none';
+  }
+
+  const stratName = pred.grounding_strategy || '—';
+  document.getElementById('groundingStrategyName').textContent =
+    stratName !== '—' ? `Best strategy: ${stratName}` : 'No agreeing strategy found';
+
+  const fmt = v => v != null ? '$' + Number(v).toFixed(2) : '—';
+  const fmtN = (v, d=3) => v != null ? Number(v).toFixed(d) : '—';
+  const fmtPct = v => v != null ? (v * 100).toFixed(1) + '%' : '—';
+
+  document.getElementById('gEntry').textContent  = fmt(pred.entry_price);
+  document.getElementById('gTarget').textContent = fmt(pred.target_price);
+  document.getElementById('gStop').textContent   = fmt(pred.stop_loss);
+  document.getElementById('gAtr').textContent    = pred.grounding_atr != null ? '$' + fmtN(pred.grounding_atr, 2) : '—';
+  document.getElementById('gSharpe').textContent = fmtN(pred.grounding_backtest_sharpe);
+  document.getElementById('gDsr').textContent    = fmtN(pred.grounding_dsr);
+  const kelly = pred.position_size;
+  document.getElementById('gKelly').textContent  = kelly != null ? (kelly * 100).toFixed(1) + '% of capital' : '—';
+  const hr = pred.grounding_historical_hit_rate;
+  const hrN = pred.grounding_hit_rate_n || 0;
+  document.getElementById('gHitRate').textContent =
+    hr != null ? fmtPct(hr) + ` (n=${hrN})` : `No history yet`;
+
+  // Note
+  const note = document.getElementById('groundingNote');
+  if (grounding === 'strategy') {
+    const n = pred.n_agreeing_strategies || 0;
+    note.textContent = `${n} of 7 strategies agree with this call. Entry = current price. ` +
+      `Stop = 1.5 × ATR(14). Target = 2:1 risk-reward. Kelly size = half-Kelly, capped at 10% of capital.`;
+  } else {
+    const noEdge = pred.n_directional_no_edge || 0;
+    const extra = noEdge > 0
+      ? ` (${noEdge} strategy${noEdge>1?'ies':''} point this way but have no positive historical edge, so they don't count as support.)`
+      : '';
+    note.textContent = 'No backtested strategy with a positive edge currently agrees with this direction.' + extra +
+      ' Conviction has been downgraded to LOW. Numeric levels shown are the LLM\'s estimates, not formula-computed.';
+  }
+
+  // Strategy signal pills
+  const pills = document.getElementById('strategySignals');
+  pills.innerHTML = '';
+  const sigs = pred.all_strategy_signals || {};
+  Object.entries(sigs).forEach(([name, sig]) => {
+    const cls = sig === 1 ? 'bull' : sig === -1 ? 'bear' : 'flat';
+    const icon = sig === 1 ? '▲' : sig === -1 ? '▼' : '—';
+    pills.innerHTML += `<span class="sig-pill ${cls}">${icon} ${name}</span>`;
+  });
+
+  // Load history for this ticker
+  loadTrackHistory(ticker);
+}
+
+async function loadTrackHistory(ticker) {
+  try {
+    const r = await fetch(API_BASE + '/api/track/history?ticker=' + ticker + '&limit=10');
+    if (!r.ok) return;
+    const data = await r.json();
+    const rows = data.rows || [];
+    const trackRow = document.getElementById('trackRow');
+    const tbody = document.getElementById('trackBody');
+    if (rows.length === 0) { trackRow.style.display = 'none'; return; }
+    trackRow.style.display = 'block';
+    document.getElementById('trackCount').textContent = `(${rows.length} most recent)`;
+    tbody.innerHTML = rows.map(row => {
+      const pct = row.realized_pct_change;
+      const pctStr = pct != null ? `<span class="${pct >= 0 ? 'pos' : 'neg'}">${pct >= 0 ? '+' : ''}${pct.toFixed(1)}%</span>` : '—';
+      const dir = row.direction_correct;
+      const outcome = dir != null ? (dir ? '<span class="pos">✓</span>' : '<span class="neg">✗</span>') + ' ' + pctStr : pctStr;
+      return `<tr>
+        <td>${(row.created_at||'').slice(0,10)}</td>
+        <td style="font-weight:700">${row.ticker}</td>
+        <td>${row.action||'—'}</td>
+        <td>${row.entry_price != null ? '$'+Number(row.entry_price).toFixed(2) : '—'}</td>
+        <td>${row.target_price != null ? '$'+Number(row.target_price).toFixed(2) : '—'}</td>
+        <td>${row.stop_loss != null ? '$'+Number(row.stop_loss).toFixed(2) : '—'}</td>
+        <td style="font-size:10px;color:var(--muted)">${row.grounding_strategy||'—'}</td>
+        <td>${row.conviction||'—'}</td>
+        <td>${outcome}</td>
+      </tr>`;
+    }).join('');
+  } catch(e) { /* silently skip */ }
+}
+
+// Enter key support
+document.getElementById('ticker').addEventListener('keydown', e => {
+  if (e.key === 'Enter') analyze();
+});
+
+window.addEventListener('resize', () => {
+  if (currentResult?.signal_summary) {
+    const q = {sparkline: [], ...currentResult};
+    // redraw if we have sparkline data - skip for now, just resize
+  }
+});
+</script>
+</body>
+</html>

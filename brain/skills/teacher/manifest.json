@@ -1,0 +1,58 @@
+{
+ "id": "teacher",
+ "name": "Teacher",
+ "version": "1.0.0",
+ "description": "Adaptive, source-grounded instruction: retrieve scoped evidence, assess mastery + prerequisites deterministically, delegate the explanation/exercise/mastery-check to an adapter, and emit a structured lesson with provenance.",
+ "purpose": "Turning a knowledge base into learning requires instruction that adapts to what a learner already knows and cites where every claim comes from; a raw chatbot answer does neither and cannot be verified or resumed.",
+ "tags": [
+  "learning",
+  "instruction",
+  "retrieval",
+  "adaptive"
+ ],
+ "inputs": {
+  "schema": "input_schema.json"
+ },
+ "outputs": {
+  "schema": "output_schema.json"
+ },
+ "memory": {
+  "root_param": null,
+  "read": [],
+  "write": [],
+  "append_only": [],
+  "immutable": []
+ },
+ "execution": {
+  "contract": "execution_contract.md",
+  "steps": [
+   "RESOLVE SCOPE",
+   "RETRIEVE EVIDENCE",
+   "ASSESS MASTERY",
+   "INSTRUCT",
+   "ASSEMBLE LESSON"
+  ],
+  "retries": 0,
+  "runtime": {
+   "type": "python",
+   "entrypoint": "aios_core.runtime.drivers.teacher_driver:run"
+  }
+ },
+ "dependencies": [
+  {
+   "id": "retrieve_context",
+   "version": ">=1.0.0 <3.0.0",
+   "optional": false
+  }
+ ],
+ "evaluation": {
+  "contract": "evaluation_contract.md",
+  "must": [
+   "E1",
+   "E2",
+   "E3",
+   "E4",
+   "E5"
+  ]
+ }
+}

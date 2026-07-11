@@ -1,0 +1,70 @@
+{
+ "id": "critic",
+ "name": "Critic",
+ "version": "1.0.0",
+ "description": "Adversarial store-wide review: verifies every stored concept against retrieved evidence.",
+ "purpose": "Generators grading their own homework reintroduces hallucination; adversarial review breaks the self-confirmation loop.",
+ "tags": [
+  "verification"
+ ],
+ "inputs": {
+  "schema_inline": {
+   "type": "object"
+  }
+ },
+ "outputs": {
+  "schema_inline": {
+   "type": "object",
+   "required": [
+    "n",
+    "supported",
+    "partial",
+    "unsupported"
+   ],
+   "properties": {
+    "n": {
+     "type": "integer"
+    },
+    "supported": {
+     "type": "integer"
+    },
+    "partial": {
+     "type": "integer"
+    },
+    "unsupported": {
+     "type": "integer"
+    }
+   }
+  }
+ },
+ "memory": {
+  "root_param": null,
+  "read": [],
+  "write": [],
+  "append_only": [],
+  "immutable": []
+ },
+ "execution": {
+  "contract": "skill.md",
+  "steps": [
+   "LOAD_STORE",
+   "VERIFY_EACH",
+   "REPORT"
+  ],
+  "runtime": {
+   "type": "python",
+   "entrypoint": "aios_core.runtime.drivers.library_drivers:run_critic"
+  }
+ },
+ "dependencies": [
+  {
+   "id": "evidence_validation",
+   "version": ">=1.0.0 <2.0.0",
+   "optional": true
+  }
+ ],
+ "evaluation": {
+  "contract": "skill.md",
+  "must": []
+ }
+}

@@ -1,0 +1,89 @@
+{
+ "id": "recursive_planner",
+ "name": "Recursive Planner",
+ "version": "1.0.0",
+ "description": "File-persistent recursive planning loop: load memory, retrieve, execute ONE atomic task, validate, compress, update state, repeat until convergence.",
+ "purpose": "Long tasks fail via context drift, history bloat, and non-resumability; this makes files the only memory and one atomic task the only unit of work.",
+ "tags": [
+  "planning",
+  "loop",
+  "memory",
+  "flagship"
+ ],
+ "inputs": {
+  "schema": "input_schema.json"
+ },
+ "outputs": {
+  "schema": "output_schema.json"
+ },
+ "memory": {
+  "root_param": "memory_root",
+  "read": [
+   "state.md",
+   "plan.md",
+   "decisions.md",
+   "log.md",
+   "index/*",
+   "*.md",
+   "*.json"
+  ],
+  "write": [
+   "state.md",
+   "plan.md",
+   "index/*",
+   "*.md",
+   "*.json"
+  ],
+  "append_only": [
+   "log.md",
+   "decisions.md"
+  ],
+  "immutable": []
+ },
+ "execution": {
+  "contract": "execution_contract.md",
+  "steps": [
+   "LOAD MEMORY",
+   "RETRIEVE RELEVANT CONTEXT",
+   "SELECT NEXT ATOMIC TASK",
+   "EXECUTE",
+   "VALIDATE",
+   "COMPRESS MEMORY",
+   "UPDATE STATE",
+   "DECIDE CONTINUATION"
+  ],
+  "runtime": {
+   "type": "python",
+   "entrypoint": "aios_core.runtime.drivers.recursive_planner_driver:run"
+  }
+ },
+ "dependencies": [
+  {
+   "id": "retrieve_context",
+   "version": ">=1.0.0 <2.0.0",
+   "optional": true
+  },
+  {
+   "id": "memory_compression",
+   "version": ">=1.0.0 <2.0.0",
+   "optional": true
+  },
+  {
+   "id": "evaluator",
+   "version": ">=1.0.0 <2.0.0",
+   "optional": true
+  }
+ ],
+ "evaluation": {
+  "contract": "evaluation.md",
+  "must": [
+   "M1",
+   "M2",
+   "M3",
+   "M4",
+   "M5",
+   "M6",
+   "M7"
+  ]
+ }
+}

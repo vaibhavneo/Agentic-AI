@@ -1,0 +1,81 @@
+{
+ "id": "book_ingestion",
+ "name": "Book Ingestion",
+ "version": "1.1.0",
+ "description": "Corpus to chunked retrievable index (paragraph-boundary chunking, JSON index).",
+ "purpose": "Raw files are not memory \u2014 knowledge is unusable until chunked and indexed for retrieval.",
+ "tags": [
+  "ingest",
+  "rag"
+ ],
+ "inputs": {
+  "schema_inline": {
+   "type": "object",
+   "required": [],
+   "properties": {
+    "source_dir": {
+     "type": "string"
+    },
+    "extensions": {
+     "type": "array",
+     "items": {
+      "type": "string"
+     }
+    },
+    "index_path": {
+     "type": "string"
+    },
+    "corpus_id": {
+     "type": "string"
+    }
+   },
+   "additionalProperties": false
+  }
+ },
+ "outputs": {
+  "schema_inline": {
+   "type": "object",
+   "required": [
+    "files",
+    "chunks",
+    "index_path"
+   ],
+   "properties": {
+    "files": {
+     "type": "integer"
+    },
+    "chunks": {
+     "type": "integer"
+    },
+    "index_path": {
+     "type": "string"
+    }
+   }
+  }
+ },
+ "memory": {
+  "root_param": null,
+  "read": [],
+  "write": [],
+  "append_only": [],
+  "immutable": []
+ },
+ "execution": {
+  "contract": "skill.md",
+  "steps": [
+   "WALK",
+   "READ",
+   "CHUNK",
+   "WRITE_INDEX"
+  ],
+  "runtime": {
+   "type": "python",
+   "entrypoint": "aios_core.runtime.drivers.library_drivers:run_ingest"
+  }
+ },
+ "dependencies": [],
+ "evaluation": {
+  "contract": "skill.md",
+  "must": []
+ }
+}

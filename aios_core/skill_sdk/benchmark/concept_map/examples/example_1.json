@@ -1,0 +1,4 @@
+{"description": "verified-only sub-graph of the live store",
+ "inputs": {"min_confidence": 0.6},
+ "expected_output": null,
+ "notes": "live-store example: exact values drift with the store; tests assert the INVARIANTS (no dangling edges, n==len(nodes)) rather than frozen values"}

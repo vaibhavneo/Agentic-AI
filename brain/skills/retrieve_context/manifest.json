@@ -1,0 +1,106 @@
+{
+ "id": "retrieve_context",
+ "name": "Retrieve Context",
+ "version": "2.0.0",
+ "description": "Bounded cited retrieval through the Retrieval Gateway \u2014 corpus-scoped, provenance-carrying, empty on no-signal.",
+ "purpose": "Replace 'recall from priors' with 'retrieve from evidence' so claims are groundable and bounded.",
+ "tags": [
+  "rag",
+  "retrieval"
+ ],
+ "inputs": {
+  "schema_inline": {
+   "type": "object",
+   "required": [
+    "query"
+   ],
+   "additionalProperties": false,
+   "properties": {
+    "query": {
+     "type": "string",
+     "minLength": 3
+    },
+    "mission_id": {
+     "type": "string"
+    },
+    "corpora": {
+     "type": "array",
+     "items": {
+      "type": "string"
+     }
+    },
+    "cross_corpus": {
+     "type": "boolean"
+    },
+    "top_k": {
+     "type": "integer",
+     "minimum": 1,
+     "maximum": 5,
+     "default": 5
+    }
+   }
+  }
+ },
+ "outputs": {
+  "schema_inline": {
+   "type": "object",
+   "required": [
+    "hits",
+    "n",
+    "scope",
+    "widened",
+    "confidence"
+   ],
+   "properties": {
+    "n": {
+     "type": "integer"
+    },
+    "hits": {
+     "type": "array"
+    },
+    "scope": {
+     "type": "array"
+    },
+    "scope_kind": {
+     "type": "string"
+    },
+    "widened": {
+     "type": "boolean"
+    },
+    "confidence": {
+     "type": "number"
+    }
+   }
+  }
+ },
+ "memory": {
+  "root_param": null,
+  "read": [],
+  "write": [],
+  "append_only": [],
+  "immutable": []
+ },
+ "execution": {
+  "contract": "skill.md",
+  "steps": [
+   "TOKENIZE",
+   "SCORE",
+   "RANK"
+  ],
+  "runtime": {
+   "type": "python",
+   "entrypoint": "aios_core.runtime.drivers.library_drivers:run_retrieve"
+  }
+ },
+ "dependencies": [
+  {
+   "id": "book_ingestion",
+   "version": ">=1.0.0 <2.0.0",
+   "optional": false
+  }
+ ],
+ "evaluation": {
+  "contract": "skill.md",
+  "must": []
+ }
+}

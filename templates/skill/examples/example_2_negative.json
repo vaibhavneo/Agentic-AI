@@ -1,0 +1,7 @@
+{
+  "description": "__negative control: adversarial/empty input__",
+  "inputs": {"__field__": "zzqxv nonsense"},
+  "expected_output": null,
+  "expected_failure": "EXECUTION_ERROR | honest-empty (choose per execution_contract.md)",
+  "notes": "__every skill ships ≥1 negative example (LESSONS best practice)__"
+}

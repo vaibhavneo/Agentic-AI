@@ -1,0 +1,94 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "teacher lesson",
+  "type": "object",
+  "required": ["topic", "mode", "adaptation", "explanation", "source_evidence",
+               "exercise", "mastery_check", "recommended_next_action",
+               "concept_candidate", "provenance_grounded"],
+  "additionalProperties": false,
+  "properties": {
+    "topic": {"type": "string"},
+    "mode": {"type": "string"},
+    "adaptation": {
+      "type": "object",
+      "required": ["level", "rationale", "mastery_known", "prerequisite_gaps"],
+      "additionalProperties": false,
+      "description": "How instruction was tuned to the learner — deterministic, computed from mastery + prerequisites, never model-authored.",
+      "properties": {
+        "level": {"enum": ["introduce", "reinforce", "advance"]},
+        "rationale": {"type": "string"},
+        "mastery_known": {"type": "boolean", "description": "false ⇒ no mastery signal; level defaults to introduce and no mastery is claimed."},
+        "prerequisite_gaps": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["concept", "reason"],
+            "additionalProperties": false,
+            "properties": {
+              "concept": {"type": "string"},
+              "confidence": {"description": "0-1, or null when the prerequisite is unlearned"},
+              "reason": {"type": "string"}
+            }
+          }
+        }
+      }
+    },
+    "explanation": {"type": "string", "minLength": 1, "description": "The teaching text (adapter-authored)."},
+    "source_evidence": {
+      "type": "array",
+      "description": "Provenance for the lesson — attached DETERMINISTICALLY from the retrieval gateway, not from the adapter.",
+      "items": {
+        "type": "object",
+        "required": ["corpus", "source", "excerpt"],
+        "additionalProperties": false,
+        "properties": {
+          "corpus": {"type": "array", "items": {"type": "string"}, "description": "All corpus provenances the gateway kept for this chunk."},
+          "source": {"type": "string"},
+          "excerpt": {"type": "string"}
+        }
+      }
+    },
+    "exercise": {
+      "type": "object",
+      "required": ["prompt", "kind"],
+      "additionalProperties": false,
+      "properties": {
+        "prompt": {"type": "string"},
+        "kind": {"enum": ["recall", "apply", "compare", "build"]}
+      }
+    },
+    "mastery_check": {
+      "type": "object",
+      "required": ["question", "expected_signal"],
+      "additionalProperties": false,
+      "description": "A check to ASSESS mastery — never an assertion that the learner has it.",
+      "properties": {
+        "question": {"type": "string"},
+        "expected_signal": {"type": "string"}
+      }
+    },
+    "recommended_next_action": {
+      "type": "object",
+      "required": ["action", "trigger", "evidence"],
+      "additionalProperties": false,
+      "properties": {
+        "action": {"type": "string"},
+        "trigger": {"enum": ["prerequisite-gap", "reinforce", "ready-to-advance"]},
+        "evidence": {"type": "string"}
+      }
+    },
+    "concept_candidate": {
+      "type": "object",
+      "required": ["name", "principle", "when_to_use", "sources"],
+      "additionalProperties": false,
+      "description": "Upsertable into concepts.json by a DOWNSTREAM step (concept_store.upsert → evidence_validation); sources come from the retrieval gateway.",
+      "properties": {
+        "name": {"type": "string"},
+        "principle": {"type": "string"},
+        "when_to_use": {"type": "string"},
+        "sources": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "provenance_grounded": {"type": "boolean", "description": "true iff at least one source-evidence chunk backs the lesson."}
+  }
+}

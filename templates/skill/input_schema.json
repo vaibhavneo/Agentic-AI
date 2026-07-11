@@ -1,0 +1,10 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "__SKILL_ID__ inputs",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [],
+  "properties": {
+    "__field__": {"type": "string", "description": "__meaning; defaults injected by validator__"}
+  }
+}

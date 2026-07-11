@@ -1,0 +1,13 @@
+{
+ "id": "build-ai-stock-analysis-platform",
+ "title": "Build AI Stock Analysis Platform",
+ "type": "build",
+ "goal": "Grounded BUY/SELL/HOLD where every number is formula-computed and tracked",
+ "corpora": [
+  "finance",
+  "curated-wiki"
+ ],
+ "cross_corpus": true,
+ "status": "active",
+ "created": "2026-07-05"
+}

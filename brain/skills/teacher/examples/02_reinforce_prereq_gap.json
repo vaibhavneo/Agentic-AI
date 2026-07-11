@@ -1,0 +1,18 @@
+{
+  "description": "adaptive path: a below-floor prerequisite forces level=reinforce and a prerequisite-gap next action",
+  "inputs": {
+    "topic": "multi-agent coordination topologies",
+    "mode": "explain",
+    "corpora": ["curated-wiki"],
+    "mastery": {
+      "concept": "MAS Coordination",
+      "confidence": 0.55,
+      "prerequisites": [{"concept": "Pattern Decomposition", "confidence": 0.3}]
+    }
+  },
+  "expected_output": {
+    "adaptation": {"level": "reinforce"},
+    "recommended_next_action": {"trigger": "prerequisite-gap"}
+  },
+  "notes": "confidence 0.55 alone would be reinforce; the sub-floor prerequisite is named in adaptation.prerequisite_gaps and drives the next action."
+}

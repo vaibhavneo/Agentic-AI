@@ -1,0 +1,79 @@
+{
+ "id": "hypothesis_generation",
+ "name": "Hypothesis Generation",
+ "version": "1.0.0",
+ "description": "Falsifiable proposals with kill tests (generative \u2014 requires agent adapter).",
+ "purpose": "Untestable guesses waste cycles; hypotheses are only useful if they name their own disproof.",
+ "tags": [
+  "reasoning"
+ ],
+ "inputs": {
+  "schema_inline": {
+   "type": "object",
+   "required": [
+    "observations"
+   ],
+   "properties": {
+    "observations": {
+     "type": "string"
+    }
+   },
+   "additionalProperties": false
+  }
+ },
+ "outputs": {
+  "schema_inline": {
+   "type": "object",
+   "required": [
+    "hypotheses"
+   ],
+   "properties": {
+    "hypotheses": {
+     "type": "array",
+     "minItems": 1,
+     "items": {
+      "type": "object",
+      "required": [
+       "statement",
+       "kill_test"
+      ],
+      "properties": {
+       "statement": {
+        "type": "string"
+       },
+       "mechanism": {
+        "type": "string"
+       },
+       "kill_test": {
+        "type": "string"
+       }
+      }
+     }
+    }
+   }
+  }
+ },
+ "memory": {
+  "root_param": null,
+  "read": [],
+  "write": [],
+  "append_only": [],
+  "immutable": []
+ },
+ "execution": {
+  "contract": "skill.md",
+  "steps": [
+   "OBSERVE",
+   "PROPOSE_RIVALS",
+   "ATTACH_KILL_TESTS"
+  ],
+  "runtime": {
+   "type": "agent"
+  }
+ },
+ "dependencies": [],
+ "evaluation": {
+  "contract": "skill.md",
+  "must": []
+ }
+}

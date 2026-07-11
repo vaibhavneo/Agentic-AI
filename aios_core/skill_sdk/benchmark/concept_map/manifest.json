@@ -1,0 +1,19 @@
+{
+ "id": "concept_map",
+ "name": "Concept Map (SDK benchmark recreation)",
+ "version": "1.0.0",
+ "description": "Build the concept sub-graph (nodes + typed edges) from the verified concept store, optionally filtered.",
+ "purpose": "Turn the flat verified concept store into a navigable graph so a domain's mental models and their relationships can be explored, not just listed.",
+ "tags": ["knowledge", "graph", "benchmark-recreation"],
+ "inputs": {"schema": "input_schema.json"},
+ "outputs": {"schema": "output_schema.json"},
+ "memory": {"root_param": null, "read": [], "write": [], "append_only": [], "immutable": []},
+ "execution": {
+  "contract": "execution_contract.md",
+  "steps": ["LOAD_STORE", "FILTER", "BUILD_GRAPH"],
+  "retries": 0,
+  "runtime": {"type": "python", "entrypoint": "aios_core.skill_sdk.benchmark.concept_map.driver:run"}
+ },
+ "dependencies": [],
+ "evaluation": {"contract": "evaluation_contract.md", "must": ["E1", "E2", "E3"]}
+}

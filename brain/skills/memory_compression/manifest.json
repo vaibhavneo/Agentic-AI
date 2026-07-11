@@ -1,0 +1,73 @@
+{
+ "id": "memory_compression",
+ "name": "Memory Compression",
+ "version": "1.0.0",
+ "description": "M6 compliance audit over a memory root: file size bounds, one-line log entries, separation of concerns.",
+ "purpose": "Unbounded memory files stop being readable in one pass, silently breaking the notebook-first architecture.",
+ "tags": [
+  "memory"
+ ],
+ "inputs": {
+  "schema_inline": {
+   "type": "object",
+   "required": [
+    "memory_root"
+   ],
+   "properties": {
+    "memory_root": {
+     "type": "string"
+    },
+    "max_lines": {
+     "type": "integer",
+     "default": 200
+    }
+   },
+   "additionalProperties": false
+  }
+ },
+ "outputs": {
+  "schema_inline": {
+   "type": "object",
+   "required": [
+    "compliant",
+    "issues"
+   ],
+   "properties": {
+    "compliant": {
+     "type": "boolean"
+    },
+    "issues": {
+     "type": "array"
+    }
+   }
+  }
+ },
+ "memory": {
+  "root_param": "memory_root",
+  "read": [
+   "*"
+  ],
+  "write": [],
+  "append_only": [],
+  "immutable": [
+   "*"
+  ]
+ },
+ "execution": {
+  "contract": "skill.md",
+  "steps": [
+   "SCAN",
+   "MEASURE",
+   "REPORT"
+  ],
+  "runtime": {
+   "type": "python",
+   "entrypoint": "aios_core.runtime.drivers.library_drivers:run_compression_audit"
+  }
+ },
+ "dependencies": [],
+ "evaluation": {
+  "contract": "skill.md",
+  "must": []
+ }
+}

@@ -1,0 +1,6 @@
+{
+  "description": "__happy path: what a normal call looks like__",
+  "inputs": {"__field__": "__value__"},
+  "expected_output": {"__result_field__": "__value__"},
+  "notes": "__why this example is representative; examples are executable documentation — tests/test_skill.py MUST replay every file in examples/__"
+}

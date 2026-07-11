@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "recursive_planner cycle result",
+  "type": "object",
+  "required": ["cycle", "status", "atomic_task", "artifacts", "memory_updates", "validation"],
+  "additionalProperties": false,
+  "properties": {
+    "cycle": { "type": "integer", "minimum": 1 },
+    "status": { "enum": ["CONTINUE", "STABLE", "BLOCKED", "ABORTED"] },
+    "atomic_task": {
+      "type": "object",
+      "required": ["id", "description"],
+      "properties": {
+        "id": { "type": "string", "description": "Plan item id, e.g. '2.1'" },
+        "description": { "type": "string" }
+      }
+    },
+    "artifacts": {
+      "type": "array",
+      "items": { "type": "string", "description": "File path created or modified" }
+    },
+    "memory_updates": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string", "description": "Memory file path updated this cycle" }
+    },
+    "validation": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["check", "passed"],
+        "properties": {
+          "check": { "type": "string" },
+          "passed": { "type": "boolean" },
+          "evidence": { "type": "string" }
+        }
+      }
+    },
+    "blocked_on": {
+      "type": "string",
+      "description": "Required iff status=BLOCKED: the exact input needed from the requester."
+    },
+    "criteria_state": {
+      "type": "object",
+      "additionalProperties": { "type": "boolean" },
+      "description": "stability_criteria id → pass/fail as of this cycle."
+    }
+  }
+}

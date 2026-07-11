@@ -1,0 +1,37 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "vedic-astro",
+      "runtimeExecutable": "/usr/bin/python3",
+      "runtimeArgs": ["web/app.py"],
+      "cwd": "/Users/vaibhavgupta/Desktop/Agentic AI/vedic_astro",
+      "port": 5050,
+      "autoPort": false
+    },
+    {
+      "name": "brain-console",
+      "runtimeExecutable": "/usr/bin/python3",
+      "runtimeArgs": ["console/app.py"],
+      "cwd": "/Users/vaibhavgupta/Desktop/Agentic AI/brain",
+      "port": 5052,
+      "autoPort": false
+    },
+    {
+      "name": "stock-agent",
+      "runtimeExecutable": "/usr/bin/python3",
+      "runtimeArgs": ["web/app.py"],
+      "cwd": "/Users/vaibhavgupta/Desktop/Agentic AI/stock_agent",
+      "port": 5051,
+      "autoPort": false
+    },
+    {
+      "name": "learn-agent",
+      "runtimeExecutable": "/usr/bin/python3",
+      "runtimeArgs": ["server.py"],
+      "cwd": "/Users/vaibhavgupta/Desktop/Agentic AI/learn_agent",
+      "port": 8003,
+      "autoPort": false
+    }
+  ]
+}

@@ -1,0 +1,401 @@
+{
+ "concepts": {
+  "Pattern Decomposition (Gullí)": {
+   "name": "Pattern Decomposition (Gullí)",
+   "principle": "Any agent behavior decomposes into a small catalog of reusable patterns (ReAct, reflection, planning, routing, multi-agent coordination) — build from the catalog, don't invent bespoke loops.",
+   "when_to_use": "Designing any new agent: first ask \"which of the 21 patterns is this?\", only write custom orchestration when none fits.",
+   "sources": [
+    {
+     "corpus": "curated-wiki",
+     "source": "agentic-ai/agentic-design-patterns.md"
+    }
+   ],
+   "confidence": 1.0,
+   "verification": {
+    "status": "supported",
+    "evidence": [
+     {
+      "source": "agentic-ai/agentic-design-patterns.md",
+      "score": 1.0851
+     },
+     {
+      "source": "nlp/nlp-with-transformers.md",
+      "score": 0.621
+     },
+     {
+      "source": "agentic-ai/agentic-design-patterns.md",
+      "score": 0.5249
+     }
+    ],
+    "flags": []
+   },
+   "relationships": [
+    {
+     "to": "Framework-Last Selection",
+     "type": "complements"
+    }
+   ],
+   "created": "2026-07-04",
+   "updated": "2026-07-04"
+  },
+  "RAG Maturity Ladder": {
+   "name": "RAG Maturity Ladder",
+   "principle": "RAG is not one technique but a ladder — naive keyword → vector search → modular retrieval components → GraphRAG/MAS-RAG — and each rung has a cost; climb only when the current rung measurably fails.",
+   "when_to_use": "Whenever retrieval quality is questioned: identify the current rung and the specific failure before upgrading (e.g., TF-IDF → embeddings only if keyword recall is the proven bottleneck).",
+   "sources": [
+    {
+     "corpus": "curated-wiki",
+     "source": "generative-ai/rag-driven-generative-ai.md"
+    }
+   ],
+   "confidence": 1.0,
+   "verification": {
+    "status": "supported",
+    "evidence": [
+     {
+      "source": "generative-ai/rag-driven-generative-ai.md",
+      "score": 1.7712
+     },
+     {
+      "source": "generative-ai/rag-driven-generative-ai.md",
+      "score": 0.9369
+     },
+     {
+      "source": "nlp/natural-language-processing-in-action.md",
+      "score": 0.7477
+     }
+    ],
+    "flags": []
+   },
+   "relationships": [
+    {
+     "to": "Evaluator as First-Class Role",
+     "type": "depends-on"
+    }
+   ],
+   "created": "2026-07-04",
+   "updated": "2026-07-10"
+  },
+  "Memory ≠ One Thing": {
+   "name": "Memory ≠ One Thing",
+   "principle": "Agent memory splits into distinct types (short-term/context, long-term episodic, semantic, shared blackboard) with different write policies — conflating them causes both context bloat and forgetting.",
+   "when_to_use": "When an agent \"forgets\" or its context overflows: diagnose which memory type is missing/overloaded rather than just enlarging the prompt.",
+   "sources": [
+    {
+     "corpus": "curated-wiki",
+     "source": "agentic-ai/illustrated-guide-to-ai-agents.md"
+    }
+   ],
+   "confidence": 1.0,
+   "verification": {
+    "status": "supported",
+    "evidence": [
+     {
+      "source": "agentic-ai/illustrated-guide-to-ai-agents.md",
+      "score": 0.9748
+     },
+     {
+      "source": "agentic-ai/illustrated-guide-to-ai-agents.md",
+      "score": 0.5606
+     },
+     {
+      "source": "agentic-ai/illustrated-guide-to-ai-agents.md",
+      "score": 0.4993
+     }
+    ],
+    "flags": []
+   },
+   "relationships": [
+    {
+     "to": "Context Engineering Over Prompt Tweaking",
+     "type": "complements"
+    }
+   ],
+   "created": "2026-07-04",
+   "updated": "2026-07-04"
+  },
+  "Context Engineering Over Prompt Tweaking": {
+   "name": "Context Engineering Over Prompt Tweaking",
+   "principle": "What's *inside* the context window (selection, compression, structure — context-as-specification) determines output quality more than wording tricks; optimize the payload, not the phrasing.",
+   "when_to_use": "Before rewording any underperforming prompt: audit what facts the model actually receives (the Jyoti lordship bug — hallucination from missing data, not bad wording — is the canonical local example).",
+   "sources": [
+    {
+     "corpus": "curated-wiki",
+     "source": "agentic-ai/illustrated-guide-to-ai-agents.md"
+    },
+    {
+     "corpus": "curated-wiki",
+     "source": "generative-ai/prompt-engineering-for-llms.md"
+    }
+   ],
+   "confidence": 1.0,
+   "verification": {
+    "status": "supported",
+    "evidence": [
+     {
+      "source": "agentic-ai/illustrated-guide-to-ai-agents.md",
+      "score": 0.9801
+     },
+     {
+      "source": "agentic-ai/illustrated-guide-to-ai-agents.md",
+      "score": 0.749
+     },
+     {
+      "source": "agentic-ai/ai-engineering.md",
+      "score": 0.3507
+     }
+    ],
+    "flags": []
+   },
+   "relationships": [
+    {
+     "to": "Grounding Beats Generation",
+     "type": "complements"
+    }
+   ],
+   "created": "2026-07-04",
+   "updated": "2026-07-04"
+  },
+  "Document-Completion Frame (Berryman)": {
+   "name": "Document-Completion Frame (Berryman)",
+   "principle": "An LLM is a document completer seeing tokens, not letters or intent — hallucinations, repetition traps, and format drift are all consequences; design prompts as documents whose most-likely continuation is the answer you want.",
+   "when_to_use": "Debugging any weird LLM output (markdown fences, truncation, made-up fields): ask \"what document does the model think it's completing?\"",
+   "sources": [
+    {
+     "corpus": "curated-wiki",
+     "source": "generative-ai/prompt-engineering-for-llms.md"
+    }
+   ],
+   "confidence": 1.0,
+   "verification": {
+    "status": "supported",
+    "evidence": [
+     {
+      "source": "generative-ai/prompt-engineering-for-llms.md",
+      "score": 0.3568
+     },
+     {
+      "source": "generative-ai/prompt-engineering-for-llms.md",
+      "score": 0.2242
+     },
+     {
+      "source": "agentic-ai/illustrated-guide-to-ai-agents.md",
+      "score": 0.2097
+     }
+    ],
+    "flags": []
+   },
+   "relationships": [
+    {
+     "to": "Context Engineering Over Prompt Tweaking",
+     "type": "explains"
+    }
+   ],
+   "created": "2026-07-04",
+   "updated": "2026-07-04"
+  },
+  "Tool Lifecycle Discipline": {
+   "name": "Tool Lifecycle Discipline",
+   "principle": "Tools follow a lifecycle — create → define (schema) → select → call → process output — and most tool failures are at the *definition* and *output-processing* ends, not the call itself.",
+   "when_to_use": "When an agent misuses tools: tighten schemas/descriptions and post-process outputs before touching the agent's reasoning loop.",
+   "sources": [
+    {
+     "corpus": "curated-wiki",
+     "source": "agentic-ai/illustrated-guide-to-ai-agents.md"
+    },
+    {
+     "corpus": "curated-wiki",
+     "source": "agentic-ai/agentic-design-patterns.md"
+    }
+   ],
+   "confidence": 1.0,
+   "verification": {
+    "status": "supported",
+    "evidence": [
+     {
+      "source": "agentic-ai/illustrated-guide-to-ai-agents.md",
+      "score": 0.6704
+     },
+     {
+      "source": "agentic-ai/illustrated-guide-to-ai-agents.md",
+      "score": 0.3765
+     },
+     {
+      "source": "nlp/mastering-nlp-from-foundations-to-llms.md",
+      "score": 0.3432
+     }
+    ],
+    "flags": []
+   },
+   "relationships": [
+    {
+     "to": "Pattern Decomposition (Gullí)",
+     "type": "instance-of"
+    }
+   ],
+   "created": "2026-07-04",
+   "updated": "2026-07-04"
+  },
+  "Escalating Autonomy (L0→L5)": {
+   "name": "Escalating Autonomy (L0→L5)",
+   "principle": "Agent autonomy is a graded ladder (chatbot → tool-user → planner → multi-agent → self-improving); each level adds failure modes, so grant the *lowest* level that achieves the task.",
+   "when_to_use": "Scoping any new agent: pick the level deliberately, and require evidence (eval results) before promoting a system up a level.",
+   "sources": [
+    {
+     "corpus": "curated-wiki",
+     "source": "agentic-ai/ai-agents-and-applications.md"
+    },
+    {
+     "corpus": "workspace",
+     "source": "reference_30_agents_catalog (persistent memory)"
+    }
+   ],
+   "confidence": 1.0,
+   "verification": {
+    "status": "supported",
+    "evidence": [
+     {
+      "source": "nlp/nlp-with-transformers.md",
+      "score": 0.621
+     },
+     {
+      "source": "agentic-ai/illustrated-guide-to-ai-agents.md",
+      "score": 0.3451
+     },
+     {
+      "source": "agentic-ai/ai-agents-and-applications.md",
+      "score": 0.3144
+     }
+    ],
+    "flags": [
+     "non-index provenance (cannot verify by retrieval): workspace:reference_30_agents_catalog (persistent memory)"
+    ]
+   },
+   "relationships": [
+    {
+     "to": "Evaluator as First-Class Role",
+     "type": "depends-on"
+    }
+   ],
+   "created": "2026-07-04",
+   "updated": "2026-07-04"
+  },
+  "Grounding Beats Generation": {
+   "name": "Grounding Beats Generation",
+   "principle": "Never let an LLM invent numbers or facts a deterministic computation can supply — compute the fact, hand it to the model as ground truth, and instruct it to cite, not derive.",
+   "when_to_use": "Any pipeline where LLM output includes verifiable claims (prices, placements, dates): add a computed-facts block first (stock_agent grounding + vedic house-lords table are the local proofs).",
+   "sources": [
+    {
+     "corpus": "curated-wiki",
+     "source": "agentic-ai/ai-engineering.md"
+    },
+    {
+     "corpus": "workspace",
+     "source": "workspace-validation (stock_agent grounding, vedic house-lords)"
+    }
+   ],
+   "confidence": 0.28,
+   "verification": {
+    "status": "unsupported",
+    "evidence": [
+     {
+      "source": "generative-ai/prompt-engineering-for-llms.md",
+      "score": 0.1973
+     },
+     {
+      "source": "nlp/mastering-nlp-from-foundations-to-llms.md",
+      "score": 0.1595
+     },
+     {
+      "source": "agentic-ai/illustrated-guide-to-ai-agents.md",
+      "score": 0.1506
+     }
+    ],
+    "flags": [
+     "claimed source not in top-5 evidence: curated-wiki:agentic-ai/ai-engineering.md",
+     "non-index provenance (cannot verify by retrieval): workspace:workspace-validation (stock_agent grounding, vedic house-lords)"
+    ]
+   },
+   "relationships": [
+    {
+     "to": "Evaluator as First-Class Role",
+     "type": "complements"
+    }
+   ],
+   "created": "2026-07-04",
+   "updated": "2026-07-04"
+  },
+  "Evaluator as First-Class Role": {
+   "name": "Evaluator as First-Class Role",
+   "principle": "A generation system has four roles — Retriever, Generator, Evaluator, Trainer — and skipping the Evaluator means quality claims are anecdotes; build the eval before trusting the output.",
+   "when_to_use": "Before shipping any LLM feature: define the ground-truth check first (the 12-ascendant lordship eval and backtest leak-test pattern).",
+   "sources": [
+    {
+     "corpus": "curated-wiki",
+     "source": "generative-ai/rag-driven-generative-ai.md"
+    }
+   ],
+   "confidence": 1.0,
+   "verification": {
+    "status": "supported",
+    "evidence": [
+     {
+      "source": "generative-ai/rag-driven-generative-ai.md",
+      "score": 0.3924
+     },
+     {
+      "source": "math/practical-statistics-for-data-scientists.md",
+      "score": 0.1554
+     },
+     {
+      "source": "llms/hundred-page-language-models-book.md",
+      "score": 0.1546
+     }
+    ],
+    "flags": []
+   },
+   "relationships": [],
+   "created": "2026-07-04",
+   "updated": "2026-07-04"
+  },
+  "Framework-Last Selection": {
+   "name": "Framework-Last Selection",
+   "principle": "Choose orchestration frameworks (LangGraph, CrewAI, AutoGen, raw SDK) by the coordination topology the task needs — not by popularity; simple sequential/parallel flows rarely justify a framework at all.",
+   "when_to_use": "At project start: sketch the agent topology on paper first; adopt a framework only when the topology (cycles, handoffs, shared state) demands it.",
+   "sources": [
+    {
+     "corpus": "curated-wiki",
+     "source": "agentic-ai/ai-agents-and-applications.md"
+    },
+    {
+     "corpus": "workspace",
+     "source": "reference_agent_protocols_frameworks (persistent memory)"
+    }
+   ],
+   "confidence": 0.81,
+   "verification": {
+    "status": "supported",
+    "evidence": [
+     {
+      "source": "agentic-ai/ai-agents-and-applications.md",
+      "score": 0.2154
+     },
+     {
+      "source": "nlp/nlp-with-transformers.md",
+      "score": 0.1998
+     },
+     {
+      "source": "machine-learning/elements-of-statistical-learning.md",
+      "score": 0.1803
+     }
+    ],
+    "flags": [
+     "non-index provenance (cannot verify by retrieval): workspace:reference_agent_protocols_frameworks (persistent memory)"
+    ]
+   },
+   "relationships": [],
+   "created": "2026-07-04",
+   "updated": "2026-07-04"
+  }
+ }
+}

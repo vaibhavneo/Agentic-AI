@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>AI Brain — Operator Console</title>
+<style>
+  :root { --bg:#0d1117; --card:#161b22; --border:#30363d; --text:#e6edf3;
+          --muted:#8b949e; --accent:#58a6ff; --green:#3fb950; --red:#f85149; --yellow:#d29922; }
+  * { box-sizing:border-box; margin:0; }
+  body { background:var(--bg); color:var(--text); font:14px/1.5 -apple-system,Segoe UI,sans-serif; padding:20px; }
+  h1 { font-size:18px; margin-bottom:4px; }
+  .sub { color:var(--muted); font-size:12px; margin-bottom:18px; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(420px,1fr)); gap:14px; }
+  .card { background:var(--card); border:1px solid var(--border); border-radius:8px; padding:14px; }
+  .card h2 { font-size:13px; text-transform:uppercase; letter-spacing:1px; color:var(--accent); margin-bottom:10px; }
+  .kv { display:flex; justify-content:space-between; padding:3px 0; border-bottom:1px solid rgba(255,255,255,.04); font-size:13px; }
+  .kv span:first-child { color:var(--muted); }
+  .ok { color:var(--green); } .bad { color:var(--red); } .warn { color:var(--yellow); }
+  input,textarea,select { width:100%; background:#0d1117; color:var(--text); border:1px solid var(--border);
+    border-radius:6px; padding:7px; font-size:13px; margin-bottom:6px; font-family:inherit; }
+  textarea { font-family:ui-monospace,monospace; font-size:12px; }
+  button { background:var(--accent); color:#0d1117; border:0; border-radius:6px; padding:7px 14px;
+    font-weight:700; cursor:pointer; font-size:13px; }
+  button:disabled { opacity:.5; cursor:default; }
+  button.ghost { background:transparent; color:var(--accent); border:1px solid var(--border); }
+  pre { background:#0d1117; border:1px solid var(--border); border-radius:6px; padding:10px;
+    font-size:11.5px; overflow:auto; max-height:280px; white-space:pre-wrap; }
+  .chunk { border-left:3px solid var(--accent); padding:6px 10px; margin:8px 0; background:#0d1117;
+    border-radius:0 6px 6px 0; font-size:12px; }
+  .chunk .src { color:var(--muted); font-size:11px; }
+  table { width:100%; border-collapse:collapse; font-size:11.5px; }
+  th { color:var(--muted); text-align:left; padding:4px 6px; border-bottom:1px solid var(--border);
+    font-size:10px; text-transform:uppercase; }
+  td { padding:4px 6px; border-bottom:1px solid rgba(255,255,255,.04); }
+  .row { display:flex; gap:8px; align-items:center; margin-bottom:6px; }
+  .pill { font-size:10px; padding:2px 8px; border-radius:10px; font-weight:700; }
+  .pill.STABLE,.pill.true { background:rgba(63,185,80,.15); color:var(--green); }
+  .pill.CONTINUE { background:rgba(210,153,34,.15); color:var(--yellow); }
+  .pill.ABORTED,.pill.false,.pill.BLOCKED { background:rgba(248,81,73,.15); color:var(--red); }
+  #memContent { max-height:340px; }
+</style>
+</head>
+<body>
+<h1>🧠 AI Brain — Operator Console</h1>
+<div class="sub">Observability over the Skill Runtime · port 5052 · read-heavy, backend-thin</div>
+
+<div class="grid">
+
+  <div class="card"><h2>System Health</h2><div id="health">loading…</div>
+    <div class="row" style="margin-top:8px"><button class="ghost" onclick="loadHealth()">Refresh</button></div>
+  </div>
+
+  <div class="card"><h2>Ingest Documents</h2>
+    <div class="row">
+      <input type="file" id="fileInput" accept=".md,.txt" style="margin:0">
+      <button onclick="upload()">Upload</button>
+    </div>
+    <div id="uploadStatus" class="sub"></div>
+    <div class="row">
+      <select id="ingestSource">
+        <option value="wiki">wiki/books (curated corpus)</option>
+        <option value="uploads">memory/uploads (my uploads)</option>
+      </select>
+      <button onclick="ingest()">Ingest</button>
+    </div>
+    <div id="ingestStatus"></div>
+  </div>
+
+  <div class="card"><h2>Search Knowledge</h2>
+    <div class="row"><input id="q" placeholder="e.g. agent memory types" onkeydown="if(event.key==='Enter')search()">
+      <button onclick="search()">Search</button></div>
+    <div id="results"></div>
+  </div>
+
+  <div class="card"><h2>Recursive Planner</h2>
+    <input id="goal" placeholder="Goal (falsifiable, observable end state)">
+    <textarea id="criteria" rows="3">[{"id":"demo","description":"state.md exists","check":"test -f state.md"}]</textarea>
+    <div class="row"><button id="runBtn" onclick="runPlanner()">Run</button>
+      <span id="plannerState" class="sub"></span></div>
+    <div id="plannerCycles"></div>
+  </div>
+
+  <div class="card"><h2>Memory Files</h2>
+    <div class="row"><select id="memSelect" onchange="loadMemFile()"></select></div>
+    <pre id="memContent">select a file…</pre>
+  </div>
+
+  <div class="card"><h2>Execution Log (metrics.jsonl, latest first)</h2>
+    <div id="logs">loading…</div>
+    <div class="row" style="margin-top:8px"><button class="ghost" onclick="loadLogs()">Refresh</button></div>
+  </div>
+
+  <div class="card"><h2>Artifacts</h2><div id="artifacts">loading…</div></div>
+
+  <div class="card"><h2>Validation Status</h2><div id="validation">loading…</div>
+    <div class="row" style="margin-top:8px"><button class="ghost" onclick="loadValidation()">Re-check</button></div>
+  </div>
+
+</div>
+
+<script>
+const j = (u, o) => fetch(u, o).then(r => r.json());
+const el = id => document.getElementById(id);
+const pill = v => `<span class="pill ${v}">${v}</span>`;
+
+async function loadHealth() {
+  const h = await j('/api/health');
+  const idx = h.index ? `${h.index.files} files / ${h.index.chunks} chunks` : '<span class="bad">no index</span>';
+  const con = h.concepts ? `${h.concepts.n} (${h.concepts.unverified_or_unsupported} flagged)` : '—';
+  const lm = h.last_metric ? `${h.last_metric.skill} · ${h.last_metric.ok ? 'ok' : h.last_metric.failure}` : '—';
+  el('health').innerHTML = [
+    ['Skills registered', h.skills_registered],
+    ['Chunk index', idx], ['Concepts', con],
+    ['Memory files', h.memory_files.length],
+    ['Planner', h.planner_running ? '<span class="warn">RUNNING</span>' : 'idle'],
+    ['Last execution', lm],
+  ].map(([k, v]) => `<div class="kv"><span>${k}</span><span>${v}</span></div>`).join('');
+}
+
+async function upload() {
+  const f = el('fileInput').files[0];
+  if (!f) return;
+  const fd = new FormData(); fd.append('file', f);
+  const r = await j('/api/upload', {method: 'POST', body: fd});
+  el('uploadStatus').textContent = r.error ? '✗ ' + r.error :
+    `✓ saved ${r.saved} (${r.uploads.length} file(s) in uploads)`;
+}
+
+async function ingest() {
+  el('ingestStatus').innerHTML = '<span class="sub">ingesting…</span>';
+  const r = await j('/api/ingest', {method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({source: el('ingestSource').value})});
+  el('ingestStatus').innerHTML = r.error ? `<span class="bad">✗ ${r.error}</span>` :
+    `<div class="kv"><span>Files</span><span>${r.files}</span></div>
+     <div class="kv"><span>Chunks</span><span>${r.chunks}</span></div>
+     <div class="kv"><span>Duration</span><span>${r.metrics.elapsed_ms} ms</span></div>
+     <div class="sub">${r.note}</div>`;
+  loadHealth();
+}
+
+async function search() {
+  const q = el('q').value.trim(); if (q.length < 3) return;
+  const r = await j('/api/search?q=' + encodeURIComponent(q));
+  el('results').innerHTML = r.error ? `<span class="bad">${r.error}</span>` :
+    (r.n === 0 ? '<span class="sub">no results (honest empty — no false positives)</span>' :
+     r.hits.map(h => `<div class="chunk"><div class="src">${h.source} · ${(h.corpus||[]).join('+')} · conf ${h.confidence}</div>
+       ${h.text.slice(0, 300).replace(/</g, '&lt;')}…</div>`).join(''));
+}
+
+let pollTimer = null;
+async function runPlanner() {
+  let criteria;
+  try { criteria = JSON.parse(el('criteria').value); }
+  catch { el('plannerState').innerHTML = '<span class="bad">criteria is not valid JSON</span>'; return; }
+  const r = await j('/api/planner/run', {method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({goal: el('goal').value, stability_criteria: criteria})});
+  if (r.error) { el('plannerState').innerHTML = `<span class="bad">${r.error}</span>`; return; }
+  el('runBtn').disabled = true;
+  el('plannerState').textContent = 'running…';
+  pollTimer = setInterval(pollPlanner, 800);
+}
+
+async function pollPlanner() {
+  const s = await j('/api/planner/status');
+  el('plannerCycles').innerHTML = '<table><tr><th>cycle</th><th>status</th><th>task</th><th>criteria</th></tr>' +
+    s.cycles.map(c => `<tr><td>${c.cycle}</td><td>${pill(c.status)}</td><td>${c.task}</td>
+      <td>${Object.entries(c.criteria).map(([k, v]) => `${k} ${pill(v)}`).join(' ')}</td></tr>`).join('') + '</table>';
+  if (!s.running && s.final_status) {
+    clearInterval(pollTimer); el('runBtn').disabled = false;
+    el('plannerState').innerHTML = 'finished: ' + pill(s.final_status);
+    loadLogs(); loadHealth(); loadMemList();
+  }
+}
+
+async function loadMemList() {
+  const m = await j('/api/memory');
+  el('memSelect').innerHTML = '<option value="">— select —</option>' +
+    m.files.map(f => `<option>${f}</option>`).join('');
+}
+async function loadMemFile() {
+  const n = el('memSelect').value; if (!n) return;
+  const r = await j('/api/memory/' + encodeURIComponent(n));
+  el('memContent').textContent = r.content || r.error;
+}
+
+async function loadLogs() {
+  const r = await j('/api/logs');
+  el('logs').innerHTML = '<table><tr><th>ts</th><th>skill</th><th>ok</th><th>ms</th><th>retries</th><th>mem Δ</th></tr>' +
+    r.metrics.slice(0, 12).map(m => `<tr><td>${m.ts.slice(5, 16)}</td><td>${m.skill}</td>
+      <td>${m.ok ? '<span class="ok">✓</span>' : `<span class="bad">${m.failure}</span>`}</td>
+      <td>${m.elapsed_ms}</td><td>${m.retries ?? 0}</td><td>${m.memory_changes.length}</td></tr>`).join('') + '</table>';
+}
+
+async function loadArtifacts() {
+  const r = await j('/api/artifacts');
+  el('artifacts').innerHTML =
+    '<div class="sub">Reports</div>' + r.reports.map(p => `<div class="kv"><span>${p}</span><span class="ok">present</span></div>`).join('') +
+    '<div class="sub" style="margin-top:8px">From executions</div>' +
+    (r.from_metrics.length ? r.from_metrics.map(a =>
+      `<div class="kv"><span>${a.artifact}</span><span>${a.skill}</span></div>`).join('')
+      : '<span class="sub">none recorded yet</span>');
+}
+
+async function loadValidation() {
+  el('validation').innerHTML = '<span class="sub">running critic + loop check…</span>';
+  const r = await j('/api/validation');
+  const L = r.loop, C = r.critic;
+  el('validation').innerHTML = [
+    ['Pipeline stable', pill(String(L.stable))],
+    ['&nbsp;&nbsp;ingest / retrieval / distill', `${pill(String(L.ingest))} ${pill(String(L.retrieval))} ${pill(String(L.distill))}`],
+    ['Concepts reviewed (critic)', C.n ?? '—'],
+    ['&nbsp;&nbsp;supported / partial / unsupported',
+     `<span class="ok">${C.supported}</span> / <span class="warn">${C.partial}</span> / <span class="bad">${C.unsupported}</span>`],
+  ].map(([k, v]) => `<div class="kv"><span>${k}</span><span>${v}</span></div>`).join('');
+}
+
+loadHealth(); loadMemList(); loadLogs(); loadArtifacts(); loadValidation();
+</script>
+</body>
+</html>

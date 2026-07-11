@@ -1,0 +1,4 @@
+{"type": "object", "additionalProperties": false,
+ "properties": {"min_confidence": {"type": "number", "default": 0.0},
+                "name_contains": {"type": "string"},
+                "store_path": {"type": "string"}}}

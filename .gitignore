@@ -1,0 +1,22 @@
+# Secrets (never commit)
+.env
+**/.env
+
+# Raw source material (~1 GB; the distilled indexes the platform uses ARE tracked)
+*.pdf
+*.epub
+/Research Papers - AI Agents/
+/Vibe Coding/
+
+# Rebuildable indexes & runtime mirrors (P2: regenerated from files, not source of truth)
+*.pkl
+learn_agent/data/
+**/metrics.jsonl
+data/last_self_check.json
+
+# Python / OS noise
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.DS_Store

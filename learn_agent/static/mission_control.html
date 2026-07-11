@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Mission Control — AIOS</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400&display=swap');
+*{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#09090b;--surface:#18181b;--surface2:#27272a;--border:#3f3f46;
+  --text:#fafafa;--muted:#a1a1aa;--accent:#818cf8;--green:#4ade80;--amber:#fbbf24;--red:#f87171}
+body{background:var(--bg);color:var(--text);font:13px/1.5 Inter,sans-serif;height:100vh;display:flex;flex-direction:column;overflow:hidden}
+.topbar{display:flex;align-items:center;gap:12px;padding:8px 14px;border-bottom:1px solid var(--border);background:var(--surface)}
+.topbar .logo{font-weight:600;font-size:14px}
+.kbtn{flex:0 1 340px;margin:0 auto;background:var(--bg);border:1px solid var(--border);border-radius:6px;
+  padding:5px 12px;color:var(--muted);font-size:12px;cursor:pointer;text-align:left}
+.kbtn:hover{border-color:var(--accent)}
+.shell{flex:1;display:flex;min-height:0}
+.sidebar{width:200px;border-right:1px solid var(--border);background:var(--surface);padding:12px 8px;overflow-y:auto}
+.sec{font-size:10px;color:var(--muted);letter-spacing:1px;margin:10px 6px 6px;text-transform:uppercase;display:flex;justify-content:space-between}
+.mitem{display:flex;justify-content:space-between;align-items:center;padding:6px 8px;border-radius:6px;cursor:pointer;color:var(--muted);font-size:12.5px}
+.mitem:hover{background:var(--surface2)}
+.mitem.active{background:rgba(129,140,248,.12);color:var(--accent)}
+.mitem .pct{font-size:10px}
+.main{flex:1;overflow-y:auto;padding:16px 20px;min-width:0}
+.ctx{width:270px;border-left:1px solid var(--border);background:var(--surface);padding:14px;overflow-y:auto}
+.ctx h3{font-size:10px;color:var(--muted);letter-spacing:1px;margin:12px 0 6px;text-transform:uppercase}
+.panels{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;align-items:start}
+.panel{background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden}
+.panel.wide{grid-column:span 3}
+.panel.two{grid-column:span 2}
+.panel.collapsed .pbody{display:none}
+.phead{display:flex;justify-content:space-between;align-items:center;padding:9px 12px;border-bottom:1px solid var(--border);
+  cursor:pointer;user-select:none}
+.panel.collapsed .phead{border-bottom:none}
+.phead h2{font-size:11px;color:var(--accent);text-transform:uppercase;letter-spacing:1px}
+.phead .chev{color:var(--muted);font-size:10px;transition:transform .12s}
+.panel.collapsed .chev{transform:rotate(-90deg)}
+.pbody{padding:12px}
+.kv{display:flex;justify-content:space-between;padding:3px 0;font-size:12.5px;border-bottom:1px solid rgba(255,255,255,.04)}
+.kv span:first-child{color:var(--muted)}
+input,select,textarea{width:100%;background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:7px 10px;font-size:13px;font-family:inherit;margin-bottom:6px}
+button{background:var(--accent);color:#0b0b14;border:0;border-radius:6px;padding:6px 14px;font-weight:600;font-size:12.5px;cursor:pointer}
+button.ghost{background:transparent;color:var(--accent);border:1px solid var(--border)}
+.badge{font-size:10px;padding:2px 8px;border-radius:9px;font-weight:600}
+.badge.corpus{background:rgba(129,140,248,.14);color:var(--accent)}
+.badge.cross{background:rgba(251,191,36,.14);color:var(--amber)}
+.badge.active{background:rgba(74,222,128,.14);color:var(--green)}
+.badge.warn{background:rgba(251,191,36,.14);color:var(--amber)}
+.badge.bad{background:rgba(248,113,113,.14);color:var(--red)}
+.chunk{border-left:3px solid var(--accent);background:var(--bg);border-radius:0 6px 6px 0;padding:8px 10px;margin:8px 0;font-size:12px}
+.chunk.cross{border-left-color:var(--amber)}
+.chunk .src{color:var(--muted);font-size:11px;margin-bottom:3px;display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.tabs{display:flex;gap:14px;border-bottom:1px solid var(--border);margin:12px 0;font-size:12.5px}
+.tab{padding:5px 0;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent}
+.tab.on{color:var(--accent);border-bottom-color:var(--accent)}
+.task{display:flex;gap:8px;padding:5px 0;font-size:12.5px;border-bottom:1px solid rgba(255,255,255,.04)}
+.task.done{color:var(--muted);text-decoration:line-through}
+pre{background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:10px;font:11.5px JetBrains Mono,monospace;white-space:pre-wrap;max-height:400px;overflow:auto}
+.priority{display:flex;gap:8px;padding:7px 0;border-bottom:1px solid rgba(255,255,255,.04);font-size:12.5px}
+.priority .dot{width:6px;height:6px;border-radius:50%;background:var(--accent);margin-top:5px;flex-shrink:0}
+.priority .ev{color:var(--muted);font-size:10.5px;display:block}
+.tl-item{display:flex;gap:8px;padding:5px 0;font-size:11.5px;font-family:JetBrains Mono,monospace;border-left:2px solid var(--border);padding-left:10px;margin-left:3px}
+.tl-item.ok{border-left-color:var(--green)}
+.tl-item.bad{border-left-color:var(--red)}
+.tl-t{color:var(--muted);flex-shrink:0}
+.bar{height:6px;background:var(--surface2);border-radius:3px;overflow:hidden;margin-top:3px}
+.bar>div{height:100%;background:var(--accent)}
+.palette{position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;align-items:flex-start;justify-content:center;padding-top:12vh;z-index:50}
+.palette.open{display:flex}
+.pbox{width:520px;background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden}
+.pbox input{border:0;border-bottom:1px solid var(--border);border-radius:0;padding:13px 16px;font-size:14px;margin:0}
+.pitem{padding:9px 16px;cursor:pointer;font-size:13px;display:flex;justify-content:space-between}
+.pitem.sel{background:rgba(129,140,248,.14)}
+.pitem .hint{color:var(--muted);font-size:11px}
+.muted{color:var(--muted)}
+.help{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center;z-index:60}
+.help.open{display:flex}
+.help .box{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:18px 22px;width:360px;font-size:12.5px}
+.help .box .kv{border:none}
+kbd{background:var(--surface2);border:1px solid var(--border);border-radius:4px;padding:1px 6px;font-family:JetBrains Mono,monospace;font-size:11px}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <span class="logo">🛰️ Mission Control</span>
+  <button class="kbtn" onclick="openPalette()">⌘K — go to mission, panel, search, create…</button>
+  <span id="topStatus" class="muted" style="font-size:11px">loading…</span>
+</div>
+<div class="shell">
+  <div class="sidebar">
+    <div class="sec">Missions</div>
+    <div id="missionList"></div>
+    <div class="mitem" onclick="location.href='/app'">＋ New mission</div>
+    <div class="sec">Views</div>
+    <div class="mitem active" data-view="overview" onclick="go('overview')">🎛️ Mission Control</div>
+    <div class="mitem" onclick="location.href='/app'">🗂️ Mission Workspace</div>
+    <div class="sec">Layout <span style="cursor:pointer" onclick="resetLayout()" title="reset collapsed panels">↺</span></div>
+  </div>
+  <div class="main" id="main"></div>
+  <div class="ctx" id="ctx">
+    <h3>Context</h3><div class="muted" style="font-size:12px">Recommended actions and pending decisions land here.</div>
+  </div>
+</div>
+
+<div class="palette" id="palette" onclick="if(event.target===this)closePalette()">
+  <div class="pbox">
+    <input id="pinput" placeholder="Type a command… (esc to close)" autocomplete="off">
+    <div id="pitems"></div>
+  </div>
+</div>
+<div class="help" id="help" onclick="if(event.target===this)el('help').classList.remove('open')">
+  <div class="box">
+    <div class="kv"><span><kbd>⌘K</kbd> / <kbd>Ctrl+K</kbd></span><span>command palette</span></div>
+    <div class="kv"><span><kbd>1</kbd>–<kbd>9</kbd></span><span>collapse/expand panel N</span></div>
+    <div class="kv"><span><kbd>r</kbd></span><span>refresh dashboard</span></div>
+    <div class="kv"><span><kbd>?</kbd></span><span>this help</span></div>
+    <div class="kv"><span><kbd>Esc</kbd></span><span>close overlay</span></div>
+  </div>
+</div>
+
+<script>
+const j=(u,o)=>fetch(u,o).then(r=>r.json());
+const el=id=>document.getElementById(id);
+const esc=s=>String(s).replace(/</g,'&lt;');
+const LAYOUT_KEY='mc_layout_v1';
+let missions=[], summary=null, refreshTimer=null;
+
+function loadLayout(){try{return JSON.parse(localStorage.getItem(LAYOUT_KEY)||'{}')}catch{return{}}}
+function saveLayout(l){localStorage.setItem(LAYOUT_KEY, JSON.stringify(l))}
+function togglePanel(id){
+  const p=document.querySelector(`[data-panel="${id}"]`);
+  p.classList.toggle('collapsed');
+  const l=loadLayout(); l[id]=p.classList.contains('collapsed'); saveLayout(l);
+}
+function resetLayout(){localStorage.removeItem(LAYOUT_KEY);renderOverview();}
+
+async function boot(){
+  await refresh();
+  startPolling();
+}
+function startPolling(){
+  if(refreshTimer) clearInterval(refreshTimer);
+  refreshTimer=setInterval(()=>{ if(!document.hidden) refresh(); }, 15000); // real-time mission progress
+}
+async function refresh(){
+  summary = await j('/api/mc/summary');
+  missions = summary.missions;
+  el('topStatus').textContent = `${missions.length} missions · ${summary.knowledge_growth.total_chunks.toLocaleString()} chunks · ${summary.architecture_health.skills_registered} skills`;
+  renderSidebar(); renderOverview(); renderCtx();
+}
+function renderSidebar(){
+  el('missionList').innerHTML=missions.map(m=>
+    `<div class="mitem" onclick="location.href='/app'" title="open in Mission Workspace">
+     <span>${esc(m.title.slice(0,20))}</span><span class="pct">${m.progress}%</span></div>`).join('')
+    || '<div class="muted" style="padding:6px 8px;font-size:12px">none yet</div>';
+}
+function renderCtx(){
+  const a=summary.recommended_actions, d=summary.pending_decisions;
+  el('ctx').innerHTML = `<h3>Recommended next actions</h3>` +
+    (a.length? a.slice(0,5).map(x=>`<div class="priority"><span class="dot"></span><div>${esc(x.action)}<span class="ev">${esc(x.evidence)}</span></div></div>`).join('')
+      : '<span class="muted" style="font-size:12px">nothing pending</span>') +
+    `<h3>Pending decisions</h3>` +
+    (d.length? d.map(x=>`<div style="font-size:12px;margin-bottom:4px">· ${esc(x.question)} <span class="muted">(${esc(x.mission)})</span></div>`).join('')
+      : '<span class="muted" style="font-size:12px">no open questions</span>');
+}
+
+function panel(id, n, title, wide, bodyHtml){
+  const collapsed = loadLayout()[id] ? 'collapsed' : '';
+  return `<div class="panel ${wide||''} ${collapsed}" data-panel="${id}">
+    <div class="phead" onclick="togglePanel('${id}')"><h2>${n}. ${title}</h2><span class="chev">▾</span></div>
+    <div class="pbody">${bodyHtml}</div></div>`;
+}
+
+function renderOverview(){
+  const s=summary;
+  const missionsHtml = s.missions.length ? s.missions.map(m=>
+    `<div class="kv"><span>${esc(m.title)}</span><span><span class="badge active">${m.status}</span> ${m.progress}%</span></div>
+     <div class="bar"><div style="width:${m.progress}%"></div></div>`).join('')
+    : '<span class="muted">none yet — create one from Mission Workspace</span>';
+
+  const priHtml = s.today_priorities.length ? s.today_priorities.map(p=>
+    `<div class="priority"><span class="dot"></span><div>${esc(p.action)}<span class="ev">${esc(p.evidence)}</span></div></div>`).join('')
+    : '<span class="muted">nothing urgent</span>';
+
+  const lp=s.learning_progress;
+  const lpHtml = `<div class="kv"><span>concepts</span><span>${lp.total_concepts}</span></div>
+    <div class="kv"><span>mean confidence</span><span>${lp.mean_confidence}</span></div>
+    <div class="kv"><span>supported</span><span class="badge active">${lp.by_status.supported||0}</span></div>
+    <div class="kv"><span>partial</span><span class="badge warn">${lp.by_status.partial||0}</span></div>
+    <div class="kv"><span>unsupported</span><span class="badge bad">${lp.by_status.unsupported||0}</span></div>`;
+
+  const kg=s.knowledge_growth;
+  const kgHtml = kg.corpora.map(c=>`<div class="kv"><span>${c.id}</span><span>${c.chunks.toLocaleString()} chunks</span></div>`).join('')
+    + `<div class="muted" style="font-size:10.5px;margin-top:4px">current snapshot — historical growth trend lands with M-K corpus-stats timestamps</div>`;
+
+  const proj = s.project_status;
+  const projHtml = proj.length ? proj.map(m=>`<div class="kv"><span>${esc(m.title)}</span><span>${m.progress}%</span></div>`).join('')
+    : '<span class="muted">no build-type missions yet</span>';
+
+  const insHtml = s.recent_insights.map(i=>
+    `<div style="margin-bottom:8px"><div style="display:flex;justify-content:space-between">
+      <b style="font-size:12px">${esc(i.name)}</b><span class="badge ${i.status==='supported'?'active':i.status==='partial'?'warn':'bad'}">${i.confidence?.toFixed?.(2)??'—'}</span></div>
+      <div class="muted" style="font-size:11.5px">${esc(i.principle.slice(0,130))}…</div></div>`).join('')
+    || '<span class="muted">none yet</span>';
+
+  const ah=s.architecture_health;
+  const lastCheck = ah.last_self_check ?
+    `<div class="kv"><span>last self-check</span><span>${ah.last_self_check.ran_at}</span></div>`
+    : '<div class="muted" style="font-size:11.5px">never run this session</div>';
+  const ahHtml = `<div class="kv"><span>skills registered</span><span>${ah.skills_registered}</span></div>
+    <div class="kv"><span>recent success rate</span><span>${ah.recent_success_rate!=null?(ah.recent_success_rate*100).toFixed(0)+'%':'—'} (${ah.recent_dispatches} dispatches)</span></div>
+    ${lastCheck}<button class="ghost" style="margin-top:8px" onclick="runSelfCheck(this)">Run self-check</button>`;
+
+  const mem=s.memory_status;
+  const memHtml = `<div class="kv"><span>global memory</span><span class="badge ${mem.global.compliant?'active':'bad'}">${mem.global.compliant?'compliant':'issues'}</span></div>` +
+    (mem.global.issues||[]).map(i=>`<div class="muted" style="font-size:11px">· ${esc(i)}</div>`).join('') +
+    Object.entries(mem.missions).map(([id,a])=>
+      `<div class="kv"><span>${esc(id)}</span><span class="badge ${a.compliant?'active':'bad'}">${a.compliant?'ok':'issues'}</span></div>`).join('');
+
+  const decHtml = s.pending_decisions.length ? s.pending_decisions.map(d=>
+    `<div style="font-size:12.5px;margin-bottom:4px">· ${esc(d.question)} <span class="muted">(${esc(d.mission_title)})</span></div>`).join('')
+    : '<span class="muted">no open questions across any mission</span>';
+
+  const tlHtml = s.timeline.map(e=>
+    `<div class="tl-item ${e.ok?'ok':'bad'}"><span class="tl-t">${esc((e.ts||'').slice(11,19))}</span>
+      <span>${esc(e.skill)} <span class="muted">${e.elapsed_ms}ms${e.retries?' · '+e.retries+' retries':''}</span>${e.ok?'':' <span class=\"badge bad\">'+esc(e.failure)+'</span>'}</span></div>`).join('');
+
+  el('main').innerHTML = `<div class="panels">
+    ${panel('missions',1,'Current Missions','two', missionsHtml)}
+    ${panel('priorities',2,'Today\\'s Priorities','', priHtml)}
+    ${panel('learning',3,'Learning Progress','', lpHtml)}
+    ${panel('knowledge',4,'Knowledge Growth','', kgHtml)}
+    ${panel('project',5,'Project Status','', projHtml)}
+    ${panel('insights',6,'Recent Insights','', insHtml)}
+    ${panel('arch',7,'Architecture Health','', ahHtml)}
+    ${panel('memory',8,'Memory Status','', memHtml)}
+    ${panel('decisions',9,'Pending Decisions','', decHtml)}
+    ${panel('timeline',10,'Activity Timeline / Execution Log','wide', `<div style="max-height:220px;overflow-y:auto">${tlHtml}</div>`)}
+  </div>`;
+}
+async function runSelfCheck(btn){
+  btn.textContent='running…'; btn.disabled=true;
+  const r = await j('/api/mc/health/run-self-check', {method:'POST'});
+  await refresh();
+  const chip = r.ok ? '✓ all green' : '✗ ' + (r.failed_step||'failed');
+  document.getElementById('topStatus').textContent += ' · self-check: ' + chip;
+}
+function go(v){ if(v==='overview') renderOverview(); }
+
+// ── ⌘K command palette ──────────────────────────────────────────────────
+let psel=0, pcmds=[];
+function commands(){
+  const cmds=[
+    {t:'Go to Mission Control', h:'view', f:()=>go('overview')},
+    {t:'Open Mission Workspace', h:'view', f:()=>location.href='/app'},
+    {t:'Run self-check', h:'action', f:()=>runSelfCheck({textContent:'',disabled:false})},
+    {t:'Refresh dashboard', h:'r', f:refresh},
+  ];
+  missions.forEach(m=>cmds.push({t:`Open: ${m.title}`, h:`mission ${m.progress}%`, f:()=>location.href='/app'}));
+  return cmds;
+}
+function openPalette(){el('palette').classList.add('open');el('pinput').value='';psel=0;filterP();el('pinput').focus();}
+function closePalette(){el('palette').classList.remove('open');}
+function filterP(){
+  const q=el('pinput').value.toLowerCase();
+  pcmds=commands().filter(c=>c.t.toLowerCase().includes(q));
+  psel=Math.min(psel,Math.max(0,pcmds.length-1));
+  el('pitems').innerHTML=pcmds.map((c,i)=>
+   `<div class="pitem ${i===psel?'sel':''}" onclick="pcmds[${i}].f();closePalette()">
+    <span>${esc(c.t)}</span><span class="hint">${c.h}</span></div>`).join('');
+}
+document.addEventListener('keydown',e=>{
+  if((e.metaKey||e.ctrlKey)&&e.key==='k'){e.preventDefault();openPalette();return;}
+  if(el('palette').classList.contains('open')){
+    if(e.key==='Escape')closePalette();
+    else if(e.key==='ArrowDown'){psel=Math.min(psel+1,pcmds.length-1);filterP();}
+    else if(e.key==='ArrowUp'){psel=Math.max(psel-1,0);filterP();}
+    else if(e.key==='Enter'&&pcmds[psel]){pcmds[psel].f();closePalette();}
+    return;
+  }
+  if(el('help').classList.contains('open')){ if(e.key==='Escape') el('help').classList.remove('open'); return; }
+  const tag=(document.activeElement.tagName||'').toLowerCase();
+  if(tag==='input'||tag==='textarea') return;
+  if(e.key==='?'){ el('help').classList.add('open'); }
+  else if(e.key==='r'){ refresh(); }
+  else if(/^[1-9]$/.test(e.key)){
+    const ids=['missions','priorities','learning','knowledge','project','insights','arch','memory','decisions','timeline'];
+    const p=document.querySelector(`[data-panel="${ids[+e.key-1]}"]`);
+    if(p) togglePanel(ids[+e.key-1]);
+  }
+});
+el('pinput').addEventListener('input',()=>{psel=0;filterP();});
+boot();
+</script>
+</body>
+</html>

@@ -1,0 +1,25 @@
+{
+ "id": "__SKILL_ID__",
+ "name": "__Human Name__",
+ "version": "0.1.0",
+ "description": "__WHAT it does in one sentence (mechanism).__",
+ "purpose": "__WHY it exists: the business/engineering problem it solves — one sentence, falsifiable.__",
+ "tags": ["__domain__", "__capability__"],
+ "inputs": {"schema": "input_schema.json"},
+ "outputs": {"schema": "output_schema.json"},
+ "memory": {
+  "root_param": null,
+  "read": [],
+  "write": [],
+  "append_only": [],
+  "immutable": []
+ },
+ "execution": {
+  "contract": "execution_contract.md",
+  "steps": ["__STEP_1__", "__STEP_2__", "__STEP_3__"],
+  "retries": 0,
+  "runtime": {"type": "python", "entrypoint": "__pkg.module:function__"}
+ },
+ "dependencies": [],
+ "evaluation": {"contract": "evaluation_contract.md", "must": ["E1"]}
+}

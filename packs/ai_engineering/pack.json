@@ -1,0 +1,35 @@
+{
+  "id": "ai_engineering",
+  "name": "AI Engineering Pack",
+  "version": "1.0.0",
+  "description": "Building agentic AI systems: patterns, RAG, memory, evaluation. The reference Domain Pack — its corpora and reasoning already power the platform itself.",
+  "domain": "ai-engineering",
+  "aios_core_compat": ">=1.0.0 <2.0.0",
+  "corpora": ["ai-books", "curated-wiki", "llm-books"],
+  "provides_corpora": [],
+  "skills": [{"manifest_path": "skills/concept_map/manifest.json"}],
+  "workflows": ["domain_research.workflow.json"],
+  "mission_templates": [
+    {
+      "id": "build-agent-system",
+      "title": "Build an agentic AI system",
+      "type": "build",
+      "goal": "Ship an agent system whose design maps to named patterns and whose behavior passes a deterministic eval",
+      "corpora": ["ai-books", "curated-wiki"],
+      "cross_corpus": false,
+      "tasks": ["Map the task to agent design patterns", "Choose orchestration topology (framework-last)", "Implement one atomic capability", "Write the deterministic eval first", "Wire memory + retrieval"]
+    },
+    {
+      "id": "learn-multi-agent-systems",
+      "title": "Learn multi-agent systems",
+      "type": "learn",
+      "goal": "Explain and implement 3 MAS coordination topologies with working code",
+      "corpora": ["ai-books", "curated-wiki"],
+      "cross_corpus": false,
+      "tasks": ["Map the 21 patterns to MAS topologies", "Implement supervisor topology", "Implement blackboard topology", "Compare against the platform's own orchestrator"]
+    }
+  ],
+  "memory_namespace": "packs/ai_engineering",
+  "retrieval": {"default_corpora": ["ai-books", "curated-wiki"], "cross_corpus": false},
+  "evaluation": "evaluation.md"
+}

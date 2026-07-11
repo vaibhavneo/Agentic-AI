@@ -1,0 +1,4 @@
+{
+  "note": "This pack REUSES corpora already registered by the platform (declared in pack.json 'corpora'). It provides none of its own. A pack that introduced new knowledge would list inline corpus dicts under pack.json 'provides_corpora'.",
+  "uses": ["ai-books", "curated-wiki", "llm-books"]
+}

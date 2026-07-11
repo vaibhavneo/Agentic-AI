@@ -1,0 +1,40 @@
+# log.md — Compressed Execution History
+<!-- One line per step. Newest last. Never expand into raw history. -->
+
+- 2026-07-04 C1.0 Bootstrap: state/plan/decisions schemas created
+- 2026-07-04 C1.1 second_brain/ package + ingest.py (paragraph-chunker, JSON index)
+- 2026-07-04 C1.2 Ingest wiki/books: 36 files → 96 chunks
+- 2026-07-04 C1.3 retrieve.py (pure-python TF-IDF); 3/3 test queries relevant → retrieval.md
+- 2026-07-04 C1.4 distill.py artifact (DeepSeek/Anthropic, dedup-by-name)
+- 2026-07-04 C1.5 10 mental models distilled from retrieved chunks → knowledge_cache.md
+- 2026-07-04 C1.6 loop.py stability checker; iterations 1+2 both STABLE → status=STABLE
+- 2026-07-04 C3.1 concept_store.py: structured store (schema+links+render); 10 concepts migrated, 8 typed edges
+- 2026-07-04 C3.2 critic.py: deterministic evidence verification → 9 supported / 1 unsupported; caught malformed source record; critic_report.md
+- 2026-07-04 C3.3 tests/test_pipeline.py: 20 tests across 5 stages → 20/20 PASS → validation_report.md
+- 2026-07-04 C3.4 loop.py criterion 3 now reads concepts.json (md is view); still STABLE
+- 2026-07-04 C4.1 recursive_planner packaged as portable skill (schemas+3 contracts+5 examples+26 integrity tests ALL PASS) → brain/skills/recursive_planner/
+- 2026-07-04 C4.2 Skill Library scaffolded: 9 sibling contract-cards + library README + 4 canonical workflows → brain/skills/, brain/workflows/
+- 2026-07-04 C5.1 Skill Runtime built: registry/validator/executor/monitor/dispatcher/lifecycle + drivers → brain/runtime/
+- 2026-07-04 C5.2 registry.json (11 skills), recursive_planner manifest.json, workflow demo; runtime tests 27/27 PASS (incl. real planner loop→STABLE, memory-violation enforcement, composition binding)
+- 2026-07-05 C6.1 library_drivers.py: 7 python drivers wrapping second_brain (ingest/retrieve/rag/claim-validation/critic/evaluator/memory-audit)
+- 2026-07-05 C6.2 All 10 skills got file-based manifest.json; registry rebuilt (manifest_path); 2 generative skills stay agent-gated
+- 2026-07-05 C6.3 corpus_qa + self_check executable workflows; library tests ALL PASS; self_check workflow ran the whole system through its own runtime (tests+critic+audit all green)
+- 2026-07-05 C7.1 Runtime v1.1.0: retry policy (EXECUTION_ERROR only, attempts/retries in metrics), purpose field in all manifests, runtime.md +diagram/extension-points/authoring-guide/versioning; all suites green
+- 2026-07-05 C8.1 Operator Console (port 5052): thin Flask layer over dispatcher/registry/monitor + 8-panel UI; 30 console tests ALL PASS; OPERATOR_GUIDE.md
+- 2026-07-05 C9.1 AIOS architecture package (design only, no implementation): learn_agent/AIOS_ARCHITECTURE.md — federate learn_agent(8003) UI onto brain/ runtime; missions=planner memory roots; deterministic coach triggers; P0-P3 roadmap
+- 2026-07-05 C9.2 v1.1 amendment: Corpus Manager + Retrieval Gateway designed (§6.5) — no default corpus; retrieve(query, mission); provenance into concepts.json; P0 regenerated (docs only, no code)
+- 2026-07-05 C10.1 P0.1-P0.2: corpus_manager (5 corpora; ai-books 101 books/25,812 chunks) + retrieval gateway (normalize/dedup/provenance/cross-corpus); fixed negative-IDF bug (smoothed idf); gateway tests ALL PASS
+- 2026-07-05 C10.2 retrieve_context+rag_search v2.0.0 (gateway-only), book_ingestion v1.1.0; concepts.json migrated to {corpus,source}; critic corpus-aware (verdicts unchanged 9/10)
+- 2026-07-05 C10.3 P0.3-P0.5: mission model+API (requires ≥1 corpus), 2 seed missions, AIOS shell at :8003/app (sidebar/dashboard/workspace/⌘K); 6 suites green; live verify: finance-scoped search widens with flags
+- 2026-07-05 C11.1 Knowledge transfer package: charter/handbook/start-here/playbook/lessons/handoff + 4 adapters + WORKFLOWS.md + 10 skill READMEs; 7/7 suites green
+- 2026-07-05 C12.1 AIOS Core: runtime→aios_core + 6 SDK APIs; apps migrated to SDK-only; compat shims; 8/8 green +test_aios_core; docs aios_core.md/MIGRATION.md/D14
+- 2026-07-05 C13.1 Domain Packs: packs/loader.py PackManager + packs/ai_engineering reference pack (new concept_map skill, workflow, 2 templates); zero-core-change proven; 9/9 suites green; DOMAIN_PACKS.md + D15
+- 2026-07-06 C14.1 Mission Control: 10-panel dashboard is default landing page (/); SDK-only service+API; vanilla JS shipped, React hierarchy documented (D16); 10/10 suites green
+- 2026-07-06 C15.1 Self-analysis: PLATFORM_IMPROVEMENT_REPORT.md (10 prioritized findings, evidence-grounded via metrics.jsonl/grep); M-Q1 queued in playbook (Q1a-j); no code changed, analysis only
+- 2026-07-06 C16.1 Skill SDK: templates/skill (11 files), 9-stage validator + quality score, 6 spec docs, Part-10 benchmark (concept_map from docs: set-parity 4/4, gap G1); runtime.md 12-key fix (Q1g); 11/11 suites green; D17
+- 2026-07-06 C17.1 Capability descriptor: optional capability.json (advisory, above manifest; dispatcher never reads it — P8 safe); real stdlib-trace coverage; validator V10; data-driven router; 12/12 green; D18
+- 2026-07-08 C18.1 docs/API_REFERENCE.md: real API surface (mission/manifest/corpus/gateway/memory/workflow + HTTP + payloads), PLANNED labelled; docs/validate_api_reference.py cross-checks vs live code — ALL PASS (M-Q1 rec #2)
+- 2026-07-09 C19.1 Migration handoff (planning only): MIGRATION_EXECUTION_PLAN.md (8 WPs, gates H1-H6) + OPUS_MIGRATION_PROMPT.md + SONNET_TASK_TEMPLATES.md; next milestone M-P1a (awaits H1); migration core = M-P2a
+- 2026-07-10 C20.1 Coach (M-P1a/WP-1): 7 deterministic triggers -> ranked evidence-cited recs; accept dispatches via runtime, dismiss persists (aios.db recommendations, DROP-safe); proto-coach removed; /api/coach + /app card + '.'; 13/13 green
+- 2026-07-10 C21.1 H5 resolved (D19): retired second_brain/distill.py (0 callers; violated P9/D9); distillation = concept_distillation skill (adapter-gated); regression in test_library_skills; docs/state synced; 13/13 green
+- 2026-07-10 C22.1 Teacher skill (M-P2a/WP-4): full-profile agent-gated skill (VALID q100)+driver (scope->retrieve->mastery->adapter, provenance driver-owned); teacher_adapter teach->upsert->critic + /api/teach; 15/15 green

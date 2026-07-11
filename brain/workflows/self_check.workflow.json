@@ -1,0 +1,14 @@
+{
+  "name": "self_check",
+  "description": "W4: engine hardening — pipeline tests, then critic re-verification, then memory compliance audit.",
+  "steps": [
+    {"step": "tests", "skill": "evaluator",
+     "inputs": {"checks": [
+        {"id": "pipeline", "cmd": "python3 second_brain/tests/test_pipeline.py"},
+        {"id": "skill_package", "cmd": "python3 brain/skills/recursive_planner/tests/test_skill_package.py"},
+        {"id": "runtime", "cmd": "python3 brain/tests/test_runtime.py"}]}},
+    {"step": "critic", "skill": "critic", "inputs": {}},
+    {"step": "memory_audit", "skill": "memory_compression",
+     "inputs": {"memory_root": "memory"}}
+  ]
+}

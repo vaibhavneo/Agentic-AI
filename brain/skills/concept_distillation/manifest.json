@@ -1,0 +1,79 @@
+{
+ "id": "concept_distillation",
+ "name": "Concept Distillation",
+ "version": "1.0.0",
+ "description": "Retrieved knowledge to reusable mental models (generative \u2014 requires agent adapter).",
+ "purpose": "Knowledge that only exists in books doesn't transfer; compressed mental models make it reusable at decision time.",
+ "tags": [
+  "knowledge"
+ ],
+ "inputs": {
+  "schema_inline": {
+   "type": "object",
+   "required": [
+    "topic"
+   ],
+   "properties": {
+    "topic": {
+     "type": "string"
+    }
+   },
+   "additionalProperties": false
+  }
+ },
+ "outputs": {
+  "schema_inline": {
+   "type": "object",
+   "required": [
+    "name",
+    "principle",
+    "when_to_use",
+    "sources"
+   ],
+   "properties": {
+    "name": {
+     "type": "string"
+    },
+    "principle": {
+     "type": "string"
+    },
+    "when_to_use": {
+     "type": "string"
+    },
+    "sources": {
+     "type": "array"
+    }
+   }
+  }
+ },
+ "memory": {
+  "root_param": null,
+  "read": [],
+  "write": [],
+  "append_only": [],
+  "immutable": []
+ },
+ "execution": {
+  "contract": "skill.md",
+  "steps": [
+   "RETRIEVE",
+   "COMPRESS",
+   "DEDUP",
+   "UPSERT"
+  ],
+  "runtime": {
+   "type": "agent"
+  }
+ },
+ "dependencies": [
+  {
+   "id": "retrieve_context",
+   "version": ">=1.0.0 <3.0.0",
+   "optional": false
+  }
+ ],
+ "evaluation": {
+  "contract": "skill.md",
+  "must": []
+ }
+}

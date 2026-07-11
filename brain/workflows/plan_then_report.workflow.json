@@ -1,0 +1,11 @@
+{
+  "name": "plan_then_report",
+  "description": "Executable composition demo: recursive_planner bootstraps memory; echo consumes its status via $plan.status binding. Run: dispatcher.run_workflow(json.load(...)).",
+  "steps": [
+    {"step": "plan", "skill": "recursive_planner",
+     "inputs": {"goal": "bootstrap memory for workflow demo",
+                "memory_root": "memory/workflow_demo",
+                "stability_criteria": [{"id": "state", "description": "state.md exists", "check": "test -f state.md"}]}},
+    {"step": "report", "skill": "echo", "inputs": {"message": "$plan.status"}}
+  ]
+}

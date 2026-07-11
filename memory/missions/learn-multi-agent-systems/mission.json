@@ -1,0 +1,13 @@
+{
+ "id": "learn-multi-agent-systems",
+ "title": "Learn Multi-Agent Systems",
+ "type": "learn",
+ "goal": "Explain and implement 3 MAS coordination topologies with working code",
+ "corpora": [
+  "ai-books",
+  "curated-wiki"
+ ],
+ "cross_corpus": false,
+ "status": "active",
+ "created": "2026-07-05"
+}

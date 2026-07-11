@@ -1,0 +1,136 @@
+{
+ "registry_version": "1.0.0",
+ "corpora": {
+  "curated-wiki": {
+   "id": "curated-wiki",
+   "name": "Curated Wiki",
+   "description": "36 verified book summary pages",
+   "source_dirs": [
+    "/Users/vaibhavgupta/Documents/brain/Vaibhav's Second Brain/wiki/books"
+   ],
+   "reliability": 1.0,
+   "tags": [
+    "books",
+    "verified"
+   ],
+   "ingest_profile": {
+    "extensions": [
+     ".md",
+     ".txt"
+    ],
+    "chunk_size": 1200
+   },
+   "index_path": "/Users/vaibhavgupta/Desktop/Agentic AI/memory/corpora/curated-wiki/chunks.json",
+   "stats": {
+    "files": 36,
+    "chunks": 96,
+    "last_ingested": "2026-07-10T21:18:14"
+   }
+  },
+  "ai-books": {
+   "id": "ai-books",
+   "name": "AI Books",
+   "description": "Full-text agentic AI book library (101 books)",
+   "source_dirs": [
+    "/Users/vaibhavgupta/Documents/brain/Vaibhav's Second Brain/raw/library/agentic-ai"
+   ],
+   "reliability": 0.9,
+   "tags": [
+    "books",
+    "ai",
+    "fulltext"
+   ],
+   "ingest_profile": {
+    "extensions": [
+     ".md",
+     ".txt"
+    ],
+    "chunk_size": 1200
+   },
+   "index_path": "/Users/vaibhavgupta/Desktop/Agentic AI/memory/corpora/ai-books/chunks.json",
+   "stats": {
+    "files": 101,
+    "chunks": 25812,
+    "last_ingested": "2026-07-05T10:46:18"
+   }
+  },
+  "llm-books": {
+   "id": "llm-books",
+   "name": "LLM Books",
+   "description": "Full-text LLM book library",
+   "source_dirs": [
+    "/Users/vaibhavgupta/Documents/brain/Vaibhav's Second Brain/raw/library/llms"
+   ],
+   "reliability": 0.9,
+   "tags": [
+    "books",
+    "llms",
+    "fulltext"
+   ],
+   "ingest_profile": {
+    "extensions": [
+     ".md",
+     ".txt"
+    ],
+    "chunk_size": 1200
+   },
+   "index_path": "/Users/vaibhavgupta/Desktop/Agentic AI/memory/corpora/llm-books/chunks.json",
+   "stats": {
+    "files": 0,
+    "chunks": 0,
+    "last_ingested": null
+   }
+  },
+  "finance": {
+   "id": "finance",
+   "name": "Finance",
+   "description": "Applied AI in Finance (17 PDFs — ingest on demand)",
+   "source_dirs": [
+    "/Users/vaibhavgupta/Desktop/AI/Applied AI in Finance"
+   ],
+   "reliability": 0.9,
+   "tags": [
+    "finance",
+    "pdf"
+   ],
+   "ingest_profile": {
+    "extensions": [
+     ".pdf"
+    ],
+    "chunk_size": 1200
+   },
+   "index_path": "/Users/vaibhavgupta/Desktop/Agentic AI/memory/corpora/finance/chunks.json",
+   "stats": {
+    "files": 0,
+    "chunks": 0,
+    "last_ingested": null
+   }
+  },
+  "personal-notes": {
+   "id": "personal-notes",
+   "name": "Personal Notes",
+   "description": "Own wiki notes (non-book pages)",
+   "source_dirs": [
+    "/Users/vaibhavgupta/Documents/brain/Vaibhav's Second Brain/wiki"
+   ],
+   "reliability": 0.6,
+   "tags": [
+    "notes",
+    "personal"
+   ],
+   "ingest_profile": {
+    "extensions": [
+     ".md",
+     ".txt"
+    ],
+    "chunk_size": 1200
+   },
+   "index_path": "/Users/vaibhavgupta/Desktop/Agentic AI/memory/corpora/personal-notes/chunks.json",
+   "stats": {
+    "files": 47,
+    "chunks": 127,
+    "last_ingested": "2026-07-05T10:46:18"
+   }
+  }
+ }
+}

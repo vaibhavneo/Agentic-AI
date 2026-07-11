@@ -1,0 +1,9 @@
+{
+  "name": "ai_engineering_research",
+  "description": "Scoped research within the AI-engineering corpora, then map the concept space. Skills-only (composes core retrieve_context + the pack's concept_map).",
+  "steps": [
+    {"step": "retrieve", "skill": "retrieve_context",
+     "inputs": {"query": "agent memory architecture", "corpora": ["curated-wiki"]}},
+    {"step": "map", "skill": "concept_map", "inputs": {"min_confidence": 0.6}}
+  ]
+}

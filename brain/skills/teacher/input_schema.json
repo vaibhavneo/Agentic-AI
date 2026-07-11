@@ -1,0 +1,67 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "teacher invocation",
+  "type": "object",
+  "required": ["topic"],
+  "additionalProperties": false,
+  "properties": {
+    "topic": {
+      "type": "string",
+      "minLength": 3,
+      "description": "What to teach — a concept name or question. Also the retrieval query and the concept_candidate key (unless mastery.concept overrides)."
+    },
+    "mode": {
+      "enum": ["explain", "socratic", "exercise", "compare"],
+      "default": "explain",
+      "description": "Instructional stance the adapter should take. Does not change the deterministic scaffolding (scope, evidence, adaptation)."
+    },
+    "depth": {
+      "enum": ["intro", "intermediate", "advanced"],
+      "default": "intermediate",
+      "description": "Requested explanation depth; a hint to the adapter, orthogonal to the computed adaptation level."
+    },
+    "mission_id": {
+      "type": "string",
+      "description": "Mission slug whose declared corpora scope the retrieval (P9). One of mission_id / corpora is REQUIRED — scope is never guessed."
+    },
+    "corpora": {
+      "type": "array",
+      "items": {"type": "string"},
+      "description": "Explicit corpus-id scope override. One of mission_id / corpora is REQUIRED."
+    },
+    "cross_corpus": {
+      "type": "boolean",
+      "description": "Allow widening beyond scope when it under-fills top_k; widened evidence is flagged by the gateway."
+    },
+    "top_k": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 5,
+      "default": 5,
+      "description": "Max evidence chunks to ground the lesson in."
+    },
+    "mastery": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Learner state from the coach mastery surface. Absent ⇒ unknown mastery (instruction starts at introduce; never claims mastery).",
+      "properties": {
+        "concept": {"type": "string", "description": "Concept name this topic maps to (concept_candidate key + prerequisite lookup)."},
+        "confidence": {"minimum": 0, "maximum": 1, "description": "Critic-assigned confidence 0-1, or null when unverified."},
+        "prior_activity": {"type": "integer", "minimum": 0, "description": "Count of prior lessons/touches for this learner+concept."},
+        "prerequisites": {
+          "type": "array",
+          "description": "Explicit prerequisite concepts with their confidence (overrides the concept-graph lookup; makes adaptation testable).",
+          "items": {
+            "type": "object",
+            "required": ["concept"],
+            "additionalProperties": false,
+            "properties": {
+              "concept": {"type": "string"},
+              "confidence": {"minimum": 0, "maximum": 1, "description": "0-1 or null"}
+            }
+          }
+        }
+      }
+    }
+  }
+}

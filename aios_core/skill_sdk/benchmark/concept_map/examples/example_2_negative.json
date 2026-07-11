@@ -1,0 +1,5 @@
+{"description": "nonsense filter yields honest empty graph",
+ "inputs": {"name_contains": "zzqxv-flurbo"},
+ "expected_output": {"nodes": [], "edges": [], "n": 0},
+ "expected_failure": null,
+ "notes": "negative control per evaluation E2"}

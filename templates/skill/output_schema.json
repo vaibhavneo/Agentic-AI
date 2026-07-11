@@ -1,0 +1,9 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "__SKILL_ID__ outputs",
+  "type": "object",
+  "required": ["__result_field__"],
+  "properties": {
+    "__result_field__": {"type": "string"}
+  }
+}

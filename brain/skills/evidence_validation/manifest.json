@@ -1,0 +1,95 @@
+{
+ "id": "evidence_validation",
+ "name": "Evidence Validation",
+ "version": "1.0.0",
+ "description": "Claim to calibrated confidence + flags (0.5*retrieval_support + 0.5*source_corroboration).",
+ "purpose": "The gate between generated and believed \u2014 nothing enters durable memory unverified.",
+ "tags": [
+  "verification"
+ ],
+ "inputs": {
+  "schema_inline": {
+   "type": "object",
+   "required": [
+    "statement"
+   ],
+   "properties": {
+    "statement": {
+     "type": "string",
+     "minLength": 5
+    },
+    "claimed_sources": {
+     "type": "array",
+     "items": {
+      "type": "string"
+     }
+    },
+    "index_path": {
+     "type": "string"
+    }
+   },
+   "additionalProperties": false
+  }
+ },
+ "outputs": {
+  "schema_inline": {
+   "type": "object",
+   "required": [
+    "confidence",
+    "status",
+    "flags",
+    "evidence"
+   ],
+   "properties": {
+    "confidence": {
+     "type": "number",
+     "minimum": 0,
+     "maximum": 1
+    },
+    "status": {
+     "enum": [
+      "supported",
+      "partial",
+      "unsupported"
+     ]
+    },
+    "flags": {
+     "type": "array"
+    },
+    "evidence": {
+     "type": "array"
+    }
+   }
+  }
+ },
+ "memory": {
+  "root_param": null,
+  "read": [],
+  "write": [],
+  "append_only": [],
+  "immutable": []
+ },
+ "execution": {
+  "contract": "skill.md",
+  "steps": [
+   "RETRIEVE_EVIDENCE",
+   "SCORE",
+   "FLAG"
+  ],
+  "runtime": {
+   "type": "python",
+   "entrypoint": "aios_core.runtime.drivers.library_drivers:run_validate_claim"
+  }
+ },
+ "dependencies": [
+  {
+   "id": "retrieve_context",
+   "version": ">=1.0.0 <3.0.0",
+   "optional": false
+  }
+ ],
+ "evaluation": {
+  "contract": "skill.md",
+  "must": []
+ }
+}

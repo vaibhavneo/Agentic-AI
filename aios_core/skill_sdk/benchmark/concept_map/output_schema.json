@@ -1,0 +1,2 @@
+{"type": "object", "required": ["nodes", "edges", "n"],
+ "properties": {"n": {"type": "integer"}, "nodes": {"type": "array"}, "edges": {"type": "array"}}}

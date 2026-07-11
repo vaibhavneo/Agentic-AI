@@ -1,0 +1,79 @@
+2026-06-24 19:19:27,180 [agents.orchestrator] INFO [INGEST] source=manual
+2026-06-24 19:19:27,180 [agents.orchestrator] INFO [INGEST] Patient: DEMO-001 @ 2026-06-25 02:19:27 | HR=72.0bpm | BP=118.0/76.0mmHg | SpO2=98.0% | Temp=36.6C | RR=16.0/min | Glucose=95.0mg/dL
+2026-06-24 19:19:27,200 [agents.llm_analyzer] ERROR [LLM ANALYSIS] Failed: "Could not resolve authentication method. Expected one of api_key, auth_token, or credentials to be set. Or for one of the `X-Api-Key` or `Authorization` headers to be explicitly omitted"
+2026-06-24 19:19:27,200 [agents.orchestrator] INFO [LLM] 0 alerts. Summary: LLM analysis unavailable: "Could not resolve authentication method. Expected one
+2026-06-24 19:19:27,201 [agents.orchestrator] INFO [DISPATCH] Sent 0/0 alerts.
+2026-06-24 19:19:27,514 [agents.orchestrator] INFO [INGEST] source=manual
+2026-06-24 19:19:27,514 [agents.orchestrator] INFO [INGEST] Patient: DEMO-001 @ 2026-06-25 02:19:27 | HR=95.0bpm | BP=152.0/96.0mmHg | SpO2=94.0% | Temp=37.8C | RR=22.0/min | Glucose=155.0mg/dL
+2026-06-24 19:19:27,516 [agents.orchestrator] INFO [THRESHOLD] AlertSeverity.WARNING - Systolic BP: 152.0
+2026-06-24 19:19:27,516 [agents.orchestrator] INFO [THRESHOLD] AlertSeverity.WARNING - Diastolic BP: 96.0
+2026-06-24 19:19:27,516 [agents.orchestrator] INFO [THRESHOLD] AlertSeverity.WARNING - SpO2: 94.0
+2026-06-24 19:19:27,517 [agents.orchestrator] INFO [THRESHOLD] AlertSeverity.WARNING - Temperature: 37.8
+2026-06-24 19:19:27,517 [agents.orchestrator] INFO [THRESHOLD] AlertSeverity.WARNING - Respiratory Rate: 22.0
+2026-06-24 19:19:27,517 [agents.orchestrator] INFO [THRESHOLD] AlertSeverity.WARNING - Blood Glucose: 155.0
+2026-06-24 19:19:27,518 [agents.llm_analyzer] ERROR [LLM ANALYSIS] Failed: "Could not resolve authentication method. Expected one of api_key, auth_token, or credentials to be set. Or for one of the `X-Api-Key` or `Authorization` headers to be explicitly omitted"
+2026-06-24 19:19:27,519 [agents.orchestrator] INFO [LLM] 0 alerts. Summary: LLM analysis unavailable: "Could not resolve authentication method. Expected one
+2026-06-24 19:19:27,520 [tools.alert_tools] WARNING 
+[WARN] DEMO-001 - Systolic BP: 152.0
+   Systolic BP high: 152.0 mmHg (normal max: 140.0 mmHg)
+   -> Recheck in 15 min. Review antihypertensives and recent activity.
+2026-06-24 19:19:27,520 [tools.alert_tools] WARNING 
+[WARN] DEMO-001 - Diastolic BP: 96.0
+   Diastolic BP high: 96.0 mmHg (normal max: 90.0 mmHg)
+   -> Monitor trend. Consult physician if persistent.
+2026-06-24 19:19:27,520 [tools.alert_tools] WARNING 
+[WARN] DEMO-001 - SpO2: 94.0
+   SpO2 low: 94.0% (normal min: 95.0%)
+   -> Encourage deep breathing. Recheck in 5 min. Consider supplemental O2.
+2026-06-24 19:19:27,520 [tools.alert_tools] WARNING 
+[WARN] DEMO-001 - Temperature: 37.8
+   Temperature high: 37.8C (normal max: 37.2C)
+   -> Monitor trend. Assess for infection source. Antipyretics if indicated.
+2026-06-24 19:19:27,520 [tools.alert_tools] WARNING 
+[WARN] DEMO-001 - Respiratory Rate: 22.0
+   Respiratory Rate high: 22.0/min (normal max: 20.0/min)
+   -> Monitor effort and SpO2. Investigate underlying cause.
+2026-06-24 19:19:27,520 [tools.alert_tools] WARNING 
+[WARN] DEMO-001 - Blood Glucose: 155.0
+   Blood Glucose high: 155.0 mg/dL (normal max: 140.0 mg/dL)
+   -> Recheck in 30 min. Adjust insulin or nutritional intake.
+2026-06-24 19:19:27,520 [agents.orchestrator] INFO [DISPATCH] Sent 6/6 alerts.
+2026-06-24 19:19:27,844 [agents.orchestrator] INFO [INGEST] source=manual
+2026-06-24 19:19:27,844 [agents.orchestrator] INFO [INGEST] Patient: DEMO-001 @ 2026-06-25 02:19:27 | HR=38.0bpm | BP=85.0/52.0mmHg | SpO2=88.0% | Temp=39.8C | RR=32.0/min | Glucose=48.0mg/dL
+2026-06-24 19:19:27,846 [agents.orchestrator] INFO [THRESHOLD] AlertSeverity.CRITICAL - Heart Rate: 38.0
+2026-06-24 19:19:27,846 [agents.orchestrator] INFO [THRESHOLD] AlertSeverity.WARNING - Systolic BP: 85.0
+2026-06-24 19:19:27,846 [agents.orchestrator] INFO [THRESHOLD] AlertSeverity.WARNING - Diastolic BP: 52.0
+2026-06-24 19:19:27,846 [agents.orchestrator] INFO [THRESHOLD] AlertSeverity.CRITICAL - SpO2: 88.0
+2026-06-24 19:19:27,846 [agents.orchestrator] INFO [THRESHOLD] AlertSeverity.CRITICAL - Temperature: 39.8
+2026-06-24 19:19:27,846 [agents.orchestrator] INFO [THRESHOLD] AlertSeverity.CRITICAL - Respiratory Rate: 32.0
+2026-06-24 19:19:27,846 [agents.orchestrator] INFO [THRESHOLD] AlertSeverity.CRITICAL - Blood Glucose: 48.0
+2026-06-24 19:19:27,847 [agents.orchestrator] INFO [LLM] Skipping - multiple critical threshold alerts.
+2026-06-24 19:19:27,848 [tools.alert_tools] CRITICAL 
+[CRIT] DEMO-001 - Heart Rate: 38.0
+   Heart Rate critically low: 38.0 bpm (threshold: <40.0 bpm)
+   -> Immediate cardiac evaluation. Check for arrhythmia or hemodynamic instability.
+2026-06-24 19:19:27,848 [tools.alert_tools] CRITICAL 
+[CRIT] DEMO-001 - SpO2: 88.0
+   SpO2 critically low: 88.0% (threshold: <90.0%)
+   -> Administer supplemental O2 immediately. Assess airway and breathing.
+2026-06-24 19:19:27,848 [tools.alert_tools] CRITICAL 
+[CRIT] DEMO-001 - Temperature: 39.8
+   Temperature critically high: 39.8C (threshold: >39.5C)
+   -> Active cooling/warming required. Assess for infection or environmental exposure.
+2026-06-24 19:19:27,848 [tools.alert_tools] CRITICAL 
+[CRIT] DEMO-001 - Respiratory Rate: 32.0
+   Respiratory Rate critically high: 32.0/min (threshold: >30.0/min)
+   -> Assess airway. Prepare for potential respiratory support.
+2026-06-24 19:19:27,848 [tools.alert_tools] CRITICAL 
+[CRIT] DEMO-001 - Blood Glucose: 48.0
+   Blood Glucose critically low: 48.0 mg/dL (threshold: <54.0 mg/dL)
+   -> Immediate glucose management. Assess for hypoglycemia/DKA/HHS.
+2026-06-24 19:19:27,848 [tools.alert_tools] WARNING 
+[WARN] DEMO-001 - Systolic BP: 85.0
+   Systolic BP low: 85.0 mmHg (normal min: 90.0 mmHg)
+   -> Recheck in 15 min. Review antihypertensives and recent activity.
+2026-06-24 19:19:27,848 [tools.alert_tools] WARNING 
+[WARN] DEMO-001 - Diastolic BP: 52.0
+   Diastolic BP low: 52.0 mmHg (normal min: 60.0 mmHg)
+   -> Monitor trend. Consult physician if persistent.
+2026-06-24 19:19:27,848 [agents.orchestrator] INFO [DISPATCH] Sent 7/7 alerts.

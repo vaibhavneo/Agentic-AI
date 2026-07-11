@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>AIOS — AI Workspace</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400&display=swap');
+*{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#09090b;--surface:#18181b;--surface2:#27272a;--border:#3f3f46;
+  --text:#fafafa;--muted:#a1a1aa;--accent:#818cf8;--green:#4ade80;--amber:#fbbf24;--red:#f87171}
+body{background:var(--bg);color:var(--text);font:13px/1.5 Inter,sans-serif;height:100vh;display:flex;flex-direction:column;overflow:hidden}
+.topbar{display:flex;align-items:center;gap:12px;padding:8px 14px;border-bottom:1px solid var(--border);background:var(--surface)}
+.topbar .logo{font-weight:600;font-size:14px}
+.kbtn{flex:0 1 340px;margin:0 auto;background:var(--bg);border:1px solid var(--border);border-radius:6px;
+  padding:5px 12px;color:var(--muted);font-size:12px;cursor:pointer;text-align:left}
+.kbtn:hover{border-color:var(--accent)}
+.shell{flex:1;display:flex;min-height:0}
+.sidebar{width:210px;border-right:1px solid var(--border);background:var(--surface);padding:12px 8px;overflow-y:auto}
+.sec{font-size:10px;color:var(--muted);letter-spacing:1px;margin:10px 6px 6px;text-transform:uppercase}
+.mitem{display:flex;justify-content:space-between;align-items:center;padding:6px 8px;border-radius:6px;cursor:pointer;color:var(--muted);font-size:12.5px}
+.mitem:hover{background:var(--surface2)}
+.mitem.active{background:rgba(129,140,248,.12);color:var(--accent)}
+.mitem .pct{font-size:10px}
+.main{flex:1;overflow-y:auto;padding:18px 22px;min-width:0}
+.ctx{width:280px;border-left:1px solid var(--border);background:var(--surface);padding:14px;overflow-y:auto}
+.ctx h3{font-size:10px;color:var(--muted);letter-spacing:1px;margin:12px 0 6px;text-transform:uppercase}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px;margin-bottom:12px}
+.card h2{font-size:12px;color:var(--accent);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.kv{display:flex;justify-content:space-between;padding:3px 0;font-size:12.5px;border-bottom:1px solid rgba(255,255,255,.04)}
+.kv span:first-child{color:var(--muted)}
+input,select,textarea{width:100%;background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:7px 10px;font-size:13px;font-family:inherit;margin-bottom:6px}
+button{background:var(--accent);color:#0b0b14;border:0;border-radius:6px;padding:6px 14px;font-weight:600;font-size:12.5px;cursor:pointer}
+button.ghost{background:transparent;color:var(--accent);border:1px solid var(--border)}
+.badge{font-size:10px;padding:2px 8px;border-radius:9px;font-weight:600}
+.badge.corpus{background:rgba(129,140,248,.14);color:var(--accent)}
+.badge.cross{background:rgba(251,191,36,.14);color:var(--amber)}
+.badge.active{background:rgba(74,222,128,.14);color:var(--green)}
+.chunk{border-left:3px solid var(--accent);background:var(--bg);border-radius:0 6px 6px 0;padding:8px 10px;margin:8px 0;font-size:12px}
+.chunk.cross{border-left-color:var(--amber)}
+.chunk .src{color:var(--muted);font-size:11px;margin-bottom:3px;display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.tabs{display:flex;gap:14px;border-bottom:1px solid var(--border);margin:12px 0;font-size:12.5px}
+.tab{padding:5px 0;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent}
+.tab.on{color:var(--accent);border-bottom-color:var(--accent)}
+.task{display:flex;gap:8px;padding:5px 0;font-size:12.5px;border-bottom:1px solid rgba(255,255,255,.04)}
+.task.done{color:var(--muted);text-decoration:line-through}
+pre{background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:10px;font:11.5px JetBrains Mono,monospace;white-space:pre-wrap;max-height:400px;overflow:auto}
+.palette{position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;align-items:flex-start;justify-content:center;padding-top:12vh;z-index:50}
+.palette.open{display:flex}
+.pbox{width:520px;background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden}
+.pbox input{border:0;border-bottom:1px solid var(--border);border-radius:0;padding:13px 16px;font-size:14px;margin:0}
+.pitem{padding:9px 16px;cursor:pointer;font-size:13px;display:flex;justify-content:space-between}
+.pitem.sel{background:rgba(129,140,248,.14)}
+.pitem .hint{color:var(--muted);font-size:11px}
+.muted{color:var(--muted)}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <span class="logo">🧠 AIOS</span>
+  <button class="kbtn" onclick="openPalette()">⌘K — go to mission, search, create…</button>
+  <span id="topStatus" class="muted" style="font-size:11px">loading…</span>
+</div>
+<div class="shell">
+  <div class="sidebar">
+    <div class="sec">Missions</div>
+    <div id="missionList"></div>
+    <div class="mitem" onclick="showNewMission()">＋ New mission</div>
+    <div class="sec">Views</div>
+    <div class="mitem" data-view="dashboard" onclick="go('dashboard')">🏠 Dashboard</div>
+    <div class="mitem" data-view="corpora" onclick="go('corpora')">📚 Corpora</div>
+  </div>
+  <div class="main" id="main"></div>
+  <div class="ctx" id="ctx">
+    <div id="coachCard"></div>
+    <h3>Context</h3><div class="muted" style="font-size:12px">Search or open a mission — retrieved chunks land here with corpus provenance.</div>
+  </div>
+</div>
+
+<div class="palette" id="palette" onclick="if(event.target===this)closePalette()">
+  <div class="pbox">
+    <input id="pinput" placeholder="Type a command or search… (esc to close)" autocomplete="off">
+    <div id="pitems"></div>
+  </div>
+</div>
+
+<script>
+const j=(u,o)=>fetch(u,o).then(r=>r.json());
+const el=id=>document.getElementById(id);
+const esc=s=>String(s).replace(/</g,'&lt;');
+let missions=[], corpora=[], current=null, view='dashboard', coach=[];
+
+async function boot(){
+  const h=await j('/api/health');
+  corpora=h.corpora;
+  el('topStatus').textContent=`${h.corpora.length} corpora · ${h.missions} missions`;
+  const m=await j('/api/missions'); missions=m.missions;
+  renderSidebar(); go('dashboard'); loadCoach();
+}
+
+// ── Coach (M-P1a): deterministic, evidence-cited recommendations ──────────
+async function loadCoach(){
+  try{const r=await j('/api/coach'); coach=r.recommendations||[];}
+  catch(e){coach=[];}
+  renderCoach();
+}
+function renderCoach(){
+  el('coachCard').innerHTML=`<h3 style="margin:0 0 6px">🧭 Coach`+
+    (coach.length?` <span class="pct">${coach.length}</span>`:'')+`</h3>`+
+    (coach.length? coach.map((r,i)=>`
+      <div style="padding:7px 0;border-bottom:1px solid rgba(255,255,255,.06);font-size:12.5px">
+        <div>${esc(r.action)}</div>
+        <div class="muted" style="font-size:10.5px;margin:2px 0 5px">${esc(r.evidence)}</div>
+        <button onclick="coachAccept('${r.id}')" style="padding:2px 9px;font-size:11px">✓ Accept${i===0?' · .':''}</button>
+        <button onclick="coachDismiss('${r.id}')" style="padding:2px 9px;font-size:11px;background:transparent;color:var(--muted);border:1px solid rgba(255,255,255,.15)">✕ Dismiss</button>
+      </div>`).join('')
+    : `<div class="muted" style="font-size:12px">No suggestions right now — you're clear.</div>`);
+}
+async function coachAccept(id){
+  const r=await j(`/api/coach/${id}/accept`,{method:'POST'});
+  el('topStatus').textContent=r.dispatched?`accepted → ${r.dispatch_skill||'recorded'} ${r.dispatch_summary||''}`:'accepted';
+  await loadCoach();
+}
+async function coachDismiss(id){ await fetch(`/api/coach/${id}/dismiss`,{method:'POST'}); await loadCoach(); }
+function renderSidebar(){
+  el('missionList').innerHTML=missions.map(m=>
+    `<div class="mitem ${current===m.id?'active':''}" onclick="openMission('${m.id}')">
+     <span>${esc(m.title.slice(0,20))}</span><span class="pct">${m.progress}%</span></div>`).join('')
+    || '<div class="muted" style="padding:6px 8px;font-size:12px">none yet</div>';
+}
+function go(v){view=v;current=null;renderSidebar();
+  if(v==='dashboard')renderDashboard(); if(v==='corpora')renderCorpora();}
+
+function renderDashboard(){
+  el('main').innerHTML=`
+  <h1 style="font-size:17px;margin-bottom:12px">Dashboard</h1>
+  <div class="grid2">
+    <div class="card"><h2>Missions</h2>${missions.map(m=>
+      `<div class="kv"><span onclick="openMission('${m.id}')" style="cursor:pointer;color:var(--text)">${esc(m.title)}</span>
+       <span><span class="badge active">${m.status}</span> ${m.progress}%</span></div>`).join('')||'<span class="muted">create one (⌘K → new)</span>'}</div>
+    <div class="card"><h2>Corpora</h2>${corpora.map(c=>
+      `<div class="kv"><span>${c.id}</span><span>${c.chunks.toLocaleString()} chunks · r=${c.reliability}</span></div>`).join('')}</div>
+  </div>
+  <div class="card"><h2>Search knowledge (scoped)</h2>
+    <div style="display:flex;gap:8px">
+      <select id="scopeSel" style="width:190px;margin:0">${corpora.map(c=>`<option value="${c.id}">${c.id}</option>`).join('')}</select>
+      <input id="dq" style="margin:0" placeholder="query…" onkeydown="if(event.key==='Enter')dashSearch()">
+      <button onclick="dashSearch()">Search</button>
+    </div><div id="dres"></div></div>`;
+}
+async function dashSearch(){
+  const q=el('dq').value.trim(); if(q.length<3)return;
+  const r=await j(`/api/search?q=${encodeURIComponent(q)}&corpora=${el('scopeSel').value}`);
+  renderHits(r,'dres');
+}
+function renderHits(r,target){
+  const html = r.error?`<div class="muted">✗ ${esc(r.error)}</div>`
+   : r.n===0?'<div class="muted" style="margin-top:8px">no results in scope (honest empty)</div>'
+   : r.hits.map(h=>`<div class="chunk ${h.cross_corpus?'cross':''}">
+      <div class="src">${h.corpus.map(c=>`<span class="badge corpus">${c}</span>`).join('')}
+      ${h.cross_corpus?'<span class="badge cross">cross-corpus</span>':''}
+      <span>${esc(h.source)}</span><span>conf ${h.confidence.toFixed(2)}</span></div>
+      ${esc(h.text.slice(0,260))}…</div>`).join('')
+     + `<div class="muted" style="font-size:11px;margin-top:4px">scope: ${r.scope.join(', ')}${r.widened?' · widened':''}</div>`;
+  el(target).innerHTML=html;
+  el('ctx').innerHTML='<h3>Retrieved</h3>'+html;
+}
+
+async function openMission(id){
+  current=id;renderSidebar();
+  const m=await j('/api/missions/'+id);
+  el('main').innerHTML=`
+  <div style="display:flex;align-items:baseline;gap:10px">
+    <h1 style="font-size:16px">${esc(m.title)}</h1>
+    <span class="badge active">${m.status}</span><span class="muted">${m.progress}%</span></div>
+  <div class="muted" style="margin:4px 0 2px">Goal: ${esc(m.goal)}</div>
+  <div style="margin:6px 0">${m.corpora.map(c=>`<span class="badge corpus">${c}</span>`).join(' ')}
+    <label style="font-size:11px;color:var(--muted);margin-left:8px">
+    <input type="checkbox" style="width:auto" ${m.cross_corpus?'checked':''}
+     onchange="toggleCross('${m.id}',this.checked)"> cross-corpus</label></div>
+  <div class="tabs">${['Overview','Tasks','Search','Notes','Memory','Questions'].map((t,i)=>
+    `<div class="tab ${i===0?'on':''}" onclick="mtab('${m.id}','${t}',this)">${t}</div>`).join('')}</div>
+  <div id="mbody"></div>`;
+  mtabRender(m,'Overview');
+  el('ctx').innerHTML=`<h3>Mission</h3>
+   <div class="kv"><span>type</span><span>${m.type}</span></div>
+   <div class="kv"><span>tasks</span><span>${m.tasks.filter(t=>t.done).length}/${m.tasks.length}</span></div>
+   <h3>Open questions</h3>${m.questions.map(q=>`<div style="font-size:12px">· ${esc(q)}</div>`).join('')||'<span class="muted" style="font-size:12px">none</span>'}`;
+  window._m=m;
+}
+async function toggleCross(id,val){await fetch(`/api/missions/${id}/corpora`,{method:'PATCH',
+  headers:{'Content-Type':'application/json'},body:JSON.stringify({cross_corpus:val})});}
+function mtab(id,t,elm){document.querySelectorAll('.tab').forEach(x=>x.classList.remove('on'));
+  elm.classList.add('on');mtabRender(window._m,t);}
+function mtabRender(m,t){
+  const b=el('mbody');
+  if(t==='Overview')loadMem(m.id,'state.md',b);
+  else if(t==='Tasks')b.innerHTML=m.tasks.map(x=>
+    `<div class="task ${x.done?'done':''}">${x.done?'☑':'☐'} ${esc(x.description)}</div>`).join('')||'<span class="muted">no tasks</span>';
+  else if(t==='Search')b.innerHTML=`<div style="display:flex;gap:8px;margin-top:8px">
+    <input id="mq" style="margin:0" placeholder="search within mission corpora…" onkeydown="if(event.key==='Enter')missionSearch('${m.id}')">
+    <button onclick="missionSearch('${m.id}')">Search</button></div><div id="mres"></div>`;
+  else if(t==='Notes')loadMem(m.id,'notes.md',b);
+  else if(t==='Memory')b.innerHTML=`<select onchange="loadMem('${m.id}',this.value,el('memv'))" style="width:220px">
+    ${m.memory_files.map(f=>`<option>${f}</option>`).join('')}</select><div id="memv"></div>`+(loadMem(m.id,m.memory_files[0],null)||'');
+  else if(t==='Questions')loadMem(m.id,'questions.md',b);
+}
+async function loadMem(id,f,target){
+  const r=await j(`/api/missions/${id}/memory/${f}`);
+  const html=`<pre>${esc(r.content||r.error)}</pre>`;
+  if(target)target.innerHTML=html; else if(el('memv'))el('memv').innerHTML=html;
+}
+async function missionSearch(id){
+  const q=el('mq').value.trim(); if(q.length<3)return;
+  const r=await j(`/api/search?q=${encodeURIComponent(q)}&mission_id=${id}`);
+  renderHits(r,'mres');
+}
+
+function renderCorpora(){
+  el('main').innerHTML=`<h1 style="font-size:17px;margin-bottom:12px">Corpora</h1>`+
+   corpora.map(c=>`<div class="card"><h2>${c.id}</h2>
+    <div class="kv"><span>chunks</span><span>${c.chunks.toLocaleString()}</span></div>
+    <div class="kv"><span>reliability</span><span>${c.reliability}</span></div>
+    <button class="ghost" style="margin-top:8px" onclick="ingestCorpus('${c.id}',this)">Re-ingest</button></div>`).join('');
+}
+async function ingestCorpus(id,btn){btn.textContent='ingesting…';
+  const r=await j(`/api/corpora/${id}/ingest`,{method:'POST'});
+  btn.textContent=r.error?('✗ '+r.error):`✓ ${r.files} files / ${r.chunks} chunks`;}
+
+function showNewMission(){
+  el('main').innerHTML=`<h1 style="font-size:17px;margin-bottom:12px">New mission</h1>
+  <div class="card" style="max-width:520px">
+    <input id="nmTitle" placeholder="Title (e.g. Learn Reinforcement Learning)">
+    <input id="nmGoal" placeholder="Goal — falsifiable end state">
+    <select id="nmType"><option>learn</option><option>build</option><option>research</option></select>
+    <div class="sec" style="margin-left:0">Corpora (≥1 required)</div>
+    ${corpora.map(c=>`<label style="display:block;font-size:12.5px;margin:2px 0">
+      <input type="checkbox" class="nmC" value="${c.id}" style="width:auto"> ${c.id} (${c.chunks.toLocaleString()})</label>`).join('')}
+    <label style="display:block;font-size:12.5px;margin:8px 0"><input type="checkbox" id="nmX" style="width:auto"> allow cross-corpus</label>
+    <textarea id="nmTasks" rows="3" placeholder="Initial tasks, one per line (≥3 recommended)"></textarea>
+    <button onclick="createMission()">Create</button> <span id="nmErr" class="muted"></span></div>`;
+}
+async function createMission(){
+  const sel=[...document.querySelectorAll('.nmC:checked')].map(x=>x.value);
+  const r=await j('/api/missions',{method:'POST',headers:{'Content-Type':'application/json'},
+   body:JSON.stringify({title:el('nmTitle').value,goal:el('nmGoal').value,type:el('nmType').value,
+    corpora:sel,cross_corpus:el('nmX').checked,
+    tasks:el('nmTasks').value.split('\n').map(s=>s.trim()).filter(Boolean)})});
+  if(r.error){el('nmErr').textContent='✗ '+r.error;return;}
+  missions=(await j('/api/missions')).missions;renderSidebar();openMission(r.id);
+}
+
+// ── ⌘K command palette ──────────────────────────────────────────────────
+let psel=0, pcmds=[];
+function commands(){
+  const cmds=[{t:'Go to dashboard',h:'view',f:()=>go('dashboard')},
+    {t:'Manage corpora',h:'view',f:()=>go('corpora')},
+    {t:'New mission',h:'create',f:showNewMission}];
+  missions.forEach(m=>cmds.push({t:`Go: ${m.title}`,h:`mission ${m.progress}%`,f:()=>openMission(m.id)}));
+  return cmds;
+}
+function openPalette(){el('palette').classList.add('open');el('pinput').value='';psel=0;filterP();el('pinput').focus();}
+function closePalette(){el('palette').classList.remove('open');}
+function filterP(){
+  const q=el('pinput').value.toLowerCase();
+  pcmds=commands().filter(c=>c.t.toLowerCase().includes(q));
+  if(q.length>=3)pcmds.push({t:`Search knowledge: "${el('pinput').value}"`,h:'enter',f:()=>{go('dashboard');
+    setTimeout(()=>{el('dq').value=el('pinput').value;dashSearch();},50);}});
+  psel=Math.min(psel,Math.max(0,pcmds.length-1));
+  el('pitems').innerHTML=pcmds.map((c,i)=>
+   `<div class="pitem ${i===psel?'sel':''}" onclick="pcmds[${i}].f();closePalette()">
+    <span>${esc(c.t)}</span><span class="hint">${c.h}</span></div>`).join('');
+}
+document.addEventListener('keydown',e=>{
+  if((e.metaKey||e.ctrlKey)&&e.key==='k'){e.preventDefault();openPalette();return;}
+  // '.' accepts the top coach recommendation (not while typing in a field)
+  if(e.key==='.'&&!/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName||'')
+     &&!el('palette').classList.contains('open')){
+    if(coach[0]){e.preventDefault();coachAccept(coach[0].id);}return;}
+  if(!el('palette').classList.contains('open'))return;
+  if(e.key==='Escape')closePalette();
+  else if(e.key==='ArrowDown'){psel=Math.min(psel+1,pcmds.length-1);filterP();}
+  else if(e.key==='ArrowUp'){psel=Math.max(psel-1,0);filterP();}
+  else if(e.key==='Enter'&&pcmds[psel]){pcmds[psel].f();closePalette();}
+});
+el('pinput').addEventListener('input',()=>{psel=0;filterP();});
+boot();
+</script>
+</body>
+</html>

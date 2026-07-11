@@ -1,0 +1,13 @@
+{
+  "description": "happy path: explain a topic grounded in a corpus, no prior mastery signal (starts at introduce)",
+  "inputs": {
+    "topic": "agent design patterns",
+    "mode": "explain",
+    "corpora": ["curated-wiki"]
+  },
+  "expected_output": {
+    "adaptation": {"level": "introduce", "mastery_known": false},
+    "provenance_grounded": true
+  },
+  "notes": "No mastery ⇒ introduce, mastery_known=false; source_evidence and concept_candidate.sources come from the retrieval gateway. Replayed with a fixed stub adapter (no model)."
+}

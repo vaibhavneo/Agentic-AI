@@ -1,0 +1,9 @@
+{
+  "description": "negative control: no corpus scope ⇒ the skill refuses to fabricate an ungrounded lesson (P9)",
+  "inputs": {
+    "topic": "reinforcement learning"
+  },
+  "expected_output": null,
+  "expected_failure": "EXECUTION_ERROR",
+  "notes": "Neither mission_id nor corpora ⇒ ValueError → EXECUTION_ERROR. Scope is never guessed."
+}
