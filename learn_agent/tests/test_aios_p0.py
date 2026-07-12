@@ -145,6 +145,13 @@ def test_shell_page():
         check(f"shell contains '{probe}'", probe in html)
 
 
+def test_shell_task_write_path_markers():
+    print("=== workspace shell: task write-path UI (M-P1c/WP-3) ===")
+    html = client.get("/app").text
+    for probe in ("taskAdd", "taskToggle", "todayFocus", "Today's Focus", "loadTodayFocus"):
+        check(f"shell contains '{probe}'", probe in html)
+
+
 def test_coach_api():
     print("=== coach API: recommendations + accept/dismiss (M-P1a) ===")
     import tempfile
@@ -190,6 +197,118 @@ def test_coach_api():
         shutil.rmtree(td, ignore_errors=True)
 
 
+# ── Mission task write-path (M-P1c / WP-3) ───────────────────────────────────
+# Every sub-test creates its OWN throwaway mission — never one of the two real
+# seeded missions — and cleans it up, matching test_exit_criteria_flow's
+# established pattern.
+
+def _new_task_mission(title, slug_hint):
+    shutil.rmtree(MISSIONS_DIR / slug_hint, ignore_errors=True)
+    r = client.post("/api/missions", json={
+        "title": title, "type": "build", "goal": "verify task write-path " + title,
+        "corpora": ["personal-notes"]}).json()
+    check(f"mission '{slug_hint}' created", r.get("id") == slug_hint, str(r))
+    return r["id"]
+
+
+def test_task_create_and_toggle_write_plan_md_on_disk():
+    print("=== task create + toggle: dispatched via skill, plan.md changes ON DISK ===")
+    slug = _new_task_mission("WP3 Task Write Test", "wp3-task-write-test")
+    plan = MISSIONS_DIR / slug / "plan.md"
+    before = plan.read_text()
+
+    r = client.post(f"/api/missions/{slug}/tasks", json={"description": "Ship the write-path"}).json()
+    check("create ok, changed=True", r.get("changed") is True, str(r))
+    tid = r["task"]["id"]
+    after_create = plan.read_text()
+    check("plan.md content changed ON DISK after create",
+          after_create != before and "Ship the write-path" in after_create)
+
+    m = client.get(f"/api/missions/{slug}").json()
+    check("mission.get() reflects the new task via the API",
+          any(t["id"] == tid and t["description"] == "Ship the write-path" for t in m["tasks"]))
+    check("progress still 0% (nothing checked yet)", m["progress"] == 0)
+
+    r2 = client.patch(f"/api/missions/{slug}/tasks/{tid}", json={"done": True}).json()
+    check("toggle done ok, changed=True", r2.get("changed") is True, str(r2))
+    after_toggle = plan.read_text()
+    check("plan.md's checkbox actually flipped ON DISK",
+          f"- [x] Ship the write-path" in after_toggle)
+
+    m2 = client.get(f"/api/missions/{slug}").json()
+    check("progress recomputed via the API after the write",
+          m2["progress"] == round(100 / len(m2["tasks"])), str(m2["progress"]))
+
+    shutil.rmtree(MISSIONS_DIR / slug, ignore_errors=True)
+
+
+def test_task_idempotency_and_errors_over_http():
+    print("=== duplicate submissions + invalid transitions over the real HTTP API ===")
+    slug = _new_task_mission("WP3 Task Idempotency Test", "wp3-task-idempotency-test")
+    plan = MISSIONS_DIR / slug / "plan.md"
+
+    r1 = client.post(f"/api/missions/{slug}/tasks", json={"description": "Deploy"}).json()
+    r2 = client.post(f"/api/missions/{slug}/tasks", json={"description": "Deploy"}).json()
+    r3 = client.post(f"/api/missions/{slug}/tasks", json={"description": "Deploy"}).json()
+    check("first create changed", r1["changed"] is True)
+    check("duplicate submissions are no-ops (changed=False)",
+          r2["changed"] is False and r3["changed"] is False, str((r2, r3)))
+    check("all three agree on the same task id",
+          len({r1["task"]["id"], r2["task"]["id"], r3["task"]["id"]}) == 1)
+    check("exactly one 'Deploy' line survives on disk",
+          sum(1 for ln in plan.read_text().splitlines() if "Deploy" in ln) == 1)
+
+    tid = r1["task"]["id"]
+    same_state = client.patch(f"/api/missions/{slug}/tasks/{tid}", json={"done": False}).json()
+    check("re-applying the CURRENT state is a no-op", same_state.get("changed") is False,
+          str(same_state))
+
+    bad = client.patch(f"/api/missions/{slug}/tasks/9999", json={"done": True})
+    check("invalid transition (unknown task_id) -> 404", bad.status_code == 404, bad.text)
+    bad_body = client.patch(f"/api/missions/{slug}/tasks/{tid}", json={})
+    check("missing 'done' -> 400", bad_body.status_code == 400)
+    bad_mission = client.post("/api/missions/does-not-exist/tasks", json={"description": "x"})
+    check("unknown mission -> 404", bad_mission.status_code == 404)
+    empty_desc = client.post(f"/api/missions/{slug}/tasks", json={"description": ""})
+    check("empty description -> 400", empty_desc.status_code == 400)
+
+    shutil.rmtree(MISSIONS_DIR / slug, ignore_errors=True)
+
+
+def test_today_focus_api():
+    print("=== Today's Focus: first unchecked task of the most-recently-active mission ===")
+    slug = _new_task_mission("WP3 Today Focus Test", "wp3-today-focus-test")
+    # mission.create() with no explicit tasks seeds ONE default item —
+    # that (not a task we add afterward) is the real first unchecked task.
+    seeded = client.get(f"/api/missions/{slug}").json()["tasks"]
+    check("mission seeded with exactly its one default task", len(seeded) == 1, str(seeded))
+    default_task = seeded[0]
+
+    r = client.get("/api/today-focus").json()
+    check("today-focus surfaces THIS mission's real first unchecked task"
+          " (most recently created ⇒ most recently touched log.md)",
+          r["mission_id"] == slug and r["task"]["id"] == default_task["id"], str(r))
+
+    client.post(f"/api/missions/{slug}/tasks", json={"description": "Only task"})
+    r_unchanged = client.get("/api/today-focus").json()
+    check("adding a SECOND task doesn't change the focus (first unchecked wins)",
+          r_unchanged["task"]["id"] == default_task["id"], str(r_unchanged))
+
+    client.patch(f"/api/missions/{slug}/tasks/{default_task['id']}", json={"done": True})
+    r2 = client.get("/api/today-focus").json()
+    check("completing the default task advances focus to the next unchecked task",
+          r2["mission_id"] == slug and r2["task"]["description"] == "Only task", str(r2))
+
+    tid2 = r2["task"]["id"]
+    client.patch(f"/api/missions/{slug}/tasks/{tid2}", json={"done": True})
+    r3 = client.get("/api/today-focus").json()
+    check("after ALL of this mission's tasks are done, it offers no task"
+          " (another mission may surface instead, or task is None)",
+          r3["mission_id"] != slug or r3["task"] is None, str(r3))
+
+    shutil.rmtree(MISSIONS_DIR / slug, ignore_errors=True)
+
+
 if __name__ == "__main__":
     test_health_and_corpora()
     test_mission_requires_corpus()
@@ -198,7 +317,11 @@ if __name__ == "__main__":
     test_search_guards()
     test_seeded_missions()
     test_shell_page()
+    test_shell_task_write_path_markers()
     test_coach_api()
+    test_task_create_and_toggle_write_plan_md_on_disk()
+    test_task_idempotency_and_errors_over_http()
+    test_today_focus_api()
     print(f"\n{'='*60}")
     if FAILURES:
         print(f"{len(FAILURES)} FAILURE(S): {FAILURES}"); sys.exit(1)

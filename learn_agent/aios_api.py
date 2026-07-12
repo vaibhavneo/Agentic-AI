@@ -130,6 +130,75 @@ async def mission_memory(slug: str, name: str):
     return {"name": p.name, "content": p.read_text()}
 
 
+# ── Mission tasks (M-P1c): thin wrappers; all writes via the mission_tasks
+# skill dispatch — no direct-file-write path exists here (D12/P10). ─────────
+def _task_error_response(r):
+    detail = r.failure_detail or ""
+    if r.failure == "EXECUTION_ERROR" and "task_id" in detail:
+        return JSONResponse({"error": detail}, status_code=404)
+    if r.failure in ("EXECUTION_ERROR", "INPUT_INVALID"):
+        return JSONResponse({"error": detail or r.failure}, status_code=400)
+    return JSONResponse({"error": r.failure, "detail": detail}, status_code=500)
+
+
+@router.post("/missions/{slug}/tasks")
+async def mission_task_create(slug: str, request: Request):
+    try:
+        get_mission(slug)
+    except KeyError as e:
+        return JSONResponse({"error": str(e).strip("'")}, status_code=404)
+    d = await request.json()
+    if not d.get("description"):
+        return JSONResponse({"error": "description required"}, status_code=400)
+    from aios_core import skill as _skill
+    r = _skill.run("mission_tasks", {"memory_root": str(MISSIONS_DIR / slug),
+                                     "op": "create", "description": d["description"]})
+    if not r.ok:
+        return _task_error_response(r)
+    return r.output
+
+
+@router.patch("/missions/{slug}/tasks/{task_id}")
+async def mission_task_set_done(slug: str, task_id: int, request: Request):
+    try:
+        get_mission(slug)
+    except KeyError as e:
+        return JSONResponse({"error": str(e).strip("'")}, status_code=404)
+    d = await request.json()
+    if "done" not in d or not isinstance(d["done"], bool):
+        return JSONResponse({"error": "done (boolean) required"}, status_code=400)
+    from aios_core import skill as _skill
+    r = _skill.run("mission_tasks", {"memory_root": str(MISSIONS_DIR / slug),
+                                     "op": "set_done", "task_id": task_id,
+                                     "done": d["done"]})
+    if not r.ok:
+        return _task_error_response(r)
+    return r.output
+
+
+@router.get("/today-focus")
+async def today_focus():
+    """Read-only: the first unchecked task of the most-recently-active
+    ACTIVE mission (log.md mtime, falling back to `created`). No write path;
+    computed straight from mission.get()/list_all() + a file mtime read."""
+    active = [m for m in list_missions() if m.get("status") == "active"]
+    if not active:
+        return {"mission_id": None, "mission_title": None, "task": None}
+
+    def _activity(m):
+        log_f = MISSIONS_DIR / m["id"] / "log.md"
+        if log_f.exists():
+            return log_f.stat().st_mtime
+        return 0.0
+    active.sort(key=_activity, reverse=True)
+    for m in active:
+        full = get_mission(m["id"])
+        nxt = next((t for t in full["tasks"] if not t["done"]), None)
+        if nxt:
+            return {"mission_id": m["id"], "mission_title": m["title"], "task": nxt}
+    return {"mission_id": active[0]["id"], "mission_title": active[0]["title"], "task": None}
+
+
 @router.get("/search")
 async def search(q: str = "", mission_id: Optional[str] = None,
                  corpora: Optional[str] = None, cross_corpus: Optional[bool] = None):

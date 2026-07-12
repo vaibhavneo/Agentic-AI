@@ -57,6 +57,11 @@
    "manifest_path": "teacher/manifest.json"
   },
   {
+   "id": "mission_tasks",
+   "version": "1.0.0",
+   "manifest_path": "mission_tasks/manifest.json"
+  },
+  {
    "id": "echo",
    "version": "1.0.0",
    "manifest": {

@@ -3,9 +3,9 @@
 
 ## Meta
 - project: Second Brain MVP (Fable Loop Engine)
-- loop_iteration: 19 (Teacher skill M-P2a)
-- status: STABLE + VALIDATED + PACKAGED — 15/15 test suites green
-- last_updated: 2026-07-10
+- loop_iteration: 20 (Task write-path M-P1c)
+- status: STABLE + VALIDATED + PACKAGED — 16/16 test suites green
+- last_updated: 2026-07-11
 
 ## Components
 | component | state | location |
@@ -23,7 +23,7 @@
 | aios_core | v1.0.0 — reusable infra: runtime engine + 6 stable SDK APIs (skill/workflow/agent/memory/retrieval/mission); powers console+AIOS; test_aios_core green (D14) | aios_core/ |
 | skill_sdk | v1.1 — template + validator (V1-V10) + quality score + Part-10 benchmark; capability.json (advisory routing/quality, real trace coverage, D18); new skills: full profile ≥85 | aios_core/skill_sdk/, templates/skill/, SKILL_*.md, CAPABILITY_DESCRIPTOR.md |
 | domain_packs | v1.0.0 — pluggable knowledge domains via PackManager; zero-core-change (proven); AI-eng pack implemented, PM/finance/astrology specced (D15) | packs/, DOMAIN_PACKS.md |
-| skill_library | COMPLETE: 12 skills (incl. echo fixture + teacher M-P2a), all with manifest.json; teacher = full-profile agent-gated (VALID, quality 100) | brain/skills/ (AIOS_SKILLS_DIR-configurable) |
+| skill_library | COMPLETE: 13 skills (incl. echo fixture + teacher M-P2a + mission_tasks M-P1c), all with manifest.json; teacher/mission_tasks = full-profile (VALID, quality 100) | brain/skills/ (AIOS_SKILLS_DIR-configurable) |
 | skill_runtime | v1.1.0 — 9-step lifecycle, retries, model-agnostic; MOVED into aios_core/runtime; brain/runtime = compat shims | aios_core/runtime/ |
 | workflows | 3 executable (.workflow.json incl. self_check) + 4 documented | brain/workflows/ |
 | operator_console | LIVE on :5052 — 8 panels, backend-thin | brain/console/ |
@@ -33,6 +33,7 @@
 | mission_control | LIVE on :8003/ (default landing page, D16) — 10-panel dashboard, ⌘K, dockable panels, 15s live poll; SDK-only; 20/20 tests | learn_agent/mission_control_service.py, mission_control_api.py, static/mission_control.html |
 | coach | LIVE — M-P1a: 7 deterministic trigger scanners → ranked evidence-cited recs; accept dispatches via runtime, dismiss persists (recommendations table, DROP-safe); proto-coach removed (mission_control delegates here); /api/coach + /app card + '.' key | learn_agent/coach_service.py, aios_api.py, static/aios.html |
 | teacher | LIVE — M-P2a/WP-4: adapter-gated teacher skill (stateless; deterministic scope→retrieve→mastery + adapter seam; provenance driver-owned). Integration: teacher_adapter.teach() teach→upsert→critic loop + /api/teach (legacy /ask untouched). Learn-tab UI deferred | brain/skills/teacher/, aios_core/runtime/drivers/teacher_driver.py, learn_agent/teacher_adapter.py, aios_api.py |
+| task_write_path | LIVE — M-P1c/WP-3: mission_tasks skill (create/set_done over plan.md task lines; write-allowlist=plan.md ONLY; idempotent by content/state; in-process per-path lock closes a real lost-update race found in testing). POST/PATCH /api/missions/{slug}/tasks + GET /api/today-focus (read-only); interactive Tasks tab + dashboard Today's Focus card | brain/skills/mission_tasks/, aios_core/runtime/drivers/mission_tasks_driver.py, aios_api.py, static/aios.html |
 | api_reference | docs/API_REFERENCE.md — real API surface + example payloads, PLANNED items labelled; docs/validate_api_reference.py green (M-Q1 rec #2) | docs/ |
 | handoff_docs | COMPLETE — charter/handbook/start-here/playbook/lessons/adapters/workflows; repo is sole source of truth (D13); + migration handoff (plan/Opus prompt/Sonnet templates, C19.1 — planning only) | root *.md, model_adapters/, brain/workflows/WORKFLOWS.md |
 

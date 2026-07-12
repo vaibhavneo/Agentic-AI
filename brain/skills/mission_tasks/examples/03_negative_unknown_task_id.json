@@ -1,0 +1,8 @@
+{
+  "description": "negative control: task_id pointing past the end of the file",
+  "fixture_plan_md": "# plan.md\n## Objective\nx\n## Tasks\n- [ ] Read chapter 1\n- [x] Set up the repo\n",
+  "inputs": {"op": "set_done", "task_id": 99, "done": true},
+  "expected_output": null,
+  "expected_failure": "EXECUTION_ERROR",
+  "notes": "task_id must resolve to a real, current task line — an out-of-range id fails loudly rather than silently no-op'ing or corrupting a line (E3)."
+}

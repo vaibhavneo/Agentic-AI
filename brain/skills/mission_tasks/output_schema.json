@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "mission_tasks result",
+  "type": "object",
+  "required": ["op", "task", "changed"],
+  "additionalProperties": false,
+  "properties": {
+    "op": {"enum": ["create", "set_done"]},
+    "task": {
+      "type": "object",
+      "required": ["id", "description", "done"],
+      "additionalProperties": false,
+      "description": "The task's CURRENT state after this call — for an idempotent no-op (task already existed / already at the target state), this is the pre-existing task, not a new one.",
+      "properties": {
+        "id": {"type": "integer", "minimum": 0},
+        "description": {"type": "string"},
+        "done": {"type": "boolean"}
+      }
+    },
+    "changed": {
+      "type": "boolean",
+      "description": "true iff plan.md was actually written this call. false means the operation was a no-op: create found an identical existing task, or set_done's target was already at the requested state. Callers rely on this for idempotency — never infer 'success' from HTTP status alone."
+    }
+  }
+}

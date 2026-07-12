@@ -38,3 +38,4 @@
 - 2026-07-10 C20.1 Coach (M-P1a/WP-1): 7 deterministic triggers -> ranked evidence-cited recs; accept dispatches via runtime, dismiss persists (aios.db recommendations, DROP-safe); proto-coach removed; /api/coach + /app card + '.'; 13/13 green
 - 2026-07-10 C21.1 H5 resolved (D19): retired second_brain/distill.py (0 callers; violated P9/D9); distillation = concept_distillation skill (adapter-gated); regression in test_library_skills; docs/state synced; 13/13 green
 - 2026-07-10 C22.1 Teacher skill (M-P2a/WP-4): full-profile agent-gated skill (VALID q100)+driver (scope->retrieve->mastery->adapter, provenance driver-owned); teacher_adapter teach->upsert->critic + /api/teach; 15/15 green
+- 2026-07-11 C23.1 Task write-path (M-P1c/WP-3): mission_tasks skill (VALID q100), idempotent create/set_done, plan.md-only allowlist; found+fixed a real lost-update race with a per-path lock; tasks API + Today's Focus; 16/16 green

@@ -34,7 +34,7 @@ def check(name, cond, detail=""):
 def test_registry():
     print("=== registry ===")
     reg = Registry()
-    check("discovers 12 skills", len(reg.list_ids()) == 12, f"{len(reg.list_ids())}")
+    check("discovers 13 skills", len(reg.list_ids()) == 13, f"{len(reg.list_ids())}")
     check("tag discovery finds verification skills",
           {s["id"] for s in reg.discover(tag="verification")} >=
           {"critic", "evaluator", "evidence_validation"})

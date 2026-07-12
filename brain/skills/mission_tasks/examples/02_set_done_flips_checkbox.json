@@ -1,0 +1,8 @@
+{
+  "description": "happy path: check off an existing, currently-unchecked task",
+  "fixture_plan_md": "# plan.md\n## Objective\nx\n## Tasks\n- [ ] Read chapter 1\n- [x] Set up the repo\n",
+  "inputs": {"op": "set_done", "task_id": 4, "done": true},
+  "expected_output": {"op": "set_done", "changed": true,
+                      "task": {"id": 4, "description": "Read chapter 1", "done": true}},
+  "notes": "task_id=4 is the 'Read chapter 1' line (0-indexed: 0='# plan.md', 1='## Objective', 2='x', 3='## Tasks', 4=the first task line)."
+}

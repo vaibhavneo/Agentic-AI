@@ -44,17 +44,30 @@ Design rationale for all of them: `learn_agent/AIOS_ARCHITECTURE.md` §4.4–§8
   retriever load latency on first task (pre-warm on run start).
 - **Rollback**: remove tab + routes; mission files unaffected.
 
-## M-P1c — Task write-path + Today's Focus
-- **Objective**: check/add plan.md tasks from the UI **through a skill
-  dispatch** (memory permissions enforced), and a dashboard Today's Focus card
-  (first unchecked task of most-recently-active mission).
-- **Files**: NEW small `mission_tasks` python skill (driver edits plan.md;
-  manifest write allowlist = plan.md only) + registry entry; `aios_api.py`
-  task routes; `aios.html`.
-- **DoD**: checking a task updates the FILE (verify by reading plan.md),
-  progress recomputes, dispatcher logs the memory change; direct-file-write
-  path does not exist in the API layer.
-- **Risks**: edit collisions (last-write-wins acceptable single-user; note it).
+## M-P1c — Task write-path + Today's Focus — IMPLEMENTED 2026-07-11 (WP-3)
+- **Delivered**: full-profile `mission_tasks` skill (`brain/skills/mission_tasks/`,
+  VALID + quality 100) — `create`/`set_done` ops over `plan.md`'s task lines
+  (the SAME line-index id space `mission.get()` already exposes), write
+  allowlist = `["plan.md"]` ONLY (dispatcher-enforced — a deliberate negative
+  test proves a regressed driver writing `state.md` is caught as
+  MEMORY_VIOLATION, not self-policed). Idempotent by construction: `create`
+  dedupes by exact description text, `set_done` no-ops when the target state
+  already holds — both proven safe against duplicate submissions/retries.
+  `aios_api.py` gained `POST/PATCH /api/missions/{slug}/tasks[/{task_id}]`
+  (thin; no direct file write in the route) and a read-only
+  `GET /api/today-focus`. `aios.html`'s Tasks tab is now interactive
+  (checkbox + add-task input) and the Dashboard has a Today's Focus card.
+- **Found and fixed during testing**: the naive read-modify-write raced under
+  real thread concurrency — two dispatches against the SAME mission (even on
+  DIFFERENT task ids) could both read before either wrote, silently losing
+  one update. Fixed with an in-process `threading.Lock` keyed per resolved
+  `plan.md` path (covers one server process; two processes writing the same
+  file is the pre-existing, accepted single-user risk below).
+- **DoD**: verified — checking a task updates `plan.md` on disk (asserted via
+  direct file read, not just the API response), progress recomputes via
+  `mission.get()`, no direct-file-write path exists in the API layer.
+- **Risks**: cross-process edit collisions remain last-write-wins (accepted,
+  single-user) — the WITHIN-process race above is now closed, not merely noted.
 
 ## M-P2a — Learn mode (teach → upsert → critic) — IMPLEMENTED 2026-07-10 (WP-4)
 > Delivered: full-profile `teacher` skill (`brain/skills/teacher/`, VALID + quality 100), deterministic driver (`aios_core/runtime/drivers/teacher_driver.py`) that resolves scope → retrieves via the gateway → assesses mastery/prerequisites → delegates the explanation/exercise/mastery-check to `context["agent_adapter"]` → assembles a lesson (explanation · source evidence · exercise · mastery check · next action) with driver-owned provenance. Integration adapter `learn_agent/teacher_adapter.py` (LLM wiring + `teach()` teach→upsert→critic loop) + thin `/api/teach`; legacy `/ask` untouched. Learn-tab UI is the remaining follow-up (structured output is already UI-ready).
@@ -163,6 +176,7 @@ python3 learn_agent/tests/test_mission_control.py # Mission Control (D16)
 python3 learn_agent/tests/test_coach_service.py   # Coach triggers/persistence (M-P1a)
 python3 brain/skills/teacher/tests/test_skill.py  # Teacher skill contract (M-P2a)
 python3 learn_agent/tests/test_teacher_integration.py # Teacher teach→upsert→critic + /api/teach
+python3 brain/skills/mission_tasks/tests/test_skill.py # Task write-path: idempotent, permission-enforced (M-P1c)
 ```
 Plus: self_check workflow through the runtime; memory files within bounds
 (memory_compression skill); log.md gained exactly the lines your work
