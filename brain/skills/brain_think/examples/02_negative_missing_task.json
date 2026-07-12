@@ -1,0 +1,6 @@
+{
+  "description": "negative control: missing 'task' fails schema validation before dispatch",
+  "inputs": {"auto_critique": true},
+  "expected_failure": "INPUT_INVALID",
+  "notes": "Never dispatched to Brain.think — caught at input_schema.json's required:['task']."
+}

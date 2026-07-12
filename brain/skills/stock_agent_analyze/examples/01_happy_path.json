@@ -1,0 +1,7 @@
+{
+  "description": "happy path: a stub SSE collector returns a fixed 'result' event, wrapped unchanged",
+  "inputs": {"ticker": "aapl"},
+  "expected_output": {"app": "stock_agent", "ticker": "AAPL",
+                      "result": {"recommendation": "HOLD", "entry": 190.0}},
+  "notes": "context['_sse_collector'] is injected by the test harness returning {'result': [{...}]} — no real network call."
+}

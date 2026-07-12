@@ -1,0 +1,8 @@
+{
+  "description": "happy path: a stubbed session returns a fixed answer, wrapped unchanged",
+  "inputs": {"question": "Why does the double-slit experiment show interference?"},
+  "expected_output": {"app": "feynman_agent",
+                      "answer": "Because each particle's wavefunction passes through both slits.",
+                      "sources": ["Feynman Lectures Vol III"], "chunks_retrieved": 3},
+  "notes": "context['_session_instance'] is injected by the test harness with a stub whose .ask() returns the fixed dict above — no real model call."
+}

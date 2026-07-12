@@ -1,0 +1,48 @@
+{
+ "id": "health_agent_analyze",
+ "name": "Health Agent Analyze",
+ "version": "1.0.0",
+ "description": "Dispatch free-text vitals (e.g. 'HR=88 BP=145/92 SpO2=94') to health-agent/'s threshold + LLM trend analysis (over its running HTTP server) and return the structured result.",
+ "purpose": "The Central Orchestrator needs one uniform, typed way to hand vitals to health-agent/'s existing analysis pipeline. health-agent/ owns bare top-level packages (agents/, tools/) that collide with brain/'s own internals if imported into the same process, so this skill reaches it over HTTP instead of importing it (D20).",
+ "tags": [
+  "orchestrator",
+  "wrapper",
+  "health_agent",
+  "http"
+ ],
+ "inputs": {
+  "schema": "input_schema.json"
+ },
+ "outputs": {
+  "schema": "output_schema.json"
+ },
+ "memory": {
+  "root_param": null,
+  "read": [],
+  "write": [],
+  "append_only": [],
+  "immutable": []
+ },
+ "execution": {
+  "contract": "execution_contract.md",
+  "steps": [
+   "RESOLVE ENDPOINT",
+   "CALL OVER HTTP",
+   "WRAP RESULT"
+  ],
+  "retries": 0,
+  "runtime": {
+   "type": "python",
+   "entrypoint": "aios_core.runtime.drivers.health_agent_analyze_driver:run"
+  }
+ },
+ "dependencies": [],
+ "evaluation": {
+  "contract": "evaluation_contract.md",
+  "must": [
+   "E1",
+   "E2",
+   "E3"
+  ]
+ }
+}

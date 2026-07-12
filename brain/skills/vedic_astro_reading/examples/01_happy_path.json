@@ -1,0 +1,6 @@
+{
+  "description": "happy path: stubbed geocode + one stubbed section event",
+  "inputs": {"place": "Porbandar, India", "date": "1869-10-02", "time": "07:45"},
+  "expected_output_keys": ["app", "birth_info", "sections"],
+  "notes": "context['_geocode_post'] and context['_reading_sse'] are injected by the test harness — no real network call."
+}

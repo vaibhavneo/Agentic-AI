@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "health_agent_analyze invocation",
+  "type": "object",
+  "required": ["text"],
+  "additionalProperties": false,
+  "properties": {
+    "text": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Free-text vitals, e.g. 'HR=88 BP=145/92 SpO2=94 patient=P001', passed to health-agent/'s /analyze/text endpoint verbatim."
+    }
+  }
+}

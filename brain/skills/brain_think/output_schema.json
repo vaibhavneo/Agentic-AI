@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "brain_think result",
+  "type": "object",
+  "required": ["app", "answer"],
+  "additionalProperties": false,
+  "properties": {
+    "app": {"const": "brain"},
+    "answer": {
+      "type": "string",
+      "description": "Brain.think's final answer, exactly as returned (already brain/'s own fully-formed response — never re-summarized here)."
+    }
+  }
+}

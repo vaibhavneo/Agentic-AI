@@ -62,6 +62,36 @@
    "manifest_path": "mission_tasks/manifest.json"
   },
   {
+   "id": "brain_think",
+   "version": "1.0.0",
+   "manifest_path": "brain_think/manifest.json"
+  },
+  {
+   "id": "feynman_ask",
+   "version": "1.0.0",
+   "manifest_path": "feynman_ask/manifest.json"
+  },
+  {
+   "id": "stock_agent_analyze",
+   "version": "1.0.0",
+   "manifest_path": "stock_agent_analyze/manifest.json"
+  },
+  {
+   "id": "health_agent_analyze",
+   "version": "1.0.0",
+   "manifest_path": "health_agent_analyze/manifest.json"
+  },
+  {
+   "id": "vedic_astro_reading",
+   "version": "1.0.0",
+   "manifest_path": "vedic_astro_reading/manifest.json"
+  },
+  {
+   "id": "central_orchestrator",
+   "version": "1.0.0",
+   "manifest_path": "central_orchestrator/manifest.json"
+  },
+  {
    "id": "echo",
    "version": "1.0.0",
    "manifest": {

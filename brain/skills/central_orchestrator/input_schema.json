@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "central_orchestrator invocation",
+  "type": "object",
+  "required": ["task"],
+  "additionalProperties": false,
+  "properties": {
+    "task": {
+      "type": "string",
+      "minLength": 1,
+      "description": "The free-text task to route. Used both as the routing prompt and as the literal input forwarded to brain_think/feynman_ask if one of those is chosen."
+    },
+    "app_inputs": {
+      "type": "object",
+      "description": "Structured inputs for the target app, REQUIRED if routing resolves to stock_agent_analyze / health_agent_analyze / vedic_astro_reading (a ticker/vitals-string/birth-data cannot be inferred from free text by this skill). Shape must match that skill's own input_schema.json."
+    }
+  }
+}

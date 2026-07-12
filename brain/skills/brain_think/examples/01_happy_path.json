@@ -1,0 +1,6 @@
+{
+  "description": "happy path: a stubbed Brain returns a fixed answer, wrapped unchanged",
+  "inputs": {"task": "Summarize the benefits of TF-IDF retrieval"},
+  "expected_output": {"app": "brain", "answer": "TF-IDF is simple, fast, and needs no embeddings API."},
+  "notes": "context['_brain_instance'] is injected by the test harness with a stub whose .think() returns the fixed string above — no real model call."
+}

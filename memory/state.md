@@ -23,7 +23,8 @@
 | aios_core | v1.0.0 — reusable infra: runtime engine + 6 stable SDK APIs (skill/workflow/agent/memory/retrieval/mission); powers console+AIOS; test_aios_core green (D14) | aios_core/ |
 | skill_sdk | v1.1 — template + validator (V1-V10) + quality score + Part-10 benchmark; capability.json (advisory routing/quality, real trace coverage, D18); new skills: full profile ≥85 | aios_core/skill_sdk/, templates/skill/, SKILL_*.md, CAPABILITY_DESCRIPTOR.md |
 | domain_packs | v1.0.0 — pluggable knowledge domains via PackManager; zero-core-change (proven); AI-eng pack implemented, PM/finance/astrology specced (D15) | packs/, DOMAIN_PACKS.md |
-| skill_library | COMPLETE: 13 skills (incl. echo fixture + teacher M-P2a + mission_tasks M-P1c), all with manifest.json; teacher/mission_tasks = full-profile (VALID, quality 100) | brain/skills/ (AIOS_SKILLS_DIR-configurable) |
+| skill_library | COMPLETE: 19 skills (incl. echo fixture + teacher M-P2a + mission_tasks M-P1c + 6 Central Orchestrator skills WP-O2-O5), all with manifest.json; teacher/mission_tasks/central_orchestrator/5 wrappers = full-profile (VALID) | brain/skills/ (AIOS_SKILLS_DIR-configurable) |
+| central_orchestrator | LIVE — routes a free-text task to 1 of 5 apps (brain/feynman_agent in-process, stock_agent/health_agent/vedic_astro over HTTP per D20); adapter-gated routing, falls back to brain_think on unresolved app_id (H-O3); orchestrator/apps.json = roster (H-O6) | brain/skills/central_orchestrator/, brain/skills/{brain_think,feynman_ask,stock_agent_analyze,health_agent_analyze,vedic_astro_reading}/, orchestrator/ |
 | skill_runtime | v1.1.0 — 9-step lifecycle, retries, model-agnostic; MOVED into aios_core/runtime; brain/runtime = compat shims | aios_core/runtime/ |
 | workflows | 3 executable (.workflow.json incl. self_check) + 4 documented | brain/workflows/ |
 | operator_console | LIVE on :5052 — 8 panels, backend-thin | brain/console/ |

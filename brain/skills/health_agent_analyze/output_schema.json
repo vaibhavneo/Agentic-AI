@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "health_agent_analyze result",
+  "type": "object",
+  "required": ["app", "result"],
+  "additionalProperties": false,
+  "properties": {
+    "app": {"const": "health_agent"},
+    "result": {
+      "type": "object",
+      "description": "health-agent's own analysis output, unchanged (vitals, threshold flags, LLM trend interpretation). Deliberately not sub-schema'd here — health-agent owns that shape (thin-wrapper principle, P10)."
+    }
+  }
+}

@@ -1,0 +1,55 @@
+{
+ "id": "central_orchestrator",
+ "name": "Central Orchestrator",
+ "version": "1.0.0",
+ "description": "Route a free-text task to the right one of 5 independent AI apps (brain, feynman_agent, stock_agent, health_agent, vedic_astro) and dispatch it through that app's own wrapper skill.",
+ "purpose": "A person or another system has one free-text task and 5 independently-built AI applications; without this skill they must already know which app answers which kind of question. This skill makes that choice, validates it against the real known roster, and falls back to brain/'s general-purpose orchestrator when nothing clearly fits (H-O3) — so a wrong or adversarial routing guess can never dispatch to a nonexistent skill.",
+ "tags": [
+  "orchestrator",
+  "routing",
+  "central"
+ ],
+ "inputs": {
+  "schema": "input_schema.json"
+ },
+ "outputs": {
+  "schema": "output_schema.json"
+ },
+ "memory": {
+  "root_param": null,
+  "read": [],
+  "write": [],
+  "append_only": [],
+  "immutable": []
+ },
+ "execution": {
+  "contract": "execution_contract.md",
+  "steps": [
+   "LOAD APP ROSTER",
+   "CLASSIFY",
+   "VALIDATE CHOICE",
+   "DISPATCH"
+  ],
+  "retries": 0,
+  "runtime": {
+   "type": "python",
+   "entrypoint": "aios_core.runtime.drivers.central_orchestrator_driver:run"
+  }
+ },
+ "dependencies": [
+  {
+   "id": "brain_think",
+   "version": ">=1.0.0 <2.0.0",
+   "optional": false
+  }
+ ],
+ "evaluation": {
+  "contract": "evaluation_contract.md",
+  "must": [
+   "E1",
+   "E2",
+   "E3",
+   "E4"
+  ]
+ }
+}

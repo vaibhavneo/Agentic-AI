@@ -1,0 +1,6 @@
+{
+  "description": "negative control: missing 'text' fails schema validation before dispatch",
+  "inputs": {},
+  "expected_failure": "INPUT_INVALID",
+  "notes": "Never dispatched over HTTP — caught at input_schema.json's required:['text']."
+}

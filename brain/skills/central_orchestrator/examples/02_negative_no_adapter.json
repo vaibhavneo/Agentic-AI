@@ -1,0 +1,6 @@
+{
+  "description": "negative control: no agent_adapter supplied -> NOT_EXECUTABLE",
+  "inputs": {"task": "Anything at all"},
+  "expected_failure": "NOT_EXECUTABLE",
+  "notes": "context omits 'agent_adapter' entirely — the driver never guesses a default route."
+}

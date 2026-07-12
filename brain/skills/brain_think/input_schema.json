@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "brain_think invocation",
+  "type": "object",
+  "required": ["task"],
+  "additionalProperties": false,
+  "properties": {
+    "task": {
+      "type": "string",
+      "minLength": 1,
+      "description": "The free-text task to hand to brain/'s orchestrator, verbatim."
+    },
+    "auto_critique": {
+      "type": "boolean",
+      "default": false,
+      "description": "Passed through to Brain.think's own quality-gate flag."
+    }
+  }
+}

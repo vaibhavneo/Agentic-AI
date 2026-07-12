@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "vedic_astro_reading result",
+  "type": "object",
+  "required": ["app", "birth_info", "sections"],
+  "additionalProperties": false,
+  "properties": {
+    "app": {"const": "vedic_astro"},
+    "birth_info": {
+      "type": "object",
+      "required": ["date", "time", "place", "lat", "lon", "tz_offset"],
+      "description": "The resolved birth coordinates/offset the reading was computed from (driver-owned, from vedic_astro's own geocoder)."
+    },
+    "sections": {
+      "type": "object",
+      "description": "Keyed by section (career, wealth, relationships, soul_purpose, life_lessons, synthesis) -> {title, content}, unchanged from vedic_astro's own reading engine. Deliberately not sub-schema'd per key — vedic_astro owns that shape (thin-wrapper principle, P10)."
+    }
+  }
+}

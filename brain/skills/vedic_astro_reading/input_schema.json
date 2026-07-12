@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "vedic_astro_reading invocation",
+  "type": "object",
+  "required": ["place", "date", "time"],
+  "additionalProperties": false,
+  "properties": {
+    "place": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Birth place, e.g. 'Porbandar, India' — passed to vedic_astro's own geocoder."
+    },
+    "date": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Birth date, in whatever format vedic_astro's own parse_birth_datetime accepts (e.g. 'YYYY-MM-DD')."
+    },
+    "time": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Birth time (e.g. 'HH:MM'), in whatever format vedic_astro's own parse_birth_datetime accepts."
+    }
+  }
+}

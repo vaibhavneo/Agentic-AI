@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "stock_agent_analyze invocation",
+  "type": "object",
+  "required": ["ticker"],
+  "additionalProperties": false,
+  "properties": {
+    "ticker": {
+      "type": "string",
+      "minLength": 1,
+      "description": "The stock ticker symbol, e.g. 'AAPL'. Case-insensitive; the driver upper-cases it."
+    }
+  }
+}

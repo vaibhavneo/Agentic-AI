@@ -1,0 +1,7 @@
+{
+  "description": "happy path: a stub adapter picks a real roster app_id, which gets dispatched",
+  "inputs": {"task": "Should I buy Apple stock right now?", "app_inputs": {"ticker": "AAPL"}},
+  "expected_output_partial": {"app_chosen": "stock_agent", "fallback_used": false,
+                              "skill_dispatched": "stock_agent_analyze"},
+  "notes": "context['agent_adapter'] is a stub returning {app_id:'stock_agent', reasoning:'...'}; context['_apps_roster'] and the downstream skill are also stubbed — no real model or network call."
+}

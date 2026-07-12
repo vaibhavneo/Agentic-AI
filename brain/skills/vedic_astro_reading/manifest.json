@@ -1,0 +1,50 @@
+{
+ "id": "vedic_astro_reading",
+ "name": "Vedic Astro Reading",
+ "version": "1.0.0",
+ "description": "Dispatch a birth place/date/time to vedic_astro/'s 6-agent deep prediction engine (over its running HTTP server) and return the full multi-section reading.",
+ "purpose": "The Central Orchestrator needs one uniform, typed way to hand birth data to vedic_astro/'s existing chart + reading pipeline. vedic_astro/ owns a bare top-level agents/ package that collides with brain/'s own internals if imported into the same process, so this skill reaches it over HTTP instead of importing it (D20), implementing the app's own geocode->reading sequence as internal glue rather than as two separate skills (H-O4).",
+ "tags": [
+  "orchestrator",
+  "wrapper",
+  "vedic_astro",
+  "http"
+ ],
+ "inputs": {
+  "schema": "input_schema.json"
+ },
+ "outputs": {
+  "schema": "output_schema.json"
+ },
+ "memory": {
+  "root_param": null,
+  "read": [],
+  "write": [],
+  "append_only": [],
+  "immutable": []
+ },
+ "execution": {
+  "contract": "execution_contract.md",
+  "steps": [
+   "RESOLVE ENDPOINTS",
+   "GEOCODE",
+   "READING (SSE)",
+   "WRAP RESULT"
+  ],
+  "retries": 0,
+  "runtime": {
+   "type": "python",
+   "entrypoint": "aios_core.runtime.drivers.vedic_astro_reading_driver:run"
+  }
+ },
+ "dependencies": [],
+ "evaluation": {
+  "contract": "evaluation_contract.md",
+  "must": [
+   "E1",
+   "E2",
+   "E3",
+   "E4"
+  ]
+ }
+}

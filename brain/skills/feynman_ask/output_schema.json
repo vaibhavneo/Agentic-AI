@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "feynman_ask result",
+  "type": "object",
+  "required": ["app", "answer", "sources", "chunks_retrieved"],
+  "additionalProperties": false,
+  "properties": {
+    "app": {"const": "feynman_agent"},
+    "answer": {"type": "string"},
+    "sources": {
+      "type": "array",
+      "items": {"type": "string"},
+      "description": "Book sources cited by the tutor's own retrieval, unchanged."
+    },
+    "chunks_retrieved": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Number of knowledge-base chunks retrieved for this question."
+    }
+  }
+}

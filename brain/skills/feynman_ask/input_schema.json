@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "feynman_ask invocation",
+  "type": "object",
+  "required": ["question"],
+  "additionalProperties": false,
+  "properties": {
+    "question": {
+      "type": "string",
+      "minLength": 1,
+      "description": "The physics question, passed to the tutor verbatim."
+    },
+    "session_id": {
+      "type": "string",
+      "default": "default",
+      "description": "Conversation session id — feynman_agent keeps per-session history (last 10 turns) for follow-up questions."
+    }
+  }
+}

@@ -18,7 +18,7 @@ of truth. **Entry point: [START_HERE.md](START_HERE.md).**
 | [learn_agent/AIOS_ARCHITECTURE.md](learn_agent/AIOS_ARCHITECTURE.md) | full v1.1 design (corpus manager amendment) |
 | [brain/runtime/runtime.md](brain/runtime/runtime.md) | runtime v1.1.0: lifecycle, manifest spec, extension points, authoring checklist |
 | [MIGRATION_EXECUTION_PLAN.md](MIGRATION_EXECUTION_PLAN.md) | Learning-Agent → AIOS Core migration handoff: boundary audit, WP‑0…8, human gates H1–H6 (+ OPUS_MIGRATION_PROMPT.md, SONNET_TASK_TEMPLATES.md) |
-| memory/decisions.md | ADRs D1–D19 (append-only) |
+| memory/decisions.md | ADRs D1–D20 (append-only) |
 | memory/state.md · plan.md · log.md | live truth · open work · compressed history |
 
 ## Current state in one line

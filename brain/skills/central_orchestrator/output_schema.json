@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "central_orchestrator result",
+  "type": "object",
+  "required": ["task", "app_chosen", "skill_dispatched", "fallback_used", "reasoning", "result"],
+  "additionalProperties": false,
+  "properties": {
+    "task": {"type": "string"},
+    "app_chosen": {
+      "description": "The adapter's raw app_id choice (string), ONLY if it resolved to a real roster entry; null whenever fallback_used is true (an unknown/adversarial choice is never surfaced as if it were valid). No 'type' constraint here deliberately — the validator does not support union types (string|null); see teacher/mission_tasks precedent."
+    },
+    "skill_dispatched": {
+      "type": "string",
+      "description": "The skill_id actually dispatched — either the chosen app's own wrapper skill, or 'brain_think' on fallback."
+    },
+    "fallback_used": {
+      "type": "boolean",
+      "description": "true iff the adapter's app_id did not resolve to a known roster entry and brain_think was used instead (H-O3)."
+    },
+    "reasoning": {
+      "type": "string",
+      "description": "The adapter's one-sentence explanation for its choice (or empty if it returned none)."
+    },
+    "result": {
+      "type": "object",
+      "description": "The dispatched wrapper skill's own output, unchanged."
+    }
+  }
+}

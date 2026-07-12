@@ -1,0 +1,47 @@
+{
+ "id": "feynman_ask",
+ "name": "Feynman Ask",
+ "version": "1.0.0",
+ "description": "Dispatch a physics question to feynman_agent/'s Feynman-technique QM tutor and return its cited answer.",
+ "purpose": "The Central Orchestrator needs one uniform, typed way to hand a physics question to feynman_agent/'s multi-turn tutor without reimplementing its retrieval + session-history logic.",
+ "tags": [
+  "orchestrator",
+  "wrapper",
+  "feynman_agent"
+ ],
+ "inputs": {
+  "schema": "input_schema.json"
+ },
+ "outputs": {
+  "schema": "output_schema.json"
+ },
+ "memory": {
+  "root_param": null,
+  "read": [],
+  "write": [],
+  "append_only": [],
+  "immutable": []
+ },
+ "execution": {
+  "contract": "execution_contract.md",
+  "steps": [
+   "RESOLVE SESSION",
+   "INVOKE TUTOR",
+   "WRAP RESULT"
+  ],
+  "retries": 0,
+  "runtime": {
+   "type": "python",
+   "entrypoint": "aios_core.runtime.drivers.feynman_ask_driver:run"
+  }
+ },
+ "dependencies": [],
+ "evaluation": {
+  "contract": "evaluation_contract.md",
+  "must": [
+   "E1",
+   "E2",
+   "E3"
+  ]
+ }
+}

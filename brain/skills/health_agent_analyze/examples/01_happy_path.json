@@ -1,0 +1,6 @@
+{
+  "description": "happy path: a stub HTTP poster returns a fixed 200 JSON body, wrapped unchanged",
+  "inputs": {"text": "HR=88 BP=145/92 SpO2=94 patient=P001"},
+  "expected_output": {"app": "health_agent", "result": {"flags": ["elevated_bp"], "hr": 88}},
+  "notes": "context['_http_post'] is injected by the test harness returning (200, {...}) — no real network call."
+}

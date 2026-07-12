@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "stock_agent_analyze result",
+  "type": "object",
+  "required": ["app", "ticker", "result"],
+  "additionalProperties": false,
+  "properties": {
+    "app": {"const": "stock_agent"},
+    "ticker": {"type": "string"},
+    "result": {
+      "type": "object",
+      "description": "stock_agent's own pipeline output, unchanged (research/fundamentals/technical/risk/social/algo/prediction sections). Deliberately not sub-schema'd here — stock_agent owns that shape; re-specifying it would let the two drift out of sync (thin-wrapper principle, P10)."
+    }
+  }
+}

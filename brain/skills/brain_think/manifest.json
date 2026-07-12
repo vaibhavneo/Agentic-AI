@@ -1,0 +1,47 @@
+{
+ "id": "brain_think",
+ "name": "Brain Think",
+ "version": "1.0.0",
+ "description": "Dispatch a free-text task to brain/'s own multi-agent orchestrator (Brain.think) and return its final answer.",
+ "purpose": "The Central Orchestrator needs one uniform, typed way to hand an arbitrary task to brain/'s existing multi-agent system without reimplementing its planning/routing/execution logic, and without the orchestrator having to know brain/ is a bare Python class rather than a running service.",
+ "tags": [
+  "orchestrator",
+  "wrapper",
+  "brain"
+ ],
+ "inputs": {
+  "schema": "input_schema.json"
+ },
+ "outputs": {
+  "schema": "output_schema.json"
+ },
+ "memory": {
+  "root_param": null,
+  "read": [],
+  "write": [],
+  "append_only": [],
+  "immutable": []
+ },
+ "execution": {
+  "contract": "execution_contract.md",
+  "steps": [
+   "RESOLVE API KEY",
+   "INVOKE BRAIN",
+   "WRAP RESULT"
+  ],
+  "retries": 0,
+  "runtime": {
+   "type": "python",
+   "entrypoint": "aios_core.runtime.drivers.brain_think_driver:run"
+  }
+ },
+ "dependencies": [],
+ "evaluation": {
+  "contract": "evaluation_contract.md",
+  "must": [
+   "E1",
+   "E2",
+   "E3"
+  ]
+ }
+}

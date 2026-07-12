@@ -1,0 +1,6 @@
+{
+  "description": "negative control: missing 'question' fails schema validation before dispatch",
+  "inputs": {"session_id": "s1"},
+  "expected_failure": "INPUT_INVALID",
+  "notes": "Never dispatched to the tutor — caught at input_schema.json's required:['question']."
+}
