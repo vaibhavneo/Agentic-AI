@@ -133,6 +133,9 @@ fields: `tasks` (parsed from `plan.md`: `[{id, done, description}]`),
 | `GET /api/missions/{slug}` | — | full mission object, or `{error}` 404 |
 | `PATCH /api/missions/{slug}/corpora` | `{corpora?, cross_corpus?}` | updated mission |
 | `GET /api/missions/{slug}/memory/{name}` | `name` = a `*.md` file | `{name, content}` (traversal-blocked) |
+| `POST /api/missions/{slug}/run` | `{stability_criteria[], max_cycles?}` | `{started, slug, max_cycles}`, or `{error}` 400/404/409 |
+| `GET /api/missions/{slug}/status` | — | `{slug, running, final_status, cycles[]}` |
+| `GET /api/missions/{slug}/events` | `Last-Event-ID` header (optional, for resume) | SSE: `cycle` / `completed` / `failed` / `idle` events |
 
 **Create payload example** (`POST /api/missions`):
 ```json
@@ -142,10 +145,13 @@ fields: `tasks` (parsed from `plan.md`: `[{id, done, description}]`),
   "tasks": ["Read the value-iteration chapter", "Implement Q-learning", "Evaluate on a gridworld"] }
 ```
 
-**PLANNED:** `POST /api/missions/{slug}/run` (execute a mission's loop over HTTP)
-is milestone **M-P1b** and does **not** exist yet. Mission execution is
-currently only available via the SDK `mission.run()` (returns a `BackgroundRun`,
-§7).
+**Execute mode** (milestone **M-P1b**, implemented): `POST /api/missions/{slug}/run`
+starts that mission's `recursive_planner` loop on one `aios_core.sdk.workflow
+.BackgroundRun` per slug (409 if already running); `GET .../status` polls it;
+`GET .../events` streams the same state as SSE, with `id:`-tagged `cycle`
+events so a reconnecting client's `Last-Event-ID` header skips already-seen
+cycles. Terminal events are named `completed`/`failed` (never the bare `error`,
+which EventSource reserves for connection drops).
 
 ---
 
@@ -337,7 +343,6 @@ Full behavior: `learn_agent/MISSION_CONTROL_GUIDE.md`.
 
 | item | status | source |
 |---|---|---|
-| `POST /api/missions/{slug}/run` (HTTP mission execution) | **PLANNED** — M-P1b | IMPLEMENTATION_PLAYBOOK.md |
 | Coach API (`/api/coach`, accept/dismiss) | **PLANNED** — M-P1a (a 3-rule proto-coach exists at `/api/mc/actions` only) | IMPLEMENTATION_PLAYBOOK.md |
 | Task write endpoints (`POST/PATCH /api/missions/{slug}/tasks`) | **PLANNED** — M-P1c | IMPLEMENTATION_PLAYBOOK.md |
 | `/api/graph`, `/api/teach` | **PLANNED** — M-P2 | IMPLEMENTATION_PLAYBOOK.md |

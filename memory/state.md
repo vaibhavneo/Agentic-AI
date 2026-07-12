@@ -3,7 +3,7 @@
 
 ## Meta
 - project: Second Brain MVP (Fable Loop Engine)
-- loop_iteration: 19 (Teacher skill M-P2a)
+- loop_iteration: 20 (Execute Mode + SSE M-P1b)
 - status: STABLE + VALIDATED + PACKAGED — 15/15 test suites green
 - last_updated: 2026-07-10
 
@@ -32,6 +32,7 @@
 | aios_p0 | LIVE on :8003/app — mission workspace (2 seeded missions), corpus-scoped search; SDK-only | learn_agent/aios_api.py, static/aios.html |
 | mission_control | LIVE on :8003/ (default landing page, D16) — 10-panel dashboard, ⌘K, dockable panels, 15s live poll; SDK-only; 20/20 tests | learn_agent/mission_control_service.py, mission_control_api.py, static/mission_control.html |
 | coach | LIVE — M-P1a: 7 deterministic trigger scanners → ranked evidence-cited recs; accept dispatches via runtime, dismiss persists (recommendations table, DROP-safe); proto-coach removed (mission_control delegates here); /api/coach + /app card + '.' key | learn_agent/coach_service.py, aios_api.py, static/aios.html |
+| execute_mode | LIVE — M-P1b: POST run + GET status + GET events(SSE), one BackgroundRun per mission slug (409 on same-mission concurrent run); SSE named cycle/completed/failed/idle events, id:-tagged for Last-Event-ID resume/dedup; Execute tab (criteria editor, cycle table, aria-live status); no server-side cancel (client-detach only) | aios_api.py, static/aios.html |
 | teacher | LIVE — M-P2a/WP-4: adapter-gated teacher skill (stateless; deterministic scope→retrieve→mastery + adapter seam; provenance driver-owned). Integration: teacher_adapter.teach() teach→upsert→critic loop + /api/teach (legacy /ask untouched). Learn-tab UI deferred | brain/skills/teacher/, aios_core/runtime/drivers/teacher_driver.py, learn_agent/teacher_adapter.py, aios_api.py |
 | api_reference | docs/API_REFERENCE.md — real API surface + example payloads, PLANNED items labelled; docs/validate_api_reference.py green (M-Q1 rec #2) | docs/ |
 | handoff_docs | COMPLETE — charter/handbook/start-here/playbook/lessons/adapters/workflows; repo is sole source of truth (D13); + migration handoff (plan/Opus prompt/Sonnet templates, C19.1 — planning only) | root *.md, model_adapters/, brain/workflows/WORKFLOWS.md |

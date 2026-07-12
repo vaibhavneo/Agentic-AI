@@ -85,7 +85,8 @@ def test_routes_exist():
     for route in ['get("/missions"', 'post("/missions"', 'get("/missions/{slug}"',
                   'patch("/missions/{slug}/corpora"', 'get("/missions/{slug}/memory/{name}"',
                   'get("/corpora"', 'post("/corpora"', 'post("/corpora/{cid}/ingest"',
-                  'get("/search"']:
+                  'get("/search"', 'post("/missions/{slug}/run"',
+                  'get("/missions/{slug}/status"', 'get("/missions/{slug}/events"']:
         ck(f"route exists: {route}", route in api)
 
 
@@ -93,7 +94,8 @@ def test_planned_are_absent():
     print("=== 4. PLANNED labels truthful (routes absent) ===")
     combined = (ROOT / "learn_agent/aios_api.py").read_text() + \
                (ROOT / "learn_agent/mission_control_api.py").read_text()
-    for absent in ["missions/{slug}/run", '"/coach', '/tasks', "/api/graph", '"/teach']:
+    # missions/{slug}/run shipped in M-P1b/WP-2 (2026-07-10) — no longer PLANNED.
+    for absent in ['"/coach', '/tasks', "/api/graph", '"/teach']:
         ck(f"absent as claimed: {absent}", absent not in combined)
 
 

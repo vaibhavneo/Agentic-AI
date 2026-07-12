@@ -128,7 +128,7 @@ checklist (12 suites) green — that is part of "done", not optional.
 - **Rollback**: additive — remove routes/panel/service; restore proto-coach
   block from git-less backup (copy the removed function into the PR notes).
 
-### WP‑2 — M-P1b Execute mode + SSE *(Sonnet, 3 atomic tasks)*
+### WP‑2 — M-P1b Execute mode + SSE — ✅ DONE 2026-07-10
 - **Objective**: run missions from the shell; live cycle table; 409 on
   concurrent run. Tasks: (a) run route + thread/queue status (console's
   proven pattern), (b) status/poll or SSE endpoint, (c) Execute tab UI.
