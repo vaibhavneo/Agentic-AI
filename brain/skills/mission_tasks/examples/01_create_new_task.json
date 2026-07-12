@@ -1,0 +1,8 @@
+{
+  "description": "happy path: create a new task on a plan.md that already has two",
+  "fixture_plan_md": "# plan.md\n## Objective\nx\n## Tasks\n- [ ] Read chapter 1\n- [x] Set up the repo\n",
+  "inputs": {"op": "create", "description": "Write the API tests"},
+  "expected_output": {"op": "create", "changed": true,
+                      "task": {"id": 6, "description": "Write the API tests", "done": false}},
+  "notes": "id=6 because the fixture has 6 existing lines (0-5: '# plan.md','## Objective','x','## Tasks', the two task lines); the new task becomes line 6. memory_root is injected by the test harness at replay time (it's a fresh temp dir per example, not a fixed value)."
+}

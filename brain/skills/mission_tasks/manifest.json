@@ -1,0 +1,54 @@
+{
+ "id": "mission_tasks",
+ "name": "Mission Tasks",
+ "version": "1.0.0",
+ "description": "Create a mission task or set its done/todo status by editing exactly one file, plan.md, at the line the Mission SDK already treats as that task's identity.",
+ "purpose": "The UI must let a person add and check off mission tasks without ever writing a memory file directly — this is the one dispatcher-enforced, idempotent, plan.md-only write path that makes that safe.",
+ "tags": [
+  "mission",
+  "memory",
+  "write-path"
+ ],
+ "inputs": {
+  "schema": "input_schema.json"
+ },
+ "outputs": {
+  "schema": "output_schema.json"
+ },
+ "memory": {
+  "root_param": "memory_root",
+  "read": [
+   "plan.md"
+  ],
+  "write": [
+   "plan.md"
+  ],
+  "append_only": [],
+  "immutable": []
+ },
+ "execution": {
+  "contract": "execution_contract.md",
+  "steps": [
+   "RESOLVE OPERATION",
+   "LOCATE OR VALIDATE TASK",
+   "APPLY IDEMPOTENTLY",
+   "WRITE IF CHANGED"
+  ],
+  "retries": 0,
+  "runtime": {
+   "type": "python",
+   "entrypoint": "aios_core.runtime.drivers.mission_tasks_driver:run"
+  }
+ },
+ "dependencies": [],
+ "evaluation": {
+  "contract": "evaluation_contract.md",
+  "must": [
+   "E1",
+   "E2",
+   "E3",
+   "E4",
+   "E5"
+  ]
+ }
+}

@@ -144,7 +144,7 @@ checklist (12 suites) green — that is part of "done", not optional.
 - **Exit**: M-P1b DoD verbatim; §V green.
 - **Rollback**: remove tab + routes; mission files unaffected.
 
-### WP‑3 — M-P1c Task write-path + Today's Focus *(Sonnet, 2 atomic tasks)*
+### WP‑3 — M-P1c Task write-path + Today's Focus — ✅ DONE 2026-07-11
 - **Objective**: plan.md check/add from UI **through a skill dispatch**;
   Today's Focus card.
 - **Prerequisites**: WP‑0. Skill authored per D17 (full profile, validator

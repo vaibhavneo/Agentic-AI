@@ -39,4 +39,6 @@
 - 2026-07-10 C21.1 H5 resolved (D19): retired second_brain/distill.py (0 callers; violated P9/D9); distillation = concept_distillation skill (adapter-gated); regression in test_library_skills; docs/state synced; 13/13 green
 - 2026-07-10 C22.1 Teacher skill (M-P2a/WP-4): full-profile agent-gated skill (VALID q100)+driver (scope->retrieve->mastery->adapter, provenance driver-owned); teacher_adapter teach->upsert->critic + /api/teach; 15/15 green
 - 2026-07-10 C23.1 Execute Mode (M-P1b/WP-2): run/status/SSE via one BackgroundRun per mission; named cycle/completed/failed events, id-tagged for resume+dedup; Execute tab; no server cancel (client-detach only); 15/15 green
-- 2026-07-11 C24.1 Docs-only: corrected WP-7/H4 + P8 finding — aios.db's recommendations table has a live coach_service reader; WP-7 must preserve/migrate/replace it, never drop silently
+- 2026-07-11 C24.1 Task write-path (M-P1c/WP-3): mission_tasks skill (VALID q100), idempotent create/set_done, plan.md-only allowlist; found+fixed a real lost-update race with a per-path lock; tasks API + Today's Focus; 16/16 green
+- 2026-07-11 C25.1 Docs-only: corrected WP-7/H4 + P8 finding — aios.db's recommendations table has a live coach_service reader; WP-7 must preserve/migrate/replace it, never drop silently
+- 2026-07-11 C26.1 Merged WP-2+WP-3 (separate worktrees) into main; resolved conflicts keeping both feature sets; fixed a flaky metrics.jsonl window-count check found post-merge; live-verified together; 16/16 green

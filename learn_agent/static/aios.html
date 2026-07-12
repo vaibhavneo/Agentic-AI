@@ -137,6 +137,8 @@ function go(v){view=v;current=null;renderSidebar();
 function renderDashboard(){
   el('main').innerHTML=`
   <h1 style="font-size:17px;margin-bottom:12px">Dashboard</h1>
+  <div class="card"><h2>Today's Focus</h2><div id="todayFocus" role="status" aria-live="polite">
+    <span class="muted">loading…</span></div></div>
   <div class="grid2">
     <div class="card"><h2>Missions</h2>${missions.map(m=>
       `<div class="kv"><span onclick="openMission('${m.id}')" style="cursor:pointer;color:var(--text)">${esc(m.title)}</span>
@@ -150,6 +152,20 @@ function renderDashboard(){
       <input id="dq" style="margin:0" placeholder="query…" onkeydown="if(event.key==='Enter')dashSearch()">
       <button onclick="dashSearch()">Search</button>
     </div><div id="dres"></div></div>`;
+  loadTodayFocus();
+}
+async function loadTodayFocus(){
+  const r=await j('/api/today-focus');
+  const box=el('todayFocus'); if(!box)return;
+  if(!r.mission_id){box.innerHTML='<span class="muted">no active missions</span>';return;}
+  if(!r.task){box.innerHTML=`<span class="muted">${esc(r.mission_title)} — all tasks done 🎉</span>`;return;}
+  box.innerHTML=`
+    <div class="muted" style="font-size:11px;margin-bottom:4px;cursor:pointer"
+      onclick="openMission('${r.mission_id}')">${esc(r.mission_title)}</div>
+    <label style="cursor:pointer;display:flex;align-items:center;gap:6px">
+      <input type="checkbox" style="width:auto;margin:0" aria-label="mark today's focus task done"
+        onchange="taskToggle('${r.mission_id}',${r.task.id},this.checked)">
+      <span>${esc(r.task.description)}</span></label>`;
 }
 async function dashSearch(){
   const q=el('dq').value.trim(); if(q.length<3)return;
@@ -198,8 +214,7 @@ function mtab(id,t,elm){document.querySelectorAll('.tab').forEach(x=>x.classList
 function mtabRender(m,t){
   const b=el('mbody');
   if(t==='Overview')loadMem(m.id,'state.md',b);
-  else if(t==='Tasks')b.innerHTML=m.tasks.map(x=>
-    `<div class="task ${x.done?'done':''}">${x.done?'☑':'☐'} ${esc(x.description)}</div>`).join('')||'<span class="muted">no tasks</span>';
+  else if(t==='Tasks')renderTasks(m,b);
   else if(t==='Search')b.innerHTML=`<div style="display:flex;gap:8px;margin-top:8px">
     <input id="mq" style="margin:0" placeholder="search within mission corpora…" onkeydown="if(event.key==='Enter')missionSearch('${m.id}')">
     <button onclick="missionSearch('${m.id}')">Search</button></div><div id="mres"></div>`;
@@ -208,6 +223,48 @@ function mtabRender(m,t){
     ${m.memory_files.map(f=>`<option>${f}</option>`).join('')}</select><div id="memv"></div>`+(loadMem(m.id,m.memory_files[0],null)||'');
   else if(t==='Questions')loadMem(m.id,'questions.md',b);
   else if(t==='Execute')renderExecute(m,b);
+}
+
+// ── Mission tasks (M-P1c): checkbox + add, always via the skill-backed API —
+// no direct file write ever happens client-side. ────────────────────────────
+function renderTasks(m,b){
+  b.innerHTML=`
+    <div style="display:flex;gap:8px;margin:0 0 10px">
+      <input id="taskNew" style="margin:0" placeholder="add a task…" aria-label="new task description"
+        onkeydown="if(event.key==='Enter')taskAdd('${m.id}')">
+      <button onclick="taskAdd('${m.id}')">+ Add</button>
+    </div>
+    ${m.tasks.map(x=>`
+      <label class="task ${x.done?'done':''}" style="cursor:pointer;display:flex;align-items:center;gap:6px">
+        <input type="checkbox" style="width:auto;margin:0" ${x.done?'checked':''}
+          onchange="taskToggle('${m.id}',${x.id},this.checked)"> <span>${esc(x.description)}</span>
+      </label>`).join('') || '<span class="muted">no tasks</span>'}`;
+}
+async function taskAdd(id){
+  const inp=el('taskNew'); const desc=inp.value.trim(); if(!desc)return;
+  const r=await j(`/api/missions/${id}/tasks`,{method:'POST',
+    headers:{'Content-Type':'application/json'},body:JSON.stringify({description:desc})});
+  if(r.error){alert('✗ '+r.error);return;}
+  inp.value='';
+  await refreshMissionSurfaces(id);
+}
+async function taskToggle(id,taskId,checked){
+  const r=await j(`/api/missions/${id}/tasks/${taskId}`,{method:'PATCH',
+    headers:{'Content-Type':'application/json'},body:JSON.stringify({done:checked})});
+  if(r.error){alert('✗ '+r.error);}
+  await refreshMissionSurfaces(id);
+}
+async function refreshMissionSurfaces(id){
+  const m=await j('/api/missions/'+id);
+  const idx=missions.findIndex(x=>x.id===id); if(idx>=0)missions[idx]=m;
+  if(current===id){
+    window._m=m;renderSidebar();mtabRender(m,'Tasks');
+    el('ctx').innerHTML=`<h3>Mission</h3>
+     <div class="kv"><span>type</span><span>${m.type}</span></div>
+     <div class="kv"><span>tasks</span><span>${m.tasks.filter(t=>t.done).length}/${m.tasks.length}</span></div>
+     <h3>Open questions</h3>${m.questions.map(q=>`<div style="font-size:12px">· ${esc(q)}</div>`).join('')||'<span class="muted" style="font-size:12px">none</span>'}`;
+  }
+  if(el('todayFocus'))loadTodayFocus();       // harmless no-op if not on the dashboard
 }
 async function loadMem(id,f,target){
   const r=await j(`/api/missions/${id}/memory/${f}`);

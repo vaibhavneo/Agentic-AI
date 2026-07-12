@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "mission_tasks invocation",
+  "type": "object",
+  "required": ["memory_root", "op"],
+  "additionalProperties": false,
+  "properties": {
+    "memory_root": {
+      "type": "string",
+      "description": "The mission's own directory (memory/missions/<slug>/). Scopes both the read and the enforced write allowlist."
+    },
+    "op": {
+      "enum": ["create", "set_done"],
+      "description": "create: append a new task. set_done: flip an existing task's checkbox. Conditional requiredness of the fields below is enforced by the driver (documented in execution_contract.md), not by this schema."
+    },
+    "description": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Required when op=create. The task line's text (never the raw markdown checkbox syntax)."
+    },
+    "task_id": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Required when op=set_done. The task's id exactly as returned by mission.get()/GET /api/missions/{slug} — the 0-indexed line number in plan.md, per aios_core.sdk.mission.MissionStore._parse_tasks. NOT a separate counter."
+    },
+    "done": {
+      "type": "boolean",
+      "description": "Required when op=set_done. The target checkbox state — true=[x], false=[ ]. There is no third state; plan.md's syntax is binary by design (P5)."
+    }
+  }
+}
