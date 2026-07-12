@@ -218,7 +218,12 @@ def _new_execute_mission(title, slug_hint):
 def test_execute_run_to_stable_and_metrics_correlation():
     print("=== Execute Mode: run-to-STABLE, per-criterion rows, metrics.jsonl correlation ===")
     slug = _new_execute_mission("WP2 Execute Stable Test", "wp2-execute-stable-test")
-    before = [m for m in _memory.recent_metrics(1000) if m.get("skill") == "recursive_planner"]
+    # Snapshot the file's exact line COUNT (not a fixed "last N" window) so
+    # concurrent, unrelated dispatches from another process (e.g. a live
+    # server also writing metrics.jsonl) can only ever ADD lines outside our
+    # slice — a sliding-window comparison was flaky under exactly that.
+    metrics_path = _memory.metrics_path()
+    before_n = sum(1 for _ in metrics_path.open()) if metrics_path.exists() else 0
 
     run = client.post(f"/api/missions/{slug}/run", json={
         "stability_criteria": [{"id": "state", "description": "state.md exists",
@@ -238,10 +243,12 @@ def test_execute_run_to_stable_and_metrics_correlation():
     check("per-criterion pass/fail is visible on each row",
           s and all("state" in c["criteria"] for c in s["cycles"]))
 
-    after = [m for m in _memory.recent_metrics(1000) if m.get("skill") == "recursive_planner"]
+    new_lines = metrics_path.read_text().splitlines()[before_n:]
+    new_recursive_planner = [json.loads(ln) for ln in new_lines if ln.strip()
+                             and json.loads(ln).get("skill") == "recursive_planner"]
     check("cycle rows match metrics.jsonl tail (one dispatch recorded per cycle)",
-          len(after) - len(before) == len(s["cycles"]),
-          f"delta={len(after) - len(before)} cycles={len(s['cycles'])}")
+          len(new_recursive_planner) == len(s["cycles"]),
+          f"new_recursive_planner={len(new_recursive_planner)} cycles={len(s['cycles'])}")
 
     # terminal behavior: no longer running, status is stable on re-poll
     s2 = client.get(f"/api/missions/{slug}/status").json()
