@@ -30,19 +30,36 @@ Design rationale for all of them: `learn_agent/AIOS_ARCHITECTURE.md` §4.4–§8
   acceptance rate); noisy triggers (cap at 5, dedupe by action).
 - **Rollback**: coach is additive — remove routes/panel; no memory format changes.
 
-## M-P1b — Execute mode + SSE
+## M-P1b — Execute mode + SSE — IMPLEMENTED 2026-07-10 (WP-2)
 - **Objective**: run missions from the shell with a live cycle table and
   active-agent indicator.
-- **Files**: `aios_api.py` (+`POST /missions/{id}/run`, `GET /api/events` SSE
-  or short-poll status — console's thread+queue pattern is proven, reuse it);
-  `aios.html` (Execute tab: criteria editor, cycle table, agent indicator
-  from metrics).
-- **Depends**: none (planner + run_loop exist).
-- **DoD**: a mission with real criteria runs to STABLE from the UI; cycle
-  rows show per-criterion ✓/✗; 409 on concurrent run of the same mission.
-- **Risks**: long-running requests (thread + poll, as console does); ai-books
-  retriever load latency on first task (pre-warm on run start).
-- **Rollback**: remove tab + routes; mission files unaffected.
+- **Delivered**: `aios_api.py` gained `POST /missions/{slug}/run`,
+  `GET /missions/{slug}/status`, and `GET /missions/{slug}/events` (SSE) — one
+  `aios_core.sdk.workflow.BackgroundRun` per mission slug, the SAME canonical
+  helper the operator console uses (no second execution/event system). The SSE
+  feed is a transport over that single status source: named `cycle` /
+  `completed` / `failed` / `idle` events (never the reserved `error`, which
+  collides with EventSource's own connection-error signal), each cycle
+  carrying an `id:` so a reconnecting client's `Last-Event-ID` skips
+  already-delivered cycles (dedup on resume). `aios.html` gained an Execute
+  tab: criteria editor, max-cycles input, live cycle table, and an
+  `aria-live="polite"` status region cycling idle→loading→running→
+  completed/failed, plus a client-only "Stop watching" (`cancelled`) — the
+  loop itself has no cancel primitive (see Known limits).
+- **Depends**: none (planner + run_loop existed).
+- **DoD**: verified — a throwaway mission with `test -f state.md` criteria
+  runs to STABLE via the API; cycle rows carry per-criterion ✓/✗; a second
+  concurrent run of the SAME mission gets 409; re-run after terminal
+  completion succeeds (not falsely 409). Tests:
+  `learn_agent/tests/test_aios_p0.py` (`test_execute_*`, `test_shell_execute_mode_markers`).
+- **Known limits**: no server-side cancel (a Python thread can't be safely
+  killed mid-loop without a cooperative check in `BackgroundRun` itself,
+  which is aios_core kernel code — out of this WP's file scope); "cancelled"
+  is client-detach only, the background run keeps going to its own terminal
+  status. Default `task_executor` never retrieves, so the "ai-books pre-warm"
+  risk noted below does not apply to the current no-op bootstrap task.
+- **Rollback**: remove tab + 3 routes; mission files unaffected (recursive_planner
+  writes only inside its own declared, dispatcher-enforced memory contract).
 
 ## M-P1c — Task write-path + Today's Focus
 - **Objective**: check/add plan.md tasks from the UI **through a skill

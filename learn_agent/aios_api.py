@@ -5,6 +5,7 @@ all retrieval via the Retrieval Gateway; no business logic here.
 """
 from __future__ import annotations
 
+import asyncio
 import json
 import sys
 from pathlib import Path
@@ -17,10 +18,10 @@ for _p in (ROOT, HERE):
         sys.path.insert(0, str(_p))
 
 from fastapi import APIRouter, Request
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
 
 # Depend ONLY on the AIOS Core public SDK (PROJECT_CHARTER.md P10; req #3).
-from aios_core import mission as _mission, retrieval as _retrieval
+from aios_core import mission as _mission, retrieval as _retrieval, workflow as _workflow
 from aios_core.sdk.retrieval import NoScopeError
 import coach_service as _coach          # M-P1a coach (deterministic triggers)
 
@@ -128,6 +129,142 @@ async def mission_memory(slug: str, name: str):
     if not (p.exists() and p.suffix == ".md"):
         return JSONResponse({"error": "not found"}, status_code=404)
     return {"name": p.name, "content": p.read_text()}
+
+
+
+# ── Execute (M-P1b): run a mission's recursive_planner loop; live cycle feed ─
+# One `aios_core.sdk.workflow.BackgroundRun` per mission slug — the SAME
+# canonical SDK helper the operator console uses (no second execution/event
+# system); keyed by slug so each mission is independently single-flight
+# (409 on a second concurrent run of the SAME mission) while different
+# missions may run in parallel. All writes happen inside the recursive_planner
+# skill dispatch, which the runtime already permission-checks (P1/P2/D12) —
+# this module only starts/polls the SDK's own background job.
+_mission_jobs: dict = {}
+
+
+def _job_for(slug: str) -> "_workflow.BackgroundRun":
+    job = _mission_jobs.get(slug)
+    if job is None:
+        job = _workflow.BackgroundRun()
+        _mission_jobs[slug] = job
+    return job
+
+
+def _run_cycles(slug: str) -> list[dict]:
+    """Successful cycle results from the mission's current/last run, in the
+    console's own established shape (mirrors brain/console/app.py planner_status)."""
+    job = _mission_jobs.get(slug)
+    if job is None:
+        return []
+    r = job.status()["result"]
+    return [{"cycle": c["output"]["cycle"], "status": c["output"]["status"],
+             "task": c["output"]["atomic_task"]["description"],
+             "criteria": c["output"].get("criteria_state", {})}
+            for c in (r["cycles"] if r else []) if c.get("output")]
+
+
+def _status_payload(slug: str) -> dict:
+    job = _mission_jobs.get(slug)
+    if job is None:
+        return {"slug": slug, "running": False, "final_status": None, "cycles": []}
+    s = job.status()
+    return {"slug": slug, "running": s["running"], "final_status": s["final_status"],
+            "cycles": _run_cycles(slug)}
+
+
+@router.post("/missions/{slug}/run")
+async def mission_run(slug: str, request: Request):
+    try:
+        m = get_mission(slug)
+    except KeyError as e:
+        return JSONResponse({"error": str(e).strip("'")}, status_code=404)
+    d = await request.json()
+    criteria = d.get("stability_criteria")
+    if not criteria:
+        return JSONResponse({"error": "stability_criteria required"}, status_code=400)
+    max_cycles = int(d.get("max_cycles", 10))
+    job = _job_for(slug)
+    inputs = {"goal": m["goal"], "memory_root": str(MISSIONS_DIR / slug),
+              "stability_criteria": criteria, "max_cycles": max_cycles}
+    started = job.start_loop("recursive_planner", inputs, label=slug,
+                             max_dispatches=max_cycles + 2)
+    if not started:
+        return JSONResponse({"error": "mission already running"}, status_code=409)
+    return {"started": True, "slug": slug, "max_cycles": max_cycles}
+
+
+@router.get("/missions/{slug}/status")
+async def mission_status(slug: str):
+    try:
+        get_mission(slug)
+    except KeyError as e:
+        return JSONResponse({"error": str(e).strip("'")}, status_code=404)
+    return _status_payload(slug)
+
+
+SSE_POLL_SECONDS = 0.4
+
+
+@router.get("/missions/{slug}/events")
+async def mission_events(slug: str, request: Request):
+    """SSE feed over the SAME BackgroundRun status this mission's /status
+    endpoint reads — a transport, not a second source of truth. Supports
+    native SSE resumption: each cycle event carries `id:`; a reconnecting
+    EventSource sends `Last-Event-ID` and we skip cycles already delivered
+    (duplicate-event handling), so a dropped connection resumes without
+    replaying history."""
+    try:
+        get_mission(slug)
+    except KeyError as e:
+        return JSONResponse({"error": str(e).strip("'")}, status_code=404)
+
+    last_id = request.headers.get("last-event-id")
+    try:
+        resume_from = int(last_id) if last_id is not None else 0
+    except ValueError:
+        resume_from = 0
+
+    async def gen():
+        sent = resume_from
+        job = _mission_jobs.get(slug)
+        if job is None:
+            yield "event: idle\ndata: {}\n\n"
+            return
+        while True:
+            if await request.is_disconnected():
+                return
+            s = job.status()
+            r = s["result"]
+            for c in (r["cycles"] if r else []):
+                out = c.get("output")
+                if not out:
+                    continue
+                n = out["cycle"]
+                if n <= sent:                      # dedup: never re-emit a seen cycle
+                    continue
+                payload = json.dumps({"type": "cycle", "slug": slug, "cycle": n,
+                                      "status": out["status"],
+                                      "task": out["atomic_task"]["description"],
+                                      "criteria": out.get("criteria_state", {})})
+                yield f"id: {n}\nevent: cycle\ndata: {payload}\n\n"
+                sent = n
+            if not s["running"]:
+                final = s["final_status"]
+                # Named 'completed'/'failed' (never the bare 'error') because
+                # EventSource's native 'error' event ALSO fires on connection
+                # drops — colliding names would make a real network hiccup
+                # indistinguishable from a genuine terminal failure client-side.
+                kind = "completed" if final == "STABLE" else "failed"
+                payload = json.dumps({"type": kind, "slug": slug,
+                                      "final_status": final, "ok": final == "STABLE"})
+                yield f"id: {sent + 1}\nevent: {kind}\ndata: {payload}\n\n"
+                return
+            await asyncio.sleep(SSE_POLL_SECONDS)
+
+    return StreamingResponse(gen(), media_type="text/event-stream",
+                             headers={"Cache-Control": "no-cache",
+                                     "X-Accel-Buffering": "no"})
 
 
 @router.get("/search")

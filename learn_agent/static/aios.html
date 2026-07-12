@@ -89,6 +89,9 @@ const j=(u,o)=>fetch(u,o).then(r=>r.json());
 const el=id=>document.getElementById(id);
 const esc=s=>String(s).replace(/</g,'&lt;');
 let missions=[], corpora=[], current=null, view='dashboard', coach=[];
+// Execute Mode (M-P1b) state: es=live EventSource; state one of
+// idle|loading|running|completed|failed|cancelled; seen=cycle-id dedup set.
+let EX={es:null,state:'idle',criteria:[],seen:new Set(),cycles:[],slug:null};
 
 async function boot(){
   const h=await j('/api/health');
@@ -178,7 +181,7 @@ async function openMission(id){
     <label style="font-size:11px;color:var(--muted);margin-left:8px">
     <input type="checkbox" style="width:auto" ${m.cross_corpus?'checked':''}
      onchange="toggleCross('${m.id}',this.checked)"> cross-corpus</label></div>
-  <div class="tabs">${['Overview','Tasks','Search','Notes','Memory','Questions'].map((t,i)=>
+  <div class="tabs">${['Overview','Tasks','Search','Notes','Memory','Questions','Execute'].map((t,i)=>
     `<div class="tab ${i===0?'on':''}" onclick="mtab('${m.id}','${t}',this)">${t}</div>`).join('')}</div>
   <div id="mbody"></div>`;
   mtabRender(m,'Overview');
@@ -204,6 +207,7 @@ function mtabRender(m,t){
   else if(t==='Memory')b.innerHTML=`<select onchange="loadMem('${m.id}',this.value,el('memv'))" style="width:220px">
     ${m.memory_files.map(f=>`<option>${f}</option>`).join('')}</select><div id="memv"></div>`+(loadMem(m.id,m.memory_files[0],null)||'');
   else if(t==='Questions')loadMem(m.id,'questions.md',b);
+  else if(t==='Execute')renderExecute(m,b);
 }
 async function loadMem(id,f,target){
   const r=await j(`/api/missions/${id}/memory/${f}`);
@@ -214,6 +218,117 @@ async function missionSearch(id){
   const q=el('mq').value.trim(); if(q.length<3)return;
   const r=await j(`/api/search?q=${encodeURIComponent(q)}&mission_id=${id}`);
   renderHits(r,'mres');
+}
+
+// ── Execute Mode (M-P1b): run the mission's recursive_planner loop, watch
+// live cycles via SSE. States: idle → loading → running → completed|failed;
+// cancelled = the user stopped WATCHING (the background run is untouched —
+// aios_core has no cancel primitive; see MIGRATION notes). ──────────────────
+function renderExecute(m,target){
+  if(EX.slug!==m.id)EX={es:null,state:'idle',
+    criteria:[{id:'state',description:'state.md exists',check:'test -f state.md'}],
+    seen:new Set(),cycles:[],slug:m.id};
+  target.innerHTML=execHtml();
+}
+function execHtml(){
+  return `
+  <div class="card">
+    <h2>Execute — criteria</h2>
+    <div id="execCriteria">${EX.criteria.map((c,i)=>execCriterionRow(c,i)).join('')}</div>
+    <button class="ghost" type="button" onclick="execAddCriterion()">+ Add criterion</button>
+    <div style="margin-top:10px;display:flex;gap:8px;align-items:center">
+      <label for="execMaxCycles" style="width:auto;font-size:12px;color:var(--muted)">max cycles</label>
+      <input id="execMaxCycles" type="number" min="1" value="10" style="width:80px;margin:0">
+      <button id="execRunBtn" onclick="execRun('${EX.slug}')">▶ Run</button>
+      <button class="ghost" id="execStopBtn" onclick="execStop()"
+        style="display:${EX.state==='running'?'inline-block':'none'}">■ Stop watching</button>
+    </div>
+  </div>
+  <div class="card">
+    <h2>Status</h2>
+    <div id="execStatus" role="status" aria-live="polite" style="font-size:13px;margin-bottom:8px">
+      <span class="badge" id="execStateBadge">${EX.state}</span>
+      <span class="muted" id="execAgent"></span>
+    </div>
+    <table style="width:100%;border-collapse:collapse;font-size:12px" aria-label="Execution cycle history">
+      <thead><tr style="text-align:left;color:var(--muted)">
+        <th scope="col" style="padding:4px 6px">cycle</th><th scope="col" style="padding:4px 6px">task</th>
+        <th scope="col" style="padding:4px 6px">status</th><th scope="col" style="padding:4px 6px">criteria</th></tr></thead>
+      <tbody id="execCycles">${EX.cycles.map(execCycleRow).join('')}</tbody>
+    </table>
+  </div>`;
+}
+function execCriterionRow(c,i){
+  return `<div style="display:flex;gap:6px;margin-bottom:6px">
+    <input aria-label="criterion id" value="${esc(c.id)}" style="width:90px;margin:0"
+      onchange="EX.criteria[${i}].id=this.value">
+    <input aria-label="criterion description" value="${esc(c.description)}" style="flex:1;margin:0"
+      onchange="EX.criteria[${i}].description=this.value">
+    <input aria-label="criterion check command" value="${esc(c.check)}" style="flex:1;margin:0;font-family:monospace"
+      onchange="EX.criteria[${i}].check=this.value">
+    <button class="ghost" type="button" aria-label="remove this criterion" onclick="execRemoveCriterion(${i})">✕</button>
+  </div>`;
+}
+function execCycleRow(d){
+  const crit=Object.entries(d.criteria||{}).map(([k,v])=>`${v?'✓':'✗'}${esc(k)}`).join(' ');
+  return `<tr><td style="padding:4px 6px">${d.cycle}</td>
+    <td style="padding:4px 6px">${esc(d.task)}</td>
+    <td style="padding:4px 6px">${esc(d.status)}</td>
+    <td style="padding:4px 6px">${crit}</td></tr>`;
+}
+function execAddCriterion(){
+  EX.criteria.push({id:'c'+EX.criteria.length,description:'',check:'true'});
+  el('execCriteria').innerHTML=EX.criteria.map((c,i)=>execCriterionRow(c,i)).join('');
+}
+function execRemoveCriterion(i){
+  EX.criteria.splice(i,1);
+  el('execCriteria').innerHTML=EX.criteria.map((c,i)=>execCriterionRow(c,i)).join('');
+}
+function execSetState(s,label){
+  EX.state=s;
+  const badge=el('execStateBadge'); if(!badge)return;   // tab may have changed
+  badge.textContent=s;
+  badge.className='badge '+(s==='completed'?'active':s==='failed'?'cross':s==='running'?'corpus':'');
+  el('execAgent').textContent=label||'';
+  const stop=el('execStopBtn'); if(stop)stop.style.display=(s==='running')?'inline-block':'none';
+}
+async function execRun(slug){
+  if(!EX.criteria.length){el('execAgent').textContent='add at least one criterion';return;}
+  EX.cycles=[];EX.seen=new Set();
+  const cyc=el('execCycles'); if(cyc)cyc.innerHTML='';
+  execSetState('loading','starting…');
+  const r=await j(`/api/missions/${slug}/run`,{method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({stability_criteria:EX.criteria,
+      max_cycles:parseInt(el('execMaxCycles').value)||10})});
+  if(r.error){execSetState('failed',r.error);return;}
+  execConnect(slug);
+}
+function execConnect(slug){
+  if(EX.es)EX.es.close();
+  const es=new EventSource(`/api/missions/${slug}/events`);
+  EX.es=es;
+  execSetState('running','recursive_planner active');
+  es.addEventListener('cycle',ev=>{
+    const d=JSON.parse(ev.data);
+    if(EX.seen.has(d.cycle))return;              // client-side dedup, defense in depth
+    EX.seen.add(d.cycle);EX.cycles.push(d);
+    const tb=el('execCycles'); if(tb)tb.insertAdjacentHTML('beforeend',execCycleRow(d));
+    execSetState('running',`cycle ${d.cycle} · recursive_planner`);
+  });
+  es.addEventListener('completed',ev=>{
+    execSetState('completed','converged to STABLE');es.close();
+  });
+  es.addEventListener('failed',ev=>{
+    const d=JSON.parse(ev.data);
+    execSetState('failed',d.final_status||'failed');es.close();
+  });
+  es.addEventListener('idle',()=>{es.close();});
+  es.onerror=()=>{ if(EX.state==='running')execSetState('running','reconnecting…'); };
+}
+function execStop(){
+  if(EX.es)EX.es.close();
+  execSetState('cancelled','stopped watching — the run continues in the background until it finishes');
 }
 
 function renderCorpora(){
