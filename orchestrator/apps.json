@@ -1,0 +1,43 @@
+{
+  "_comment": "WP-O1 output (H-O6): app roster for the Central Orchestrator. Adding a 6th app = add one entry here + author its wrapper skill; no orchestrator code changes.",
+  "apps": {
+    "brain": {
+      "description": "General-purpose multi-agent orchestrator (research, code, data analysis, app building, content, planning)",
+      "skill_id": "brain_think",
+      "invocation": "in_process",
+      "entrypoint": "brain.brain:Brain.think",
+      "reason": "No bare top-level name collision when it is the only app imported in-process alongside feynman_agent"
+    },
+    "feynman_agent": {
+      "description": "Feynman-technique Q&A tutor over an ingested knowledge base",
+      "skill_id": "feynman_ask",
+      "invocation": "in_process",
+      "entrypoint": "feynman_agent.agent:get_session",
+      "reason": "Only app whose bare top-level module name (agent, singular) does not collide with brain's internal agents/ or tools/ packages"
+    },
+    "stock_agent": {
+      "description": "7-agent financial analysis pipeline (fundamentals, technicals, risk, sentiment, algo signals) for a stock ticker",
+      "skill_id": "stock_agent_analyze",
+      "invocation": "http",
+      "endpoint": "http://localhost:5051/api/analyze/stream",
+      "reason": "Owns agents/ and tools/ packages that collide with brain's bare top-level import names (ModuleNotFoundError confirmed empirically, order-dependent) -- HTTP avoids importing it into the shared process at all"
+    },
+    "health_agent": {
+      "description": "Health vitals extraction + threshold/trend analysis from screenshots, PDFs, DOCX, or manual input",
+      "skill_id": "health_agent_analyze",
+      "invocation": "http",
+      "endpoint": "http://localhost:8787/analyze",
+      "reason": "Owns agents/ and tools/ packages colliding with brain's bare top-level names -- same fix as stock_agent"
+    },
+    "vedic_astro": {
+      "description": "Vedic astrology chart calculation (D-1/D-9 etc.) + 6-agent deep prediction reading for a birth place/time",
+      "skill_id": "vedic_astro_reading",
+      "invocation": "http",
+      "endpoints": {
+        "geocode": "http://localhost:5050/api/geocode",
+        "reading": "http://localhost:5050/api/reading/stream"
+      },
+      "reason": "Owns an agents/ package colliding with brain's bare top-level name; also the only app needing the 2-step geocode->reading glue, kept inside its one wrapper skill's driver (H-O4)"
+    }
+  }
+}
