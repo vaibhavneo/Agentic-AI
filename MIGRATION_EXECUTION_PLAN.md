@@ -88,7 +88,7 @@ caveats the implementer must respect:
 | H1 | Approve M-P1a start (or reorder vs M-Q1) | WP‑1 | HANDOFF #1, plan.md |
 | H2 | Keep or retire legacy tutor UI once parity | WP‑6 | HANDOFF #4 |
 | H3 | Legacy `knowledge_base.pkl`: adopt via `retrieval.adopt_index()` as a corpus, or retire in favor of the existing `ai-books` corpus (25,812 chunks, likely same source books) | WP‑5 | new — record as decisions.md entry when made |
-| H4 | `aios.db` fate: remove write-only mirror or give it a tested read path | WP‑7 | Q1h |
+| H4 | `aios.db` fate: the `missions`/`mission_corpora` mirror (mission.py) is still write-only and a YAGNI-removal candidate — BUT the `recommendations` table (coach_service.py, shipped in WP‑1) has a LIVE read/write consumer (`/api/coach`); WP‑7 must resolve the mirror tables per Q1h while preserving, migrating, or intentionally replacing the recommendations consumer — never silently dropping it | WP‑7 | Q1h |
 | H5 | `distill.py` DeepSeek path: exercise or retire — the teacher adapter reuses the same key-resolution convention, so decide before WP‑4 wiring | WP‑4 (soft) | HANDOFF #5, Q1i |
 | H6 | React migration timing | none (vanilla JS stays, D16) | HANDOFF #3 |
 
@@ -113,10 +113,12 @@ checklist (12 suites) green — that is part of "done", not optional.
   REPLACES Mission Control's 3-rule proto-coach (playbook note).
 - **Prerequisites**: WP‑0; H1 approved.
 - **Files**: NEW `learn_agent/coach_service.py`; `aios_api.py` (+`/api/coach`,
-  accept/dismiss); persistence per H4-pending (default: `recommendations`
-  table in aios.db, flagged rebuildable per P2); `static/aios.html` +
-  `static/mission_control.html` (coach card replaces proto-coach);
-  `mission_control_service.py` (remove proto-coach rules).
+  accept/dismiss); `static/aios.html` + `static/mission_control.html` (coach
+  card replaces proto-coach); `mission_control_service.py` (remove proto-coach
+  rules). **Shipped** with the `recommendations` table in `aios.db` as its
+  persistence choice (flagged rebuildable per P2 for the recommendation
+  CONTENT — the accept/dismiss STATUS itself is real decision state; see
+  WP‑7's H4 note — do not treat this table as write-only dead code).
 - **Invariants**: routes stay thin (P10 — triggers live in coach_service, not
   routes); every recommendation cites file/concept/corpus evidence (P3);
   triggers are deterministic — LLM ranking optional and clearly separated
@@ -221,17 +223,45 @@ checklist (12 suites) green — that is part of "done", not optional.
 - **Rollback**: serve old HTML again (§7 step 5) — keep the extracted file.
 
 ### WP‑7 — aios.db resolution *(Sonnet, 1 atomic task)* — gate: H4
-- **Objective**: implement whichever H4 chose: delete the mirror writes from
-  `aios_core/sdk/mission.py` (+ decisions.md entry) or add a real, tested
-  read path (e.g. recommendations store for WP‑1).
+- **Objective**: `aios.db` now holds TWO independent tables with different
+  status — resolve them separately, don't treat the file as one blob:
+  1. `missions`/`mission_corpora` (written by `aios_core/sdk/mission.py`,
+     MissionStore) — confirmed write-only, no reader anywhere (Q1h). Per H4:
+     delete these mirror writes (+ decisions.md entry) OR add a real, tested
+     read path.
+  2. `recommendations` (written AND read by `learn_agent/coach_service.py`,
+     shipped in WP‑1; served live at `GET/POST /api/coach*`) — this is a
+     REAL, LIVE consumer, not dead code. **Do not silently drop this table.**
+     WP‑7 must do ONE of, explicitly, with a decisions.md entry recording
+     which: (a) **preserve** it as-is (simplest — it already has a tested
+     read path, `_status_map()`/`recommendations()`, and is schema-versioned
+     independently of the mission mirror); (b) **migrate** it — e.g. to a
+     dedicated `coach.db` or a JSON file under `memory/` — if `aios.db` the
+     FILE is being removed wholesale for reason (1); or (c) **intentionally
+     replace** the consumer (e.g. move accept/dismiss state into a mission
+     memory file) — only if a documented reason makes that better than (a)/(b).
+     Whichever is chosen, existing dismissed/accepted recommendation history
+     must not be silently lost — that's real user decision state, not a pure
+     derived cache, even though the recommendation CONTENT itself
+     (trigger/action/evidence) is deterministically re-derivable from files.
 - **Prerequisites**: H4; coordinate with WP‑1's persistence choice.
-- **Invariants**: files remain source of truth (P2) — DB stays DROP-safe;
-  `mission.py` is aios_core — re-run `test_aios_core.py` + `test_aios_p0.py`
-  closely (touching the SDK affects every app).
-- **Tests**: if removal: suites green with no db file present; if read path:
-  a rebuild-from-files test (drop db → regenerate → identical reads).
-- **Exit**: Q1h closed either way with a decisions.md entry; §V green.
-- **Rollback**: mirror writes are additive code — single revert.
+- **Invariants**: files remain source of truth (P2) — DB stays DROP-safe for
+  its OWN schema in whichever form it ends up; `mission.py` is aios_core —
+  re-run `test_aios_core.py` + `test_aios_p0.py` closely (touching the SDK
+  affects every app); `test_coach_service.py` + the coach API test in
+  `test_aios_p0.py` must stay green regardless of which option is chosen for
+  the recommendations table.
+- **Tests**: for the mission mirror — if removed: suites green with no db
+  file present; if kept: a rebuild-from-files test (drop db → regenerate →
+  identical reads). For `recommendations` — a test proving whatever the
+  chosen option is, dismissed/accepted status survives a restart (already
+  covered by `test_coach_service.py`'s existing persistence test if option
+  (a); a new equivalent test if (b) or (c)).
+- **Exit**: Q1h closed for the mission mirror; the recommendations table's
+  fate stated explicitly in a decisions.md entry (not left implicit); §V green.
+- **Rollback**: mirror writes are additive code — single revert. Any
+  recommendations-table migration must be reversible (keep the old table/file
+  until the new path is proven, then remove).
 
 ### WP‑8 — Documentation truth pass *(Sonnet, 1 atomic task)*
 - **Objective**: Q1a (START_HERE/AIOS_HANDBOOK cover aios_core, packs,

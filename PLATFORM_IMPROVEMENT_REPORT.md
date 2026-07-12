@@ -245,7 +245,16 @@ red flags — nothing here blocks the next milestone.
   `len(_MANIFEST_REQUIRED) + 1` (the `+1` for `purpose`, which is
   recommended but not currently enforced by `_MANIFEST_REQUIRED`).
 
-### 🟢 P8 — `aios.db` (SQLite mission mirror) is write-only — never queried anywhere
+### 🟢 P8 — `aios.db`'s `missions`/`mission_corpora` mirror is write-only — never queried anywhere
+
+> **Update (2026-07-11, post-WP-1):** this finding is scoped to the
+> `missions`/`mission_corpora` tables written by `MissionStore` specifically —
+> still accurate for those. It does NOT extend to `aios.db` as a whole: the
+> `recommendations` table (added by `learn_agent/coach_service.py`, WP-1) DOES
+> have a real reader (`_status_map()`/`recommendations()`, served at
+> `GET /api/coach`) — a live, tested read/write consumer, not dead code. WP-7
+> must resolve these two tables separately; see MIGRATION_EXECUTION_PLAN.md
+> WP-7/H4 for the explicit constraint not to silently drop `recommendations`.
 
 - **Category:** technical debt (task 7)
 - **Evidence:** `mission.MissionStore.create()` and `.set_corpora()` write to
@@ -364,7 +373,7 @@ red flags — nothing here blocks the next milestone.
 | P5 | Command-palette JS duplicated across 2 shells | duplication | 🟡 Medium | Small |
 | P6 | Flask + FastAPI both serve operator-surface roles | API, debt | 🟡 Medium | None (decision only) |
 | P7 | runtime.md manifest key count still wrong (repeat) | docs | 🟢 Low | Trivial |
-| P8 | aios.db mirror is write-only, never read | debt | 🟢 Low | Small |
+| P8 | aios.db's mission mirror is write-only, never read (recommendations table is a separate, LIVE consumer — see 2026-07-11 update) | debt | 🟢 Low | Small |
 | P9 | distill.py LLM path untested for 14 cycles | tests, debt | ✅ RESOLVED (D19) | retired |
 | P10 | ai-books latency claim never actually measured | perf | 🟢 Low | Trivial |
 
