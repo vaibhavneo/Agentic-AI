@@ -323,7 +323,10 @@ IMPORTANT RULES:
 - Acknowledge both strengths AND challenges honestly
 - Give time-based predictions using Dasha periods when relevant
 - Write in clear, insightful English accessible to a modern reader
-- Avoid vague generalities — be specific to THIS chart"""
+- Avoid vague generalities — be specific to THIS chart
+- If you reference RELEVANT BOOK PASSAGES, cite them exactly as shown in their
+  [Book Title, page N] tag. Never invent a book title, author, or page number
+  that is not shown in the passages given to you."""
 
 
 def analyze_career(client: anthropic.Anthropic, ctx: ChartContext,

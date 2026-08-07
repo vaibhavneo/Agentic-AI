@@ -244,6 +244,32 @@
   .send-btn:hover { background: #9b77e0; }
   .send-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 
+  .quick-questions { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+  .quick-q-btn {
+    padding: 6px 12px; border-radius: 999px; border: 1px solid var(--border);
+    background: rgba(124,92,191,0.08); color: var(--text);
+    font-size: 0.78rem; cursor: pointer; transition: background 0.15s, border-color 0.15s;
+  }
+  .quick-q-btn:hover { background: rgba(124,92,191,0.2); border-color: var(--purple); }
+
+  .facts-used {
+    margin-top: 8px; font-size: 0.78rem;
+  }
+  .facts-used summary {
+    cursor: pointer; color: var(--muted); user-select: none;
+  }
+  .facts-used summary:hover { color: var(--teal); }
+  .facts-used-body {
+    margin-top: 6px; padding: 8px 10px; border-radius: 6px;
+    background: rgba(255,255,255,0.04); border: 1px solid var(--border);
+    white-space: pre-wrap; color: var(--muted); line-height: 1.5;
+  }
+  .validation-warning {
+    margin-top: 8px; padding: 8px 10px; border-radius: 6px;
+    background: rgba(232,74,74,0.1); border: 1px solid rgba(232,74,74,0.35);
+    color: #f5a3a3; font-size: 0.78rem; line-height: 1.5;
+  }
+
   /* ── Welcome screen ── */
   #welcome {
     display: flex; flex-direction: column; align-items: center;
@@ -372,6 +398,7 @@
     <!-- Chat -->
     <div class="card" id="chat-card" style="display:none">
       <div class="card-title">🙏 Ask Jyoti Anything About Your Chart</div>
+      <div class="quick-questions" id="quick-questions"></div>
       <div class="chat-container" id="chat-messages"></div>
       <div class="chat-input-row" style="margin-top:12px">
         <input type="text" id="chat-input" placeholder="e.g. When will I get married? What career suits me?" onkeydown="if(event.key==='Enter')sendChat()">
@@ -441,6 +468,50 @@ async function loadDemo() {
 }
 
 // ── Calculate Chart ────────────────────────────────────────────────────────
+let activeDivision = 'D1';
+
+function ensureActiveChartBar() {
+  var existing = document.getElementById('active-chart-bar');
+  if (existing) return existing;
+  var chatCard = document.getElementById('chat-card');
+  var bar = document.createElement('div');
+  bar.id = 'active-chart-bar';
+  bar.style.cssText = 'padding:10px 14px;margin-bottom:10px;border-radius:8px;background:rgba(255,255,255,0.06);font-size:13px;display:flex;gap:16px;flex-wrap:wrap;align-items:center';
+  chatCard.parentNode.insertBefore(bar, chatCard);
+  return bar;
+}
+
+function renderActiveChartBar(data) {
+  var bar = ensureActiveChartBar();
+  var md = (data.dashas && data.dashas.length) ? data.dashas[0] : null;
+  bar.innerHTML =
+    '<span>\uD83D\uDC64 Profile: <b>' + ((data.birth_info && data.birth_info.place) || '\u2014') + '</b></span>' +
+    '<span>\uD83C\uDD94 Chart: <b>' + (data.chart_id || '\u2014') + '</b></span>' +
+    (md ? '<span>Mahadasha: <b>' + md.lord + '</b></span>' : '') +
+    '<span>Division: <select id="division-select">' +
+      ['D1','D2','D3','D7','D9','D10'].map(function(d) {
+        return '<option value="' + d + '"' + (d === activeDivision ? ' selected' : '') + '>' + d + '</option>';
+      }).join('') +
+    '</select></span>';
+  var sel = document.getElementById('division-select');
+  if (sel) sel.onchange = function() { activeDivision = sel.value; };
+}
+
+window.addEventListener('DOMContentLoaded', function() {
+  try {
+    var saved = JSON.parse(localStorage.getItem('activeChartBirthInfo') || 'null');
+    if (saved && saved.date && saved.time && document.getElementById('inp-date')) {
+      document.getElementById('inp-date').value = saved.date;
+      document.getElementById('inp-time').value = saved.time;
+      document.getElementById('inp-place').value = saved.place || '';
+      document.getElementById('inp-lat').value = saved.lat;
+      document.getElementById('inp-lon').value = saved.lon;
+      document.getElementById('inp-tz').value = saved.tz_offset;
+      calculateChart();
+    }
+  } catch (e) {}
+});
+
 async function calculateChart() {
   const date  = document.getElementById('inp-date').value;
   const time  = document.getElementById('inp-time').value;
@@ -466,6 +537,9 @@ async function calculateChart() {
     const data = await r.json();
     if (data.error) throw new Error(data.error);
     chartData = data;
+    localStorage.setItem('activeChartId', data.chart_id || '');
+    localStorage.setItem('activeChartBirthInfo', JSON.stringify({date, time, place, lat, lon, tz_offset: tz}));
+    renderActiveChartBar(data);
 
     showChartsPanel(data);
     showDashas(data.dashas);
@@ -473,6 +547,7 @@ async function calculateChart() {
 
     document.getElementById('btn-reading').style.display = 'block';
     document.getElementById('chat-card').style.display = 'block';
+    renderQuickQuestions();
 
     // Build reading context for chat
     readingContext = buildReadingContext(data);
@@ -847,9 +922,26 @@ async function runReading() {
 }
 
 // ── Chat ───────────────────────────────────────────────────────────────────
-async function sendChat() {
+const QUICK_QUESTIONS = [
+  "What's my career potential?",
+  "When will I get married?",
+  "What is my current Dasha period about?",
+  "What does my D-9 Navamsa say about my marriage?",
+  "What does my D-10 say about my career?",
+  "What are my biggest life lessons?",
+];
+
+function renderQuickQuestions() {
+  const box = document.getElementById('quick-questions');
+  if (!box) return;
+  box.innerHTML = QUICK_QUESTIONS.map(q =>
+    '<button type="button" class="quick-q-btn" onclick="sendChat(' + JSON.stringify(q) + ')">' + escHtml(q) + '</button>'
+  ).join('');
+}
+
+async function sendChat(presetQuestion) {
   const input = document.getElementById('chat-input');
-  const q = input.value.trim();
+  const q = (typeof presetQuestion === 'string' ? presetQuestion : input.value).trim();
   if (!q) return;
   input.value = '';
 
@@ -864,6 +956,8 @@ async function sendChat() {
       body: JSON.stringify({
         question: q,
         history: chatHistory,
+        chart_id: (chartData && chartData.chart_id) ? chartData.chart_id : (localStorage.getItem('activeChartId') || ''),
+        division: activeDivision,
         // Server recomputes the authoritative chart from birth_info — this is
         // the fix for Jyoti inventing placements. The narrative reading is
         // passed separately as secondary context.
@@ -878,7 +972,12 @@ async function sendChat() {
     msgs.removeChild(msgs.lastChild);
 
     const answer = data.answer || data.error || 'No response';
-    appendMsg('jyoti', answer);
+    appendMsg('jyoti', answer, {
+      factsUsed: data.chart_facts_used,
+      validation: data.validation,
+      agentsConsulted: data.agents_consulted,
+      corrected: data.corrected,
+    });
     chatHistory.push({role:'user', content:q});
     chatHistory.push({role:'assistant', content:answer});
   } catch(e) {
@@ -891,11 +990,76 @@ async function sendChat() {
   }
 }
 
-function appendMsg(role, text) {
+const AGENT_LABELS = {
+  chart_facts_agent: 'Chart Facts Agent',
+  divisional_chart_agent: 'Divisional Chart Agent',
+  dasha_timing_agent: 'Dasha/Timing Agent',
+  classical_sources_agent: 'Classical Sources Agent',
+  parashari_agent: 'Parashari Agent',
+  critic_validator_agent: 'Critic/Validator Agent',
+};
+
+function formatFactsUsed(facts, agentsConsulted, corrected) {
+  if (!facts) return '';
+  const lines = [];
+  lines.push('Chart: ' + (facts.profile_name || '—') + ' (' + facts.chart_id + ')');
+  lines.push('Division consulted: ' + facts.division);
+  if (facts.ascendant) lines.push('Ascendant: ' + facts.ascendant.sign);
+  if (facts.current_mahadasha) lines.push('Mahadasha: ' + facts.current_mahadasha.lord + ' (' + facts.current_mahadasha.start + ' to ' + facts.current_mahadasha.end + ')');
+  if (facts.current_antardasha) lines.push('Antardasha: ' + facts.current_antardasha.lord);
+  if (facts.context_pack_topics && facts.context_pack_topics.length) {
+    lines.push('Detected topics: ' + facts.context_pack_topics.join(', '));
+  }
+  if (facts.context_pack_facts) {
+    lines.push('');
+    lines.push(facts.context_pack_facts);
+  }
+  if (facts.book_sources && facts.book_sources.length) {
+    lines.push('');
+    lines.push('Classical sources retrieved:');
+    facts.book_sources.forEach(function(s) {
+      lines.push('  - ' + s.source + (s.page != null ? ', page ' + s.page : ''));
+    });
+  }
+  if (agentsConsulted && agentsConsulted.length) {
+    lines.push('');
+    lines.push('Agents consulted: ' + agentsConsulted.map(a => AGENT_LABELS[a] || a).join(' → '));
+    if (corrected) lines.push('(Critic/Validator caught an error and requested a correction.)');
+  }
+  return lines.join('\n');
+}
+
+function appendMsg(role, text, meta) {
   const msgs = document.getElementById('chat-messages');
   const div = document.createElement('div');
   div.className = 'msg msg-' + role;
   div.innerHTML = role === 'jyoti' ? formatText(text) : escHtml(text);
+
+  if (role === 'jyoti' && meta && meta.factsUsed) {
+    const details = document.createElement('details');
+    details.className = 'facts-used';
+    const summary = document.createElement('summary');
+    summary.textContent = '📊 Chart Facts Used';
+    const body = document.createElement('div');
+    body.className = 'facts-used-body';
+    body.textContent = formatFactsUsed(meta.factsUsed, meta.agentsConsulted, meta.corrected);
+    details.appendChild(summary);
+    details.appendChild(body);
+    div.appendChild(details);
+  }
+
+  if (role === 'jyoti' && meta && meta.validation && meta.validation.all_valid === false) {
+    const warn = document.createElement('div');
+    warn.className = 'validation-warning';
+    const lines = meta.validation.issues.map(i => {
+      if (i.type === 'planet_sign') return `⚠️ Claimed "${i.planet} in ${i.claimed_sign}" — chart actually shows ${i.actual_sign}.`;
+      if (i.type === 'house_lord') return `⚠️ Claimed "${i.planet} is the ${i.claimed_house}th lord" — chart actually shows ${i.actual_lord}.`;
+      return '⚠️ Unverified claim: ' + i.matched_text;
+    });
+    warn.textContent = lines.join('\n');
+    div.appendChild(warn);
+  }
+
   msgs.appendChild(div);
   msgs.scrollTop = msgs.scrollHeight;
 }

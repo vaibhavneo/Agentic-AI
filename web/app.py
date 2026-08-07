@@ -234,7 +234,17 @@ def api_chart():
         },
     }
 
+    from chart_bundle import build_chart_bundle
+    from persistence import save_chart
+    bundle = build_chart_bundle(
+        birth_info={"date": date, "time": time_str, "place": place,
+                    "lat": lat, "lon": lon, "tz_offset": tz_offset},
+        birth_dt=utc_dt, d1=d1, divs=divs, dashas=dashas, strength=strength,
+    )
+    save_chart(bundle)
+
     return jsonify({
+        "chart_id": bundle["chart_id"],
         "birth_info": {
             "date": date, "time": time_str, "place": place,
             "lat": lat, "lon": lon, "tz_offset": tz_offset,
@@ -369,33 +379,136 @@ def _transit_context_from_birth(birth_info: dict, question: str) -> str:
     return "\n\n".join(blocks)
 
 
+def _build_grounded_context(bundle, division):
+    """Formats an already-built Chart Bundle into text for the system
+    prompt. Reads only bundle fields - no recalculation."""
+    lines = []
+    d1 = bundle["divisional_charts"].get("D1")
+    bd = bundle["birth_data"]
+    lines.append("Birth data: %s %s at %s (lat %s, lon %s, UTC %s)" % (
+        bd['date'], bd['time'], bd['place'], bd['lat'], bd['lon'], bd['utc']))
+    lines.append("")
+    lines.append("D-1 (Rasi) Ascendant: %s at %s degrees" % (
+        d1['ascendant']['sign'], d1['ascendant']['degrees']))
+    lines.append("D-1 Planetary Positions:")
+    for name, p in d1["planets"].items():
+        retro = "(Retrograde) " if p["retrograde"] else ""
+        lines.append("  %s: %s %sd%s' House %s Nakshatra %s Pada %s %sDignity: %s" % (
+            name, p['sign'], p['degrees'], p['minutes'], p['house'],
+            p['nakshatra'], p['pada'], retro, p['dignity']))
+    lines.append("D-1 House Lords (lordships ALWAYS derive from D-1, fixed across "
+                  "all divisional charts): %s" % d1['house_lords'])
+
+    if division != "D1" and division in bundle["divisional_charts"]:
+        dv = bundle["divisional_charts"][division]
+        lines.append("")
+        lines.append("%s Ascendant: %s" % (division, dv['ascendant']['sign']))
+        lines.append("%s Planetary Positions:" % division)
+        for name, p in dv["planets"].items():
+            lines.append("  %s: %s House %s Dignity: %s" % (
+                name, p['sign'], p['house'], p['dignity']))
+
+    timing = bundle["timing"]
+    md = timing.get("current_mahadasha")
+    ad = timing.get("current_antardasha")
+    pd = timing.get("current_pratyantardasha")
+    lines.append("")
+    lines.append("Current Vimshottari Mahadasha: %s (%s to %s)" % (
+        md['lord'] if md else 'unknown',
+        md['start'] if md else '?', md['end'] if md else '?'))
+    if ad:
+        lines.append("Current Antardasha: %s (%s to %s)" % (ad['lord'], ad['start'], ad['end']))
+    if pd:
+        lines.append("Current Pratyantardasha: %s (%s to %s)" % (pd['lord'], pd['start'], pd['end']))
+
+    vargottama = bundle["derived"].get("vargottama", {})
+    if vargottama:
+        lines.append("")
+        lines.append("Vargottama planets: %s" % vargottama)
+
+    return "\n".join(lines)
+
+
 @app.route("/api/chat", methods=["POST"])
 def api_chat():
+    from persistence import load_chart
+    import chart_tools as _tools
+    import chart_validation as _validation
+    import context_pack as _context_pack
+    import conversations as _conversations
+    import book_grounding as _book_grounding
+    import orchestrator as _orchestrator
+
     data       = request.json or {}
     question   = data.get("question", "")
     history    = data.get("history", [])
+    chart_id   = data.get("chart_id", "")
+    division   = (data.get("division") or "D1").upper()
     birth_info = data.get("birth_info") or {}
     reading    = data.get("reading", "")          # optional full-reading prose
     ctx_str    = data.get("chart_context", "")     # legacy fallback
 
+    if division not in {"D1", "D2", "D3", "D7", "D9", "D10"}:
+        division = "D1"
+
     if not question:
         return jsonify({"error": "No question"}), 400
 
-    key, _ = _get_api_key()
-    if not key:
-        return jsonify({"error": "No API key. Create vedic_astro/.env with DEEPSEEK_API_KEY=sk-..."}), 503
+    bundle = load_chart(chart_id) if chart_id else None
+    if bundle and not birth_info.get("date"):
+        bd = bundle.get("birth_data", {})
+        birth_info = {"date": bd.get("date"), "time": bd.get("time"),
+                      "lat": bd.get("lat"), "lon": bd.get("lon"),
+                      "tz_offset": bd.get("tz_offset"), "place": bd.get("place")}
 
-    # Authoritative chart context: recompute server-side from birth data so the
-    # LLM sees the EXACT chart that was rendered — full planetary placements,
-    # divisionals, karakas, yogas, strength, and the live dasha timeline.
+    # Conversation memory: conversation_id is ALWAYS re-derived here from the
+    # resolved chart_id (a pure function, see conversations.derive_conversation_id)
+    # rather than trusted from whatever the client sends — this guarantees the
+    # id can never drift from the chart it's tied to and removes a whole class
+    # of client bugs, while still satisfying "derived from chart_id" client-side
+    # too (the frontend mirrors the same derivation for its own display use).
+    conversation_id = _conversations.derive_conversation_id(bundle["chart_id"]) if bundle else None
+    persisted_convo = _conversations.load_conversation(conversation_id) if conversation_id else None
+    convo_history = persisted_convo["messages"] if persisted_convo else history
+
+    # Authoritative chart context: prefer the persisted Chart Bundle for the
+    # active chart_id (the exact chart that was calculated and saved) over
+    # recomputing from whatever birth_info the client happens to send.
     chart_ctx = ""
     transit_ctx = ""
+    facts_used = None
+    pack = {"topics": [], "context": ""}
+    if bundle:
+        div_chart = _tools.get_divisional_chart(bundle, division) or bundle["divisional_charts"].get("D1")
+        timing = _tools.get_current_dasha(bundle)
+        pack = _context_pack.build_context_pack(question, bundle, division)
+        facts_used = {
+            "chart_id": bundle["chart_id"],
+            "profile_name": bundle["profile_name"],
+            "division": division,
+            "ascendant": div_chart.get("ascendant") if div_chart else None,
+            "current_mahadasha": timing.get("current_mahadasha"),
+            "current_antardasha": timing.get("current_antardasha"),
+            "current_pratyantardasha": timing.get("current_pratyantardasha"),
+            "context_pack_topics": pack["topics"],
+            "context_pack_facts": pack["context"],
+        }
+        chart_ctx = _build_grounded_context(bundle, division)
+
+    book_pack = {"passages": [], "context": ""}
+    try:
+        book_pack = _book_grounding.build_book_context(get_kb(), question, pack["topics"], bundle, division)
+    except Exception as e:
+        print("   chat book-grounding failed: %s" % e)
+    if facts_used is not None:
+        facts_used["book_sources"] = book_pack["passages"]
     if birth_info.get("date") and birth_info.get("time"):
-        try:
-            chart_ctx = _chart_context_from_birth(birth_info)
-        except Exception as e:
-            chart_ctx = ""   # fall through to legacy context below
-            print(f"   ⚠️  chat chart recompute failed: {e}")
+        if not chart_ctx:
+            try:
+                chart_ctx = _chart_context_from_birth(birth_info)
+            except Exception as e:
+                chart_ctx = ""   # fall through to legacy context below
+                print("   chat chart recompute failed: %s" % e)
         # Live gochara (transits): current planetary positions relative to the
         # natal chart, plus positions for any date the user names in the
         # question. This is what lets the agent answer timing questions.
@@ -403,23 +516,33 @@ def api_chat():
             transit_ctx = _transit_context_from_birth(birth_info, question)
         except Exception as e:
             transit_ctx = ""
-            print(f"   ⚠️  chat transit compute failed: {e}")
+            print("   chat transit compute failed: %s" % e)
     if not chart_ctx:
         chart_ctx = ctx_str   # legacy path if no birth_info supplied
 
+    if not chart_ctx:
+        return jsonify({
+            "answer": "Please calculate or select a birth chart before asking a chart-specific question.",
+            "chart_facts_used": None,
+        })
+
+    key, _ = _get_api_key()
+    if not key:
+        return jsonify({"error": "No API key. Create vedic_astro/.env with DEEPSEEK_API_KEY=sk-..."}), 503
+
     today = datetime.now()
     system_parts = [
-        "You are Jyoti — a deeply knowledgeable and compassionate Vedic astrologer "
+        "You are Jyoti - a deeply knowledgeable and compassionate Vedic astrologer "
         "trained in Parasara, Jaimini, K.N. Rao, Deepanshu Giri, and Narasimha Rao traditions.",
-        f"TODAY'S DATE is {today.strftime('%A, %d %B %Y')}. Use this as 'now' for any "
+        "TODAY'S DATE is %s. Use this as 'now' for any "
         "question about the present, the future, age, or timing. Never say you don't "
-        "know the current date.",
+        "know the current date." % today.strftime('%A, %d %B %Y'),
         "The person's COMPLETE, AUTHORITATIVE chart is given below. It is computed "
         "directly from Swiss Ephemeris for this exact birth data. Treat it as ground "
         "truth. When answering, cite the specific planets, signs, houses, nakshatras, "
-        "and dasha periods AS GIVEN — never guess or invent a placement. If a detail "
+        "and dasha periods AS GIVEN - never guess or invent a placement. If a detail "
         "isn't in the data below, say so rather than assuming it.",
-        "CRITICAL — House lordships: the chart data includes an explicit 'House Lords' "
+        "CRITICAL - House lordships: the chart data includes an explicit 'House Lords' "
         "table for each chart. NEVER derive lordships yourself from memory. When the "
         "user asks about 'the Nth lord' or which house a planet rules, read it "
         "verbatim from the D-1 'House Lords' table. Functional lordships come from the "
@@ -428,38 +551,98 @@ def api_chat():
         "Be warm, insightful, and non-fatalistic.",
         "Address the person directly as 'you'. Do NOT narrate your reasoning "
         "process, restate the question, or write phrases like 'We need to "
-        "analyze' — give the reading itself, directly and gracefully.",
+        "analyze' - give the reading itself, directly and gracefully.",
         "\n## AUTHORITATIVE CHART DATA\n" + chart_ctx,
     ]
     if transit_ctx:
         system_parts.append(
-            "TIMING METHOD — For any question about WHEN something happens, or "
+            "TIMING METHOD - For any question about WHEN something happens, or "
             "about a specific date/year, reason from BOTH (a) the Vimshottari "
             "Dasha timeline in the chart data above, and (b) the live TRANSITS "
             "(gochara) below, which are computed from Swiss Ephemeris for the "
             "current date and for any date named in the question. Combine dasha "
             "(the active planetary period) with transit (where the planets "
-            "actually are) — that is the classical way to time an event. Cite "
+            "actually are) - that is the classical way to time an event. Cite "
             "the specific transiting planets, their houses from the Moon and "
             "Lagna, Sade Sati status, and Jupiter/Saturn positions AS GIVEN.")
         system_parts.append(
-            "\n## LIVE TRANSITS / GOCHARA (computed — treat as ground truth)\n"
+            "\n## LIVE TRANSITS / GOCHARA (computed - treat as ground truth)\n"
             + transit_ctx)
+    if pack["context"]:
+        system_parts.append(
+            "\n## TOPIC-SPECIFIC FACTS (detected from the question - read these "
+            "verbatim, do not recompute or contradict them)\n" + pack["context"]
+        )
+    if book_pack["context"]:
+        system_parts.append(
+            "CLASSICAL SOURCES - the passages below are real excerpts retrieved "
+            "from the ingested library of classical Vedic astrology texts. If you "
+            "reference or quote one, cite it EXACTLY as shown in its [Book Title, "
+            "page N] tag. Never invent a book title, author, or page number that "
+            "is not shown below. If nothing below is relevant to the question, "
+            "do not fabricate a citation - just don't cite one.")
+        system_parts.append(
+            "\n## RETRIEVED CLASSICAL SOURCE PASSAGES\n" + book_pack["context"])
     if reading:
         # Secondary context, clearly subordinate to the chart data above.
         system_parts.append(
-            "\n## Prior Full Reading (narrative context — the chart data above "
+            "\n## Prior Full Reading (narrative context - the chart data above "
             "always takes precedence if anything conflicts)\n" + reading[:4000]
         )
     system = "\n\n".join(system_parts)
 
     try:
         client = get_client()
-        messages = history[-10:] + [{"role": "user", "content": question}]
-        answer = _chat_with_client(client, system, messages)
-        return jsonify({"answer": answer})
+        messages = convo_history[-10:] + [{"role": "user", "content": question}]
+        chat_fn = lambda sys_prompt: _chat_with_client(client, sys_prompt, messages)  # noqa: E731
+
+        # Parashari Agent (draft) -> Critic/Validator Agent (verify, and
+        # bounded-retry-correct if the draft contradicts the chart data).
+        draft = chat_fn(system)
+        result = _orchestrator.run_critic_and_maybe_correct(chat_fn, system, draft, bundle, division)
+        answer = result["answer"]
+        validation_result = result["validation"]
+        if validation_result and not validation_result["all_valid"]:
+            print("   ⚠️  chat_validation caught %d unsupported claim(s) (corrected=%s): %s"
+                  % (len(validation_result["issues"]), result["corrected"], validation_result["issues"]))
+        if conversation_id:
+            _conversations.append_turn(conversation_id, bundle["chart_id"], question, answer)
+
+        return jsonify({
+            "answer": answer,
+            "chart_facts_used": facts_used,
+            "validation": validation_result,
+            "corrected": result["corrected"],
+            "agents_consulted": _orchestrator.agents_consulted(bundle, division, transit_ctx, book_pack["context"]),
+            "conversation_id": conversation_id,
+        })
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/charts", methods=["GET"])
+def api_charts_list():
+    from persistence import list_charts
+    return jsonify({"charts": list_charts()})
+
+
+@app.route("/api/charts/<chart_id>", methods=["GET"])
+def api_charts_get(chart_id):
+    from persistence import load_chart
+    bundle = load_chart(chart_id)
+    if bundle is None:
+        return jsonify({"error": "chart not found"}), 404
+    return jsonify(bundle)
+
+
+@app.route("/api/charts/<chart_id>/summary", methods=["GET"])
+def api_charts_summary(chart_id):
+    from persistence import load_chart
+    import chart_tools as _tools
+    bundle = load_chart(chart_id)
+    if bundle is None:
+        return jsonify({"error": "chart not found"}), 404
+    return jsonify(_tools.get_chart_summary(bundle))
 
 
 # ── Entry point ────────────────────────────────────────────────────────────
