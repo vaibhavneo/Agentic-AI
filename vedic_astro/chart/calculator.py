@@ -314,3 +314,49 @@ class VedicChartCalculator:
             idx += 1
 
         return dashas
+
+    def calc_dasha_bhukti(self, jd: float, moon_longitude: float) -> list:
+        """Vimshottari Mahadasha timeline WITH nested Antardashas (bhuktis).
+
+        Returns a list of dicts, each an MD:
+            {lord, start, end, bhuktis: [{lord, start, end}, ...]}
+        where start/end are fractional decimal years (e.g. 2027.29). Bhukti
+        durations follow the classical rule AD = MD_years * AD_lord_years / 120,
+        in Vimshottari sequence starting from the MD lord. This is the grounded
+        substitute for letting the LLM guess sub-period dates."""
+        nak_idx  = int(moon_longitude * 27 / 360) % 27
+        nak_lord = NAKSHATRA_LORDS[nak_idx]
+        nak_size_deg = 360 / 27
+        nak_start    = nak_idx * nak_size_deg
+        elapsed_frac = max(0.0, min(1.0, (moon_longitude - nak_start) / nak_size_deg))
+
+        seq_idx = VIMSHOTTARI_SEQUENCE.index(nak_lord)
+        start_years_elapsed = VIMSHOTTARI_YEARS[nak_lord] * elapsed_frac
+
+        birth_dt   = swe.revjul(jd)
+        birth_year = birth_dt[0] + birth_dt[1] / 12 + birth_dt[2] / 365.25
+
+        out = []
+        md_start = birth_year - start_years_elapsed
+        for i in range(9):
+            md_lord  = VIMSHOTTARI_SEQUENCE[(seq_idx + i) % 9]
+            md_years = VIMSHOTTARI_YEARS[md_lord]
+            md_end   = md_start + md_years
+
+            bhuktis = []
+            ad_start = md_start
+            ad_seq_idx = VIMSHOTTARI_SEQUENCE.index(md_lord)
+            for j in range(9):
+                ad_lord  = VIMSHOTTARI_SEQUENCE[(ad_seq_idx + j) % 9]
+                ad_years = md_years * VIMSHOTTARI_YEARS[ad_lord] / 120.0
+                bhuktis.append({"lord": ad_lord,
+                                "start": round(ad_start, 3),
+                                "end":   round(ad_start + ad_years, 3)})
+                ad_start += ad_years
+
+            out.append({"lord": md_lord,
+                        "start": round(md_start, 3),
+                        "end":   round(md_end, 3),
+                        "bhuktis": bhuktis})
+            md_start = md_end
+        return out

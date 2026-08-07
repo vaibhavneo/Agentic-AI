@@ -189,6 +189,10 @@ class KnowledgeBase:
         return tfidf_search(query, self.chunks, self.idf, top_k)
 
     def format_context(self, query: str, top_k: int = 5, max_chars: int = 3000) -> str:
+        """Formats retrieved chunks with an explicit (Title, page N) citation
+        per passage — the page number is real (extracted per-PDF-page at
+        ingest time), so a caller instructing the LLM to cite 'exactly as
+        shown' never has to let it invent one."""
         results = self.search(query, top_k)
         if not results:
             return ""
@@ -196,10 +200,12 @@ class KnowledgeBase:
         total = 0
         for r in results:
             src  = r["source"][:50]
+            page = r.get("page")
             text = r["text"]
             if total + len(text) > max_chars:
                 text = text[:max_chars - total]
-            parts.append(f"[Source: {src}]\n{text}")
+            citation = f"[{src}, page {page}]" if page is not None else f"[Source: {src}]"
+            parts.append(f"{citation}\n{text}")
             total += len(text)
             if total >= max_chars:
                 break

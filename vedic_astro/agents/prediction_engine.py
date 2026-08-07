@@ -14,6 +14,7 @@ Source: Narasimha Rao (Integrated Approach), K.N. Rao (Finer Techniques),
 """
 from __future__ import annotations
 
+import os
 from datetime import datetime
 from typing import Optional
 
@@ -65,8 +66,19 @@ DOMAIN_KEY_HOUSES = {
 
 
 def _call(client, system: str, user: str,
-          model: str = "deepseek-chat", max_tokens: int = 2500) -> str:
-    """Unified call — works with both OpenAI-compatible (DeepSeek) and Anthropic clients."""
+          model: str = "", max_tokens: int = 3000) -> str:
+    """Unified call — works with both OpenAI-compatible (DeepSeek) and Anthropic clients.
+    DeepSeek model name comes from $DEEPSEEK_MODEL (default deepseek-v4-flash);
+    the old 'deepseek-chat'/'deepseek-reasoner' names now 400 — only
+    deepseek-v4-pro/-flash are valid. Both are actually reasoning-capable
+    (confirmed empirically — 'flash' is not exempt), returning chain-of-
+    thought in a separate `reasoning_content` field that can consume the
+    whole max_tokens budget and leave `content` empty. extra_body's
+    thinking:disabled turns this off so `content` is always the direct
+    answer (see web/app.py's _chat_with_client for the full investigation);
+    the reasoning_content fallback below is now only a last-resort safety
+    net, not the normal path. Read at call time (import-order-safe)."""
+    model = model or os.environ.get("DEEPSEEK_MODEL", "deepseek-v4-flash")
     if _USE_OPENAI and isinstance(client, _OpenAI):
         resp = client.chat.completions.create(
             model=model,
@@ -75,8 +87,10 @@ def _call(client, system: str, user: str,
                 {"role": "system", "content": system},
                 {"role": "user",   "content": user},
             ],
+            extra_body={"thinking": {"type": "disabled"}},
         )
-        return resp.choices[0].message.content or ""
+        msg = resp.choices[0].message
+        return (msg.content or "").strip() or (getattr(msg, "reasoning_content", "") or "").strip()
     else:
         # Anthropic fallback
         resp = client.messages.create(
@@ -314,7 +328,10 @@ IMPORTANT RULES:
 - Acknowledge both strengths AND challenges honestly
 - Give time-based predictions using Dasha periods when relevant
 - Write in clear, insightful English accessible to a modern reader
-- Avoid vague generalities — be specific to THIS chart"""
+- Avoid vague generalities — be specific to THIS chart
+- If you reference RELEVANT BOOK PASSAGES, cite them exactly as shown in their
+  [Book Title, page N] tag. Never invent a book title, author, or page number
+  that is not shown in the passages given to you."""
 
 
 def analyze_career(client: anthropic.Anthropic, ctx: ChartContext,
