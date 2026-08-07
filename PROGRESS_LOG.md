@@ -2,6 +2,52 @@
 
 Started: 2026-08-06
 
+## ⚠️ BLOCKER — did not push, needs your decision (read this first)
+
+Everything is implemented, tested, and **committed locally** on `main` at
+commit `1913b60` ("Add Chart Bundle grounding (Milestone 1) and Phases 6-10").
+Nothing is lost. But I deliberately did **not** push, because I hit a real
+ambiguity I can't safely resolve on my own:
+
+- The repo's configured `origin` remote, `git@github.com:vaibhavneo/
+  vedic-astro-ai.git`, **no longer exists on GitHub** — `git fetch`/`git
+  ls-remote` both return "Repository not found" (SSH auth itself works fine,
+  confirmed as `vaibhavneo`). It was either renamed, deleted, or never
+  actually created remotely.
+- The repo YOU mentioned in your instructions, `git@github.com:vaibhavneo/
+  Agentic-AI.git`, **does exist and is reachable** (`main` and
+  `seven-agent-desk` branches, real commit history, e.g. HEAD
+  `30e971f8...`).
+- **But this `vedic_astro` folder is its own standalone git repository**
+  (own `.git`, own 3-commit history now: `fd0fa46` → `72a65ad` → `1913b60`),
+  not a checked-out subfolder of a larger `Agentic-AI` monorepo — I checked,
+  the parent `Project Agentic AI/` folder is not a git repo at all. This
+  repo's history shares NO common ancestor with `Agentic-AI.git`'s history.
+
+That means I cannot just `git push` into either remote safely:
+- `origin` (vedic-astro-ai) doesn't exist to push to.
+- `Agentic-AI.git` exists, has real unrelated work on it (a whole other
+  branch, `seven-agent-desk`), and a naive push of this repo's `main` would
+  either be rejected (unrelated histories) or, if forced, could **overwrite
+  or corrupt that real existing work** — force-pushing unrelated history
+  into someone else's active repo is exactly the kind of destructive,
+  hard-to-reverse action I'm supposed to stop and ask about rather than
+  guess at, and you were unreachable, so I stopped rather than guess.
+
+**What I need from you** — one of:
+1. Recreate `vedic-astro-ai` (empty) on GitHub under `vaibhavneo` and I (or
+   you) push this repo's `main` straight to it — simplest, no history
+   conflicts, if that was always meant to be its own dedicated repo.
+2. You want `vedic_astro` folded into `Agentic-AI.git` as a subfolder,
+   preserving this repo's commit history (e.g. via `git subtree add` or
+   `git remote add + fetch + merge --allow-unrelated-histories` into a
+   `vedic_astro/` path there) — tell me the target branch and whether
+   history should be preserved or squashed.
+3. Something else you have in mind.
+
+Until then, the safe, complete, tested state lives at local commit `1913b60`
+on `main` in this working directory — reachable any time, not going anywhere.
+
 ## Session goal
 Verify Milestone 1 (claimed done by a prior remote session with no direct file
 access), then implement Phases 6-10, test everything, and push to remote if solid.
