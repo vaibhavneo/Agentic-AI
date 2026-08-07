@@ -1,0 +1,9 @@
+__pycache__/
+*.pyc
+.env
+.DS_Store
+
+# Runtime user data (Chart Bundles, conversation memory) — generated per
+# user/session, not source code. See persistence.py / conversations.py.
+data/charts/
+data/conversations/
