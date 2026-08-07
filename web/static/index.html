@@ -1010,6 +1010,9 @@ function formatFactsUsed(facts, agentsConsulted, corrected) {
   if (facts.context_pack_topics && facts.context_pack_topics.length) {
     lines.push('Detected topics: ' + facts.context_pack_topics.join(', '));
   }
+  if (facts.context_pack_divisions && facts.context_pack_divisions.length) {
+    lines.push('Divisional charts named in question: ' + facts.context_pack_divisions.join(', '));
+  }
   if (facts.context_pack_facts) {
     lines.push('');
     lines.push(facts.context_pack_facts);

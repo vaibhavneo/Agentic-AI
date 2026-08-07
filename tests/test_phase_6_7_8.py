@@ -148,7 +148,46 @@ class TestContextPack(unittest.TestCase):
     def test_build_context_pack_empty_for_generic_question(self):
         pack = context_pack.build_context_pack("Hi Jyoti", self.bundle, "D1")
         self.assertEqual(pack["topics"], [])
+        self.assertEqual(pack["divisions_detected"], [])
         self.assertEqual(pack["context"], "")
+
+    def test_detect_divisions_navamsa(self):
+        self.assertEqual(context_pack.detect_divisions("What does my Navamsa show?"), ["D9"])
+
+    def test_detect_divisions_pushkar_navamsha(self):
+        # Regression: found in manual browser testing on a D1-division question
+        # about "Pushkar Navamsha" — the term wasn't recognized at all, so D9
+        # facts never got pulled in even though the question was clearly about D9.
+        self.assertEqual(
+            context_pack.detect_divisions("What does Pushkar Navamsha say about my chart?"),
+            ["D9"],
+        )
+
+    def test_detect_divisions_dasamsa(self):
+        self.assertEqual(context_pack.detect_divisions("How is my Dasamsa looking?"), ["D10"])
+
+    def test_detect_divisions_no_false_match_d1_inside_d10(self):
+        # "d1" must not match as a substring of "d10" via naive `in` checks.
+        self.assertEqual(context_pack.detect_divisions("Tell me about my D10 career"), ["D10"])
+
+    def test_detect_divisions_none_for_generic_question(self):
+        self.assertEqual(context_pack.detect_divisions("Hi Jyoti, how are you?"), [])
+
+    def test_navamsa_keyword_pulls_in_d9_facts_without_division_param(self):
+        # The exact browser-reported bug: division stays "D1" (dropdown never
+        # touched), but the question names Navamsa directly - D9 placements
+        # must still be surfaced.
+        pack = context_pack.build_context_pack(
+            "What does Pushkar Navamsha say about my chart?", self.bundle, "D1")
+        self.assertEqual(pack["divisions_detected"], ["D9"])
+        self.assertIn("D9 placements", pack["context"])
+        self.assertIn("Ascendant: Taurus", pack["context"])  # D9 asc in the test bundle
+
+    def test_named_division_matching_current_division_not_duplicated(self):
+        # If the caller's own division block already covers D9, context_pack
+        # shouldn't repeat it.
+        pack = context_pack.build_context_pack("What does my Navamsa show?", self.bundle, "D9")
+        self.assertNotIn("D9 placements", pack["context"])
 
 
 class TestConversations(unittest.TestCase):
