@@ -118,6 +118,17 @@ class TestAgentsConsulted(unittest.TestCase):
         agents = orchestrator.agents_consulted(None, "D1", "some transit context", "")
         self.assertIn(orchestrator.DASHA_TIMING_AGENT, agents)
 
+    def test_named_division_in_question_includes_divisional_chart_agent_even_on_d1(self):
+        # The Navamsa-in-question bug fix: division dropdown stays "D1" but
+        # context_pack detected D9 was named directly - the trace should
+        # reflect that the divisional agent's data was actually used.
+        agents = orchestrator.agents_consulted(self.bundle, "D1", "", "", divisions_detected=["D9"])
+        self.assertIn(orchestrator.DIVISIONAL_CHART_AGENT, agents)
+
+    def test_divisions_detected_matching_current_division_does_not_double_count(self):
+        agents = orchestrator.agents_consulted(self.bundle, "D1", "", "", divisions_detected=["D1"])
+        self.assertNotIn(orchestrator.DIVISIONAL_CHART_AGENT, agents)
+
 
 if __name__ == "__main__":
     unittest.main()

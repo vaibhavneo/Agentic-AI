@@ -42,13 +42,20 @@ CRITIC_VALIDATOR_AGENT = "critic_validator_agent"
 
 
 def agents_consulted(bundle: Optional[dict], division: str, transit_ctx: str,
-                      book_context: str) -> list[str]:
+                      book_context: str, divisions_detected: Optional[list[str]] = None) -> list[str]:
     """Which specialists actually contributed to this answer, for UI/response
-    transparency — 'behind one Ask Jyoti interface' shouldn't mean invisible."""
+    transparency — 'behind one Ask Jyoti interface' shouldn't mean invisible.
+
+    `divisions_detected` (from context_pack.detect_divisions) counts too: if
+    the question named a varga directly (e.g. "Navamsa") and its placements
+    got pulled into the context, the Divisional Chart Agent contributed even
+    though the `division` dropdown itself never left D1.
+    """
     agents = []
+    other_divisions_named = [d for d in (divisions_detected or []) if d != "D1"]
     if bundle:
         agents.append(CHART_FACTS_AGENT)
-        if division != "D1":
+        if division != "D1" or other_divisions_named:
             agents.append(DIVISIONAL_CHART_AGENT)
         agents.append(DASHA_TIMING_AGENT)
     elif transit_ctx:

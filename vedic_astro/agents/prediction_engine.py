@@ -70,10 +70,14 @@ def _call(client, system: str, user: str,
     """Unified call — works with both OpenAI-compatible (DeepSeek) and Anthropic clients.
     DeepSeek model name comes from $DEEPSEEK_MODEL (default deepseek-v4-flash);
     the old 'deepseek-chat'/'deepseek-reasoner' names now 400 — only
-    deepseek-v4-pro/-flash are valid. flash is the default because -pro is a
-    reasoning model that spends the token budget on hidden reasoning and can
-    return empty content; if -pro is chosen, fall back to reasoning_content.
-    Read at call time (import-order-safe)."""
+    deepseek-v4-pro/-flash are valid. Both are actually reasoning-capable
+    (confirmed empirically — 'flash' is not exempt), returning chain-of-
+    thought in a separate `reasoning_content` field that can consume the
+    whole max_tokens budget and leave `content` empty. extra_body's
+    thinking:disabled turns this off so `content` is always the direct
+    answer (see web/app.py's _chat_with_client for the full investigation);
+    the reasoning_content fallback below is now only a last-resort safety
+    net, not the normal path. Read at call time (import-order-safe)."""
     model = model or os.environ.get("DEEPSEEK_MODEL", "deepseek-v4-flash")
     if _USE_OPENAI and isinstance(client, _OpenAI):
         resp = client.chat.completions.create(
@@ -83,6 +87,7 @@ def _call(client, system: str, user: str,
                 {"role": "system", "content": system},
                 {"role": "user",   "content": user},
             ],
+            extra_body={"thinking": {"type": "disabled"}},
         )
         msg = resp.choices[0].message
         return (msg.content or "").strip() or (getattr(msg, "reasoning_content", "") or "").strip()

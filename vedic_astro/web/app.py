@@ -112,11 +112,22 @@ def get_kb():
 def _chat_with_client(client, system: str, messages: list, max_tokens: int = 3000) -> str:
     """Send a chat message — works with both DeepSeek (OpenAI) and Anthropic clients.
 
-    max_tokens is generous because deepseek-v4-pro is a reasoning model that
-    consumes the budget on hidden reasoning first; too small a cap returns an
-    empty content with finish_reason='length'. If content still comes back
-    empty (reasoning ate the whole budget), fall back to reasoning_content so
-    the user sees something rather than a blank 'No response'.
+    Both deepseek-v4-flash AND deepseek-v4-pro are actually reasoning-capable
+    (confirmed empirically - flash is not "non-reasoning", it just reasons by
+    default unless told not to): the API returns chain-of-thought in a
+    separate `reasoning_content` field, at the same level as `content`. Under
+    a tight max_tokens budget the model can spend the whole budget on
+    reasoning and return finish_reason='length' with an EMPTY `content` - a
+    previous version of this code fell back to displaying `reasoning_content`
+    in that case, which is how raw internal narration ("I need to check...",
+    "wait, that's not right") ended up shown to the user as if it were the
+    final answer. Fix: explicitly disable thinking mode via
+    extra_body={"thinking": {"type": "disabled"}} (DeepSeek V4 API, see
+    api-docs.deepseek.com/guides/thinking_mode) so `content` is always the
+    direct answer and `reasoning_content` is never populated. The
+    reasoning_content fallback stays only as a last-resort safety net for a
+    genuinely empty response (e.g. a future model or a real max_tokens cutoff
+    on a very long answer) - normal operation should never reach it now.
     """
     try:
         from openai import OpenAI
@@ -126,6 +137,7 @@ def _chat_with_client(client, system: str, messages: list, max_tokens: int = 300
                 model=DEEPSEEK_MODEL,
                 max_tokens=max_tokens,
                 messages=msgs,
+                extra_body={"thinking": {"type": "disabled"}},
             )
             msg = resp.choices[0].message
             content = (msg.content or "").strip()
@@ -491,6 +503,7 @@ def api_chat():
             "current_antardasha": timing.get("current_antardasha"),
             "current_pratyantardasha": timing.get("current_pratyantardasha"),
             "context_pack_topics": pack["topics"],
+            "context_pack_divisions": pack.get("divisions_detected", []),
             "context_pack_facts": pack["context"],
         }
         chart_ctx = _build_grounded_context(bundle, division)
@@ -613,7 +626,8 @@ def api_chat():
             "chart_facts_used": facts_used,
             "validation": validation_result,
             "corrected": result["corrected"],
-            "agents_consulted": _orchestrator.agents_consulted(bundle, division, transit_ctx, book_pack["context"]),
+            "agents_consulted": _orchestrator.agents_consulted(
+                bundle, division, transit_ctx, book_pack["context"], pack.get("divisions_detected", [])),
             "conversation_id": conversation_id,
         })
     except Exception as e:
