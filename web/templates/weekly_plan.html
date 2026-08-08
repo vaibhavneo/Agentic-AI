@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% block title %}Weekly Plan — HealthPilot AI{% endblock %}
+{% block content %}
+
+<section class="panel">
+  <h2>Weekly Plan — week of {{ week_start }}</h2>
+  <a href="/weekly-plan?week_start={{ prev_week }}" class="link-btn">&laquo; Previous week</a>
+  &nbsp;|&nbsp;
+  <a href="/weekly-plan?week_start={{ next_week }}" class="link-btn">Next week &raquo;</a>
+
+  {% if not plan %}
+    <p class="hint">No plan generated for this week yet.</p>
+    <button id="generate-plan-btn" class="primary-btn" data-week-start="{{ week_start }}">Generate Weekly Plan</button>
+    <p id="generate-plan-error" class="error"></p>
+  {% endif %}
+</section>
+
+{% if plan %}
+  {% for day in plan.days %}
+  <section class="panel">
+    <h3>{{ day.day_date }}</h3>
+    <button class="link-btn regenerate-day-btn" data-day-id="{{ day.id }}">Regenerate unlocked meals</button>
+    {% for meal in day.meals %}
+      <div class="meal-card" data-plan-meal-id="{{ meal.id }}">
+        <strong>{{ meal.meal_type | capitalize }}</strong>
+        {% if meal.locked %}<span class="muted">(locked)</span>{% endif %}
+        {% if meal.source in ('restaurant', 'leftovers') %}
+          <p class="muted">Marked as {{ meal.source }}{% if meal.notes %} — {{ meal.notes }}{% endif %}</p>
+        {% else %}
+          <ul>
+            {% for item in meal['items'] %}
+              <li>{{ item.food_name }} — {{ item.grams }}g</li>
+            {% endfor %}
+          </ul>
+          <p class="muted">{{ meal.totals.calories_kcal }} kcal · {{ meal.totals.protein_g }}g protein · {{ meal.totals.sodium_mg }}mg sodium</p>
+        {% endif %}
+        <div class="meal-actions">
+          <button class="link-btn swap-btn" data-plan-meal-id="{{ meal.id }}">Swap</button>
+          <button class="link-btn lock-btn" data-plan-meal-id="{{ meal.id }}" data-locked="{{ '0' if meal.locked else '1' }}">
+            {{ 'Unlock' if meal.locked else 'Lock' }}
+          </button>
+          <button class="link-btn restaurant-btn" data-plan-meal-id="{{ meal.id }}">Mark restaurant</button>
+          <button class="link-btn leftovers-btn" data-plan-meal-id="{{ meal.id }}">Mark leftovers</button>
+        </div>
+      </div>
+    {% endfor %}
+  </section>
+  {% endfor %}
+
+  <section class="panel">
+    <h2>Grocery List</h2>
+    {% for category, items in grocery_list.by_category.items() %}
+      {% if items %}
+        <h3>{{ category | capitalize }}</h3>
+        <ul>
+          {% for item in items %}
+            <li>{{ item.food_name }} — {{ item.grams }}g</li>
+          {% endfor %}
+        </ul>
+      {% endif %}
+    {% endfor %}
+  </section>
+{% endif %}
+
+<script src="/static/weekly_plan.js"></script>
+{% endblock %}

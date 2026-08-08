@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}Insights — HealthPilot AI{% endblock %}
+{% block content %}
+
+<section class="panel">
+  <h2>Health Pattern Insights</h2>
+  <p class="hint">Exploratory associations only — never a diagnosis, never causation. Each needs at least {{ patterns.associations[0].min_sample_size }} paired data points before a correlation is shown.</p>
+
+  {% for a in patterns.associations %}
+    <div class="insight-card">
+      <h3>{{ a.description }}</h3>
+      {% if a.status == 'insufficient_data' %}
+        <p class="muted">Not enough data yet ({{ a.sample_size }}/{{ a.min_sample_size }} needed, {{ a.window_days }}-day window).</p>
+      {% elif a.status == 'no_variation' %}
+        <p class="muted">Not enough variation in the data to compute a correlation (n={{ a.sample_size }}).</p>
+      {% else %}
+        <p>Correlation r = {{ a.correlation }} (n={{ a.sample_size }}, {{ a.window_days }}-day window). Effect estimate (slope): {{ a.effect_estimate }}.</p>
+        <p class="hint">{{ a.caveat }}</p>
+      {% endif %}
+    </div>
+  {% endfor %}
+</section>
+
+{% endblock %}
