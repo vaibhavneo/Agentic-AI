@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}AI Health Coach — HealthPilot AI{% endblock %}
+{% block content %}
+
+<section class="panel">
+  <h2>AI Health Coach</h2>
+  {% if not ai_configured %}
+    <p class="hint">No AI provider configured (set DEEPSEEK_API_KEY in .env for conversational answers) —
+    questions are still answered from real data using direct lookups.</p>
+  {% endif %}
+  <p class="hint">Try: "What should I eat tonight?", "How much protein do I have left?", "Is there a pattern between restaurant food and my BP?"</p>
+
+  <div id="chat-log"></div>
+
+  <form id="chat-form">
+    <input id="chat-input" name="message" placeholder="Ask a question about your health data..." autocomplete="off" required>
+    <button type="submit" class="primary-btn">Send</button>
+  </form>
+</section>
+
+<script src="/static/coach.js"></script>
+{% endblock %}

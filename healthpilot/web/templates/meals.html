@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+{% block title %}Meals — HealthPilot AI{% endblock %}
+{% block content %}
+
+<section class="panel">
+  <h2>Today's Nutrition</h2>
+  {% if not target %}
+    <p class="hint">No target computed yet.</p>
+    <button id="recompute-btn" class="primary-btn">Compute My Targets</button>
+  {% else %}
+    <table class="med-table">
+      <thead><tr><th>Nutrient</th><th>Target</th><th>Consumed</th><th>Remaining</th></tr></thead>
+      <tbody>
+        {% for label, row in remaining.by_nutrient.items() %}
+        <tr>
+          <td>{{ label }}</td>
+          <td>{{ row.target }}</td>
+          <td>{{ row.consumed }}</td>
+          <td class="{{ 'over-budget' if row.remaining < 0 else '' }}">{{ row.remaining }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% if target.protein_gate_blocked %}
+      <p class="warning">Protein target uses a conservative default — {{ target.protein_gate_message or "confirm an appropriate protein target with your clinician before using a high-protein setting." }}</p>
+    {% endif %}
+    <button id="recompute-btn" class="link-btn">Recompute targets</button>
+    <button id="generate-remaining-btn" class="primary-btn">Generate remaining meals for today</button>
+    <div id="generate-remaining-result"></div>
+  {% endif %}
+</section>
+
+<section class="panel">
+  <h2>Log a meal (natural language)</h2>
+  <form id="nl-log-form">
+    <label>Meal type
+      <select name="meal_type">
+        <option value="breakfast">breakfast</option>
+        <option value="lunch">lunch</option>
+        <option value="dinner">dinner</option>
+        <option value="snack">snack</option>
+      </select>
+    </label>
+    <label>Describe what you ate <input name="text" placeholder="e.g. two rotis, a bowl of dal, and a banana" required></label>
+    <button type="submit" class="primary-btn">Log It</button>
+  </form>
+  <div id="nl-log-result"></div>
+</section>
+
+<section class="panel">
+  <h2>Search & add a food</h2>
+  <form id="search-form">
+    <label>Search <input name="q" placeholder="e.g. chicken breast" required></label>
+    <button type="submit" class="primary-btn">Search</button>
+  </form>
+  <div id="search-results"></div>
+</section>
+
+<section class="panel">
+  <h2>Today's meals</h2>
+  {% for meal_type, meals in meals_by_type.items() %}
+    <h3>{{ meal_type | capitalize }}</h3>
+    {% if not meals %}
+      <p class="muted">Nothing logged yet.</p>
+    {% else %}
+      {% for m in meals %}
+        <div class="meal-card">
+          <ul>
+            {% for item in m['items'] %}
+              <li>{{ item.food_name }} — {{ item.grams }}g</li>
+            {% endfor %}
+          </ul>
+          {% if m.nutrition %}
+            <p class="muted">{{ m.nutrition.calories_kcal }} kcal · {{ m.nutrition.protein_g }}g protein · {{ m.nutrition.sodium_mg }}mg sodium</p>
+          {% endif %}
+          <button class="danger-btn delete-meal-btn" data-meal-id="{{ m.id }}">Delete meal</button>
+        </div>
+      {% endfor %}
+    {% endif %}
+  {% endfor %}
+</section>
+
+<section class="panel">
+  <h2>Water</h2>
+  <p>Today: {{ water_today }} ml</p>
+  <button class="link-btn water-btn" data-ml="250">+250ml</button>
+  <button class="link-btn water-btn" data-ml="500">+500ml</button>
+</section>
+
+<script src="/static/meals.js"></script>
+{% endblock %}

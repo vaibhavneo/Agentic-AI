@@ -1,0 +1,129 @@
+{% extends "base.html" %}
+{% block title %}Today — HealthPilot AI{% endblock %}
+{% block content %}
+
+<section class="panel insight-highlight">
+  <h2>Today's Insight</h2>
+  <p>{{ insight.text }}</p>
+</section>
+
+<section class="panel">
+  <h2>Quick Actions</h2>
+  <div class="quick-actions">
+    <a class="primary-btn" href="/meals">Log food</a>
+    <a class="primary-btn" href="/vitals">Record BP</a>
+    <a class="primary-btn" href="/activity">Log walk</a>
+    <a class="primary-btn" href="/activity">Log workout</a>
+    <a class="primary-btn" href="/coach">Ask AI Coach</a>
+  </div>
+</section>
+
+<section class="panel">
+  <h2>Morning Health</h2>
+  <table class="med-table">
+    <tbody>
+      <tr><td>Latest BP</td><td>{% if latest_bp %}{{ latest_bp.average_systolic }}/{{ latest_bp.average_diastolic }} ({{ latest_bp.category }}, {{ latest_bp.reading_date }} {{ latest_bp.time_of_day }}){% else %}no readings yet{% endif %}</td></tr>
+      <tr><td>Today's avg BP</td><td>{% if bp_avg_today.sample_size %}{{ bp_avg_today.avg_systolic }}/{{ bp_avg_today.avg_diastolic }} (n={{ bp_avg_today.sample_size }}){% else %}not enough data{% endif %}</td></tr>
+      <tr><td>7-day avg BP</td><td>{% if bp_avg_7.sample_size %}{{ bp_avg_7.avg_systolic }}/{{ bp_avg_7.avg_diastolic }} (n={{ bp_avg_7.sample_size }}){% else %}not enough data{% endif %}</td></tr>
+      <tr><td>Resting HR</td><td>{{ latest_resting_hr or 'not logged' }}</td></tr>
+      <tr><td>Weight</td><td>{% if latest_weight %}{{ latest_weight.weight_kg }} kg{% else %}not logged{% endif %}</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<section class="panel">
+  <h2>Nutrition</h2>
+  {% if remaining.target_set %}
+    <table class="med-table">
+      <thead><tr><th>Nutrient</th><th>Target</th><th>Consumed</th><th>Remaining</th></tr></thead>
+      <tbody>
+        {% for label, row in remaining.by_nutrient.items() %}
+        <tr>
+          <td>{{ label }}</td><td>{{ row.target }}</td><td>{{ row.consumed }}</td>
+          <td class="{{ 'over-budget' if row.remaining < 0 else '' }}">{{ row.remaining }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <p class="hint">No target set yet — visit Profile & Targets.</p>
+  {% endif %}
+</section>
+
+<section class="panel">
+  <h2>Activity</h2>
+  <p>{{ activity.total_steps }} steps today · {{ activity.total_distance_km }} km · {{ activity.workout_count }} workout(s) logged</p>
+</section>
+
+<section class="panel">
+  <h2>Medication</h2>
+  <p class="hint">Informational tracking only — no dose guidance here.</p>
+  {% if medication_status %}
+    <table class="med-table">
+      <thead><tr><th>Medication</th><th>Today</th></tr></thead>
+      <tbody>
+        {% for m in medication_status %}
+        <tr>
+          <td>{{ m.name }}{% if m.dose %} ({{ m.dose }}){% endif %}</td>
+          <td>
+            {% if m.taken_today is none %}<span class="muted">not logged today</span>
+            {% elif m.taken_today %}<span>taken</span>
+            {% else %}<span class="over-budget">missed</span>{% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <p class="muted">No medications recorded — add them on the Profile page.</p>
+  {% endif %}
+</section>
+
+<section class="panel">
+  <h2>Today's Meals</h2>
+  {% if today_meals %}
+    <ul>
+      {% for m in today_meals %}
+        <li>{{ m.meal_type | capitalize }}: {{ m['items'] | map(attribute='food_name') | join(', ') }}</li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <p class="muted">Nothing logged yet today.</p>
+  {% endif %}
+</section>
+
+<section class="panel">
+  <h2>This Week</h2>
+  <table class="med-table">
+    <tbody>
+      <tr><td>Avg sodium</td><td>{{ weekly.avg_sodium_mg if weekly.avg_sodium_mg is not none else 'no data' }} mg</td></tr>
+      <tr><td>Avg protein</td><td>{{ weekly.avg_protein_g if weekly.avg_protein_g is not none else 'no data' }} g</td></tr>
+      <tr><td>Avg fiber</td><td>{{ weekly.avg_fiber_g if weekly.avg_fiber_g is not none else 'no data' }} g</td></tr>
+      <tr><td>Avg calories (vs last week)</td><td>{{ weekly.avg_calories_kcal if weekly.avg_calories_kcal is not none else 'no data' }}{% if weekly.calorie_change_vs_last_week is not none %} ({{ '%+.1f' | format(weekly.calorie_change_vs_last_week) }} vs last week){% endif %}</td></tr>
+      <tr><td>BP trend (30d)</td><td>{{ weekly.bp_trend_30day.direction }}</td></tr>
+      <tr><td>Weight trend (30d)</td><td>{{ weekly.weight_trend_30day.direction }}</td></tr>
+      <tr><td>Aerobic minutes (guideline-equivalent)</td><td>{{ weekly.activity_this_week.weighted_aerobic_minutes }} / 150</td></tr>
+      <tr><td>Strength days</td><td>{{ weekly.activity_this_week.strength_days }}</td></tr>
+      <tr><td>Avg sleep</td><td>{{ weekly.avg_sleep_hours if weekly.avg_sleep_hours is not none else 'no data' }} hrs ({{ weekly.nights_sleep_logged }} nights logged)</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<section class="panel">
+  <h2>Health Score — Component Breakdown</h2>
+  <p class="hint">Deliberately not combined into a single number — each component scores a behavior, never the health condition itself.</p>
+  <table class="med-table">
+    <thead><tr><th>Component</th><th>Score</th><th>Inputs</th></tr></thead>
+    <tbody>
+      {% for name, c in health_score.components.items() %}
+      <tr>
+        <td>{{ name | replace('_', ' ') | capitalize }}</td>
+        <td>{{ c.score }}/100</td>
+        <td class="muted">{% for k, v in c.inputs.items() %}{{ k }}={{ v }}{% if not loop.last %}, {% endif %}{% endfor %}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+
+{% endblock %}
