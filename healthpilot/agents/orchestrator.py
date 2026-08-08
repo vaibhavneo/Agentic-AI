@@ -68,7 +68,20 @@ def _run_openai_style_loop(client, model: str, specialist_key: str, profile_id: 
     )
 
 
-def answer_question(profile_id: str, message: str, history: list[dict] | None = None) -> dict:
+def answer_question(
+    profile_id: str,
+    message: str,
+    history: list[dict] | None = None,
+    specialist_override: str | None = None,
+    model_override: str | None = None,
+) -> dict:
+    """specialist_override/model_override are additive, aios_core-retrofit-only
+    seams (see healthpilot/agents/aios_adapter.py) — both default to None, in
+    which case behavior is byte-identical to before their introduction:
+    routing still comes from agents/router.py and the model still comes from
+    config.DEEPSEEK_MODEL. Passing them lets a caller (the aios_core HTTP
+    driver) pin a specific specialist or swap which model answers, without
+    editing this function's control flow."""
     if not config.ai_configured():
         return answer_without_ai(profile_id, message)
 
@@ -77,11 +90,14 @@ def answer_question(profile_id: str, message: str, history: list[dict] | None = 
     except RuntimeError:
         return answer_without_ai(profile_id, message)
 
-    specialist_key = route_question(message)
+    specialist_key = specialist_override or route_question(message)
+    if specialist_key not in SPECIALISTS:
+        return answer_without_ai(profile_id, message)
 
     try:
         if provider == "deepseek":
-            answer_text, data_used = _run_openai_style_loop(client, config.DEEPSEEK_MODEL, specialist_key, profile_id, message, history)
+            model = model_override or config.DEEPSEEK_MODEL
+            answer_text, data_used = _run_openai_style_loop(client, model, specialist_key, profile_id, message, history)
         else:
             # Anthropic fallback provider — no tool loop implemented; answer
             # from the specialist's system prompt plus a couple of

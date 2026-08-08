@@ -754,7 +754,14 @@ def create_app() -> Flask:
         if not message:
             return jsonify({"error": "message is required"}), 400
         history = body.get("history")  # [{role, content}, ...] from the client's own transcript
-        result = answer_question(profile_id, message, history)
+        # specialist/model are optional, aios_core-retrofit-only overrides (see
+        # agents/orchestrator.py::answer_question) — omitted by the Coach UI's
+        # own JS, so the live app's request shape and behavior are unchanged.
+        result = answer_question(
+            profile_id, message, history,
+            specialist_override=body.get("specialist"),
+            model_override=body.get("model"),
+        )
         return jsonify(result)
 
     # --- CSV import / export / delete -----------------------------------

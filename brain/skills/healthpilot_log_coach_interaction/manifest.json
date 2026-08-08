@@ -1,0 +1,35 @@
+{
+ "id": "healthpilot_log_coach_interaction",
+ "name": "HealthPilot Coach Interaction Log",
+ "version": "1.0.0",
+ "description": "Append a metadata-only audit record (timestamp, specialist, ai_used, tool names) for one Coach interaction, via aios_core's memory API.",
+ "purpose": "New/additive audit trail for HealthPilot's AI Coach — chat-history and Data-Used provenance, tracked through aios_core's file-first memory model (Charter P1) rather than HealthPilot's own SQLite schema, which this retrofit does not touch. Deliberately records tool NAMES only, never tool RESULTS, to stay consistent with HealthPilot's own SAFETY.md principle of no health data in logs by default.",
+ "tags": ["healthpilot", "memory", "audit", "python"],
+ "inputs": {
+  "schema": "input_schema.json"
+ },
+ "outputs": {
+  "schema": "output_schema.json"
+ },
+ "memory": {
+  "root_param": "memory_root",
+  "read": [],
+  "write": [],
+  "append_only": ["conversations/*.md"],
+  "immutable": []
+ },
+ "execution": {
+  "contract": "execution_contract.md",
+  "steps": ["BUILD RECORD", "APPEND FILE"],
+  "retries": 0,
+  "runtime": {
+   "type": "python",
+   "entrypoint": "aios_core.runtime.drivers.healthpilot_log_coach_interaction_driver:run"
+  }
+ },
+ "dependencies": [],
+ "evaluation": {
+  "contract": "evaluation_contract.md",
+  "must": ["E1", "E2"]
+ }
+}

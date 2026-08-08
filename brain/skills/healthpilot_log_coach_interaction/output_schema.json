@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "healthpilot_log_coach_interaction result",
+  "type": "object",
+  "required": ["file_written"],
+  "additionalProperties": false,
+  "properties": {
+    "file_written": {
+      "type": "string",
+      "description": "Path (relative to memory_root) the audit line was appended to."
+    }
+  }
+}

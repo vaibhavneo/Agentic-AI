@@ -151,6 +151,46 @@
     },
     "purpose": "Deterministic fixture for runtime and composition tests."
    }
+  },
+  {
+   "id": "healthpilot_nutrition_planner",
+   "version": "1.0.0",
+   "manifest_path": "healthpilot_nutrition_planner/manifest.json"
+  },
+  {
+   "id": "healthpilot_food_logging_agent",
+   "version": "1.0.0",
+   "manifest_path": "healthpilot_food_logging_agent/manifest.json"
+  },
+  {
+   "id": "healthpilot_heart_health_agent",
+   "version": "1.0.0",
+   "manifest_path": "healthpilot_heart_health_agent/manifest.json"
+  },
+  {
+   "id": "healthpilot_fitness_agent",
+   "version": "1.0.0",
+   "manifest_path": "healthpilot_fitness_agent/manifest.json"
+  },
+  {
+   "id": "healthpilot_vitals_agent",
+   "version": "1.0.0",
+   "manifest_path": "healthpilot_vitals_agent/manifest.json"
+  },
+  {
+   "id": "healthpilot_health_pattern_analyst",
+   "version": "1.0.0",
+   "manifest_path": "healthpilot_health_pattern_analyst/manifest.json"
+  },
+  {
+   "id": "healthpilot_general_coach",
+   "version": "1.0.0",
+   "manifest_path": "healthpilot_general_coach/manifest.json"
+  },
+  {
+   "id": "healthpilot_log_coach_interaction",
+   "version": "1.0.0",
+   "manifest_path": "healthpilot_log_coach_interaction/manifest.json"
   }
  ]
 }

@@ -1,0 +1,48 @@
+{
+ "id": "healthpilot_heart_health_agent",
+ "name": "HealthPilot Heart-Health Nutrition Agent",
+ "version": "1.0.0",
+ "description": "Sodium, DASH adherence, fiber, saturated fat, and processed food questions.",
+ "purpose": "Dispatch a HealthPilot AI Coach question to the Heart-Health Nutrition Agent specialist over HealthPilot's own running HTTP server (D20: HealthPilot owns a bare top-level agents/ package that would collide with the orchestrator's own if imported directly), reusing HealthPilot's EXISTING deterministic tool-calling loop and read-only tool registry completely unchanged \u2014 this skill is a thin dispatch wrapper, not a reimplementation (PROJECT_CHARTER.md P10).",
+ "tags": [
+  "healthpilot",
+  "coach",
+  "specialist",
+  "heart_health_agent",
+  "http",
+  "agent"
+ ],
+ "inputs": {
+  "schema": "input_schema.json"
+ },
+ "outputs": {
+  "schema": "output_schema.json"
+ },
+ "memory": {
+  "root_param": "memory_root",
+  "read": [],
+  "write": [],
+  "append_only": [],
+  "immutable": []
+ },
+ "execution": {
+  "contract": "execution_contract.md",
+  "steps": [
+   "ROUTE TO SPECIALIST",
+   "RUN TOOL-CALLING LOOP (HealthPilot's own)",
+   "RETURN ANSWER + DATA USED"
+  ],
+  "retries": 0,
+  "runtime": {
+   "type": "agent"
+  }
+ },
+ "dependencies": [],
+ "evaluation": {
+  "contract": "evaluation_contract.md",
+  "must": [
+   "E1",
+   "E2"
+  ]
+ }
+}

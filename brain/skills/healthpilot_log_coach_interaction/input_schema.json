@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "healthpilot_log_coach_interaction invocation",
+  "type": "object",
+  "required": ["profile_id", "specialist", "ai_used", "memory_root"],
+  "additionalProperties": false,
+  "properties": {
+    "profile_id": {
+      "type": "string", "minLength": 1,
+      "description": "HealthPilot profile id this interaction belongs to — one audit file per profile."
+    },
+    "specialist": {
+      "type": "string", "minLength": 1,
+      "description": "Which HealthPilot specialist answered (agents/specialists.py::SPECIALISTS key)."
+    },
+    "ai_used": {
+      "type": "boolean",
+      "description": "Whether HealthPilot's AI path answered, or the deterministic no-AI fallback did."
+    },
+    "tool_names": {
+      "type": "array",
+      "description": "Names only of tools called for this interaction (e.g. ['get_today_nutrition']) — never their results, which can carry real health values.",
+      "items": {"type": "string"}
+    },
+    "memory_root": {
+      "type": "string", "minLength": 1,
+      "description": "Directory this skill is permitted to append conversations/*.md under — nothing outside that pattern (see manifest memory.append_only)."
+    }
+  }
+}
