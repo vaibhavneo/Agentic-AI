@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}HealthPilot AI{% endblock %}</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body data-profile-id="{{ active_profile_id or '' }}">
+  <header class="topbar">
+    <div class="brand">HealthPilot AI</div>
+    <nav>
+      {% for item in nav_items %}
+        <a href="{{ item.href }}">{{ item.label }}</a>
+      {% endfor %}
+    </nav>
+  </header>
+  <main class="content">
+    {% block content %}{% endblock %}
+  </main>
+</body>
+</html>

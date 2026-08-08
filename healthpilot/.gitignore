@@ -1,0 +1,15 @@
+__pycache__/
+*.pyc
+.env
+.DS_Store
+*.egg-info/
+.pytest_cache/
+.venv/
+
+# Local SQLite database and user data exports — runtime data, not source code.
+data/*.db
+data/*.db-journal
+data/*.db-wal
+data/*.db-shm
+data/exports/
+data/imports/

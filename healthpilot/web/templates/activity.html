@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+{% block title %}Activity — HealthPilot AI{% endblock %}
+{% block content %}
+
+<section class="panel">
+  <h2>This Week</h2>
+  <table class="med-table">
+    <tbody>
+      <tr><td>Moderate aerobic minutes</td><td>{{ weekly_activity.moderate_minutes }}</td></tr>
+      <tr><td>Vigorous aerobic minutes</td><td>{{ weekly_activity.vigorous_minutes }}</td></tr>
+      <tr><td>Weighted aerobic minutes (guideline-equivalent)</td><td>{{ weekly_activity.weighted_aerobic_minutes }} / 150</td></tr>
+      <tr><td>Strength days</td><td>{{ weekly_activity.strength_days }}</td></tr>
+      <tr><td>Total distance</td><td>{{ weekly_activity.total_distance_km }} km</td></tr>
+      <tr><td>Total steps</td><td>{{ weekly_activity.total_steps }}</td></tr>
+      <tr><td>Wearable calories (raw / conservative credit)</td><td>{{ weekly_activity.total_wearable_calories }} / {{ weekly_activity.conservative_dietary_credit }}</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<section class="panel">
+  <h2>Today</h2>
+  <p>{{ today_activity.workout_count }} workout(s) · {{ today_activity.total_steps }} steps · {{ today_activity.total_distance_km }} km</p>
+</section>
+
+<section class="panel">
+  <h2>Log a workout</h2>
+  <form id="workout-form">
+    <label>Type
+      <select name="workout_type" id="workout-type-select">
+        <option value="cardio">cardio</option>
+        <option value="strength">strength</option>
+      </select>
+    </label>
+    <label>Activity <input name="activity" placeholder="e.g. running, walking, cycling, strength training" required></label>
+    <div class="grid-2">
+      <label>Duration (min) <input name="duration_min" type="number"></label>
+      <label>RPE 1-10 (optional) <input name="rpe" type="number" min="1" max="10"></label>
+    </div>
+
+    <div id="cardio-fields">
+      <div class="grid-2">
+        <label>Distance (km) <input name="distance_km" type="number" step="0.01"></label>
+        <label>Steps <input name="steps" type="number"></label>
+        <label>Avg HR <input name="avg_hr" type="number"></label>
+        <label>Max HR <input name="max_hr" type="number"></label>
+        <label>Intensity
+          <select name="intensity">
+            <option value="light">light</option>
+            <option value="moderate" selected>moderate</option>
+            <option value="vigorous">vigorous</option>
+          </select>
+        </label>
+        <label>Wearable calories (optional) <input name="wearable_calories" type="number"></label>
+      </div>
+    </div>
+
+    <div id="strength-fields" style="display:none">
+      <p class="hint">Add sets below (exercise, reps, weight). At least one set recommended.</p>
+      <div id="strength-sets-container"></div>
+      <button type="button" id="add-set-btn" class="link-btn">+ Add set</button>
+    </div>
+
+    <label>Notes <input name="notes"></label>
+    <button type="submit" class="primary-btn">Log Workout</button>
+    <p id="workout-form-error" class="error"></p>
+  </form>
+</section>
+
+<section class="panel">
+  <h2>Recent Workouts (14 days)</h2>
+  <table class="med-table">
+    <thead><tr><th>Date</th><th>Type</th><th>Activity</th><th>Duration</th><th>Details</th><th></th></tr></thead>
+    <tbody>
+      {% for w in recent_workouts %}
+      <tr data-workout-id="{{ w.id }}">
+        <td>{{ w.workout_date }}</td>
+        <td>{{ w.workout_type }}</td>
+        <td>{{ w.activity }}</td>
+        <td>{{ w.duration_min or '' }} min</td>
+        <td>
+          {% if w.workout_type == 'cardio' %}
+            {{ w.distance_km or '' }} km, {{ w.steps or '' }} steps, {{ w.intensity }}
+          {% else %}
+            {{ w.sets | length }} set(s)
+          {% endif %}
+        </td>
+        <td><button class="danger-btn delete-workout-btn" data-workout-id="{{ w.id }}">Delete</button></td>
+      </tr>
+      {% else %}
+      <tr><td colspan="6" class="muted">No workouts logged yet.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+
+<script src="/static/activity.js"></script>
+{% endblock %}

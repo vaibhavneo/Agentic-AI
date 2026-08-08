@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+{% block title %}Vitals — HealthPilot AI{% endblock %}
+{% block content %}
+
+<section class="panel">
+  <h2>Record Blood Pressure</h2>
+  <form id="bp-form">
+    <h3>Reading 1</h3>
+    <div class="grid-2">
+      <label>Systolic <input name="systolic_1" type="number" required></label>
+      <label>Diastolic <input name="diastolic_1" type="number" required></label>
+      <label>Pulse (optional) <input name="pulse_1" type="number"></label>
+    </div>
+    <h3>Reading 2 (optional, recommended — rest a minute between readings)</h3>
+    <div class="grid-2">
+      <label>Systolic <input name="systolic_2" type="number"></label>
+      <label>Diastolic <input name="diastolic_2" type="number"></label>
+      <label>Pulse (optional) <input name="pulse_2" type="number"></label>
+    </div>
+
+    <p class="hint">Only check symptoms you're experiencing right now. This list is fixed — nothing here is free-text interpreted.</p>
+    <div class="symptom-grid">
+      {% for symptom in bp_emergency_symptoms %}
+        <label class="checkbox"><input type="checkbox" name="symptoms" value="{{ symptom }}"> {{ symptom | replace('_', ' ') }}</label>
+      {% endfor %}
+    </div>
+
+    <label>Notes <input name="notes"></label>
+    <button type="submit" class="primary-btn">Record Reading</button>
+  </form>
+  <div id="bp-result"></div>
+</section>
+
+<section class="panel">
+  <h2>BP Trends</h2>
+  <table class="med-table">
+    <tbody>
+      <tr><td>7-day average</td><td>{{ bp_avg_7.avg_systolic }}/{{ bp_avg_7.avg_diastolic }} (n={{ bp_avg_7.sample_size }})</td></tr>
+      <tr><td>30-day average</td><td>{{ bp_avg_30.avg_systolic }}/{{ bp_avg_30.avg_diastolic }} (n={{ bp_avg_30.sample_size }})</td></tr>
+      <tr><td>30-day trend</td><td>{{ bp_trend.direction }} {% if bp_trend.systolic_delta is not none %}(systolic {{ bp_trend.systolic_delta }}, diastolic {{ bp_trend.diastolic_delta }}){% endif %}</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<section class="panel">
+  <h2>BP History (30 days)</h2>
+  <table class="med-table">
+    <thead><tr><th>Date</th><th>Time of day</th><th>Reading</th><th>Category</th><th>Note</th></tr></thead>
+    <tbody>
+      {% for r in bp_history %}
+      <tr class="urgency-{{ r.urgency }}">
+        <td>{{ r.reading_date }}</td>
+        <td>{{ r.time_of_day }}</td>
+        <td>{{ r.average_systolic }}/{{ r.average_diastolic }}{% if r.systolic_2 %} (avg of 2){% endif %}</td>
+        <td>{{ r.category }}{% if r.emergency %} — EMERGENCY FLAGGED{% endif %}</td>
+        <td>{{ r.notes or '' }}</td>
+      </tr>
+      {% else %}
+      <tr><td colspan="5" class="muted">No readings yet.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+
+<section class="panel">
+  <h2>Weight</h2>
+  <form id="weight-form">
+    <label>Weight (kg) <input name="weight_kg" type="number" step="0.1" required></label>
+    <button type="submit" class="primary-btn">Log Weight</button>
+  </form>
+  <p class="muted">30-day trend: {{ weight_trend.direction }}{% if weight_trend.delta_kg is not none %} ({{ weight_trend.delta_kg }} kg){% endif %}</p>
+  <table class="med-table">
+    <thead><tr><th>Date</th><th>Weight (kg)</th></tr></thead>
+    <tbody>
+      {% for w in weight_history[:10] %}
+      <tr><td>{{ w.log_date }}</td><td>{{ w.weight_kg }}</td></tr>
+      {% else %}
+      <tr><td colspan="2" class="muted">No weight logs yet.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+
+<section class="panel">
+  <h2>Sleep</h2>
+  <form id="sleep-form">
+    <div class="grid-2">
+      <label>Hours <input name="hours" type="number" step="0.1" required></label>
+      <label>Quality (1-5, optional) <input name="quality" type="number" min="1" max="5"></label>
+    </div>
+    <button type="submit" class="primary-btn">Log Sleep</button>
+  </form>
+  <table class="med-table">
+    <thead><tr><th>Date</th><th>Hours</th><th>Quality</th></tr></thead>
+    <tbody>
+      {% for s in sleep_history[:10] %}
+      <tr><td>{{ s.log_date }}</td><td>{{ s.hours }}</td><td>{{ s.quality or '' }}</td></tr>
+      {% else %}
+      <tr><td colspan="3" class="muted">No sleep logs yet.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+
+<script src="/static/vitals.js"></script>
+{% endblock %}

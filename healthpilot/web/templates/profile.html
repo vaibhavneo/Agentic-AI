@@ -1,0 +1,263 @@
+{% extends "base.html" %}
+{% block title %}Profile & Targets — HealthPilot AI{% endblock %}
+{% block content %}
+
+<section class="panel">
+  <h2>Profiles</h2>
+  <p class="hint">Multiple profiles are fully isolated — each has its own data end to end.</p>
+  <ul class="profile-list">
+    {% for p in profiles %}
+      <li class="{{ 'active' if active and p.id == active.id else '' }}">
+        <form method="post" action="/api/profiles/{{ p.id }}/select" class="select-form">
+          <button type="submit" class="link-btn">{{ p.name }}</button>
+        </form>
+        <span class="muted">{{ p.age }}y, {{ p.sex }}</span>
+        <form method="post" action="/api/profiles/{{ p.id }}" class="delete-form" data-method="DELETE">
+          <button type="submit" class="danger-btn">Delete</button>
+        </form>
+      </li>
+    {% else %}
+      <li class="muted">No profiles yet — create one below.</li>
+    {% endfor %}
+  </ul>
+</section>
+
+<section class="panel">
+  <div class="profile-form-header">
+    <h2>{{ 'Edit Profile' if active else 'Create Profile' }}</h2>
+    <label class="unit-toggle">Units
+      <select id="unit-system">
+        <option value="metric">Metric (cm, kg)</option>
+        <option value="us">US customary (ft/in, lb)</option>
+      </select>
+    </label>
+  </div>
+  <p id="profile-saved-banner" class="saved-banner" hidden>Profile saved.</p>
+
+  <form id="profile-form" data-profile-id="{{ active.id if active else '' }}">
+
+    <fieldset class="profile-section">
+      <legend>Basics</legend>
+      <div class="grid-2">
+        <label>Name <span class="required-mark">*</span>
+          <input name="name" required value="{{ active.name if active else '' }}">
+        </label>
+        <label>Age <span class="required-mark">*</span>
+          <input name="age" type="number" min="0" max="120" required value="{{ active.age if active else '' }}">
+        </label>
+
+        <label>Sex <span class="required-mark">*</span>
+          <select name="sex" required>
+            {% for v, label in [('male','Male'), ('female','Female'), ('other','Other')] %}
+              <option value="{{ v }}" {{ 'selected' if active and active.sex == v else '' }}>{{ label }}</option>
+            {% endfor %}
+          </select>
+        </label>
+
+        <label class="metric-field">Height (cm) <span class="required-mark">*</span>
+          <input name="height_cm" type="number" step="0.1" required value="{{ active.height_cm if active else '' }}">
+        </label>
+        <label class="us-field" hidden>Height <span class="required-mark">*</span>
+          <span class="paired-input">
+            <input name="height_ft" type="number" min="0" placeholder="ft"><input name="height_in" type="number" min="0" max="11" step="0.1" placeholder="in">
+          </span>
+        </label>
+
+        <label class="metric-field">Current weight (kg) <span class="required-mark">*</span>
+          <input name="current_weight_kg" type="number" step="0.1" required value="{{ active.current_weight_kg if active else '' }}">
+        </label>
+        <label class="us-field" hidden>Current weight (lb) <span class="required-mark">*</span>
+          <input name="current_weight_lb" type="number" step="0.1">
+        </label>
+
+        <label class="metric-field">Goal weight (kg) <span class="optional-mark">(optional)</span>
+          <input name="goal_weight_kg" type="number" step="0.1" value="{{ active.goal_weight_kg if active else '' }}">
+        </label>
+        <label class="us-field" hidden>Goal weight (lb) <span class="optional-mark">(optional)</span>
+          <input name="goal_weight_lb" type="number" step="0.1">
+        </label>
+      </div>
+      <p class="field-error" data-field-error="basics"></p>
+    </fieldset>
+
+    <fieldset class="profile-section">
+      <legend>Goals &amp; Diet</legend>
+      <div class="grid-2">
+        <label>Activity level <span class="required-mark">*</span>
+          <select name="activity_level" required>
+            {% for v, label in [
+              ('sedentary','Sedentary / mostly seated'), ('light','Light activity'),
+              ('moderate','Moderately active'), ('active','Active'), ('very_active','Very active')
+            ] %}
+              <option value="{{ v }}" {{ 'selected' if active and active.activity_level == v else '' }}>{{ label }}</option>
+            {% endfor %}
+          </select>
+          <span class="field-hint">Used to calculate your daily calorie and protein targets.</span>
+        </label>
+
+        <label>Dietary preference <span class="required-mark">*</span>
+          <select name="diet_preference" required>
+            {% for v, label in [('veg','Vegetarian'), ('non_veg','Non-vegetarian')] %}
+              <option value="{{ v }}" {{ 'selected' if active and active.diet_preference == v else '' }}>{{ label }}</option>
+            {% endfor %}
+          </select>
+          <span class="field-hint">Controls which foods meal plans draw from.</span>
+        </label>
+
+        <label>Meals per day <span class="optional-mark">(optional, default 3)</span>
+          <input name="meals_per_day" type="number" min="1" max="10" value="{{ active.meals_per_day if active else 3 }}">
+        </label>
+      </div>
+
+      <label>Allergies <span class="optional-mark">(optional, comma-separated)</span>
+        <input name="allergies" value="{{ (active.allergies | join(', ')) if active else '' }}">
+      </label>
+      <label>Foods disliked <span class="optional-mark">(optional, comma-separated)</span>
+        <input name="disliked_foods" value="{{ (active.disliked_foods | join(', ')) if active else '' }}">
+      </label>
+      <label>Favorite cuisines <span class="optional-mark">(optional, comma-separated)</span>
+        <input name="cuisine_preferences" value="{{ (active.cuisine_preferences | join(', ')) if active else '' }}">
+      </label>
+      <label>Foods you can't tolerate <span class="optional-mark">(optional, comma-separated)</span>
+        <input name="intolerances" value="{{ (active.intolerances | join(', ')) if active else '' }}">
+      </label>
+      <label>Primary health goals <span class="optional-mark">(optional)</span>
+        <input name="primary_health_goals" placeholder="e.g. lower blood pressure, build strength" value="{{ active.primary_health_goals if active and active.primary_health_goals else '' }}">
+      </label>
+      <p class="field-error" data-field-error="goals"></p>
+    </fieldset>
+
+    <details class="profile-section" {{ 'open' if active and (active.kidney_disease != 'unknown' or active.egfr or active.clinician_sodium_target_mg) else '' }}>
+      <summary>Health &amp; Safety <span class="optional-mark">(optional — expand to fill in)</span></summary>
+      <p class="hint">Never used to diagnose or change medication — only to keep nutrition targets safe (see the Protein/Sodium safety gates).</p>
+      <div class="grid-2">
+        <label>Kidney disease
+          <select name="kidney_disease">
+            {% for v, label in [('unknown','Unknown / not sure'), ('no','No known kidney disease'), ('yes','Yes, diagnosed kidney disease')] %}
+              <option value="{{ v }}" {{ 'selected' if active and active.kidney_disease == v else '' }}>{{ label }}</option>
+            {% endfor %}
+          </select>
+          <span class="field-hint">"Unknown" is a safe default — an aggressive protein target is never auto-applied without this confirmed.</span>
+        </label>
+        <label>eGFR <span class="optional-mark">(optional, if known)</span>
+          <input name="egfr" type="number" step="0.1" value="{{ active.egfr if active and active.egfr is not none else '' }}">
+        </label>
+        <label>Potassium (mmol/L) <span class="optional-mark">(optional, if known)</span>
+          <input name="potassium_mmol_l" type="number" step="0.01" value="{{ active.potassium_mmol_l if active and active.potassium_mmol_l is not none else '' }}">
+        </label>
+        <label>Clinician sodium target (mg) <span class="optional-mark">(optional)</span>
+          <input name="clinician_sodium_target_mg" type="number" value="{{ active.clinician_sodium_target_mg if active and active.clinician_sodium_target_mg is not none else '' }}">
+        </label>
+        <label>Clinician protein target (g) <span class="optional-mark">(optional)</span>
+          <input name="clinician_protein_target_g" type="number" step="0.1" value="{{ active.clinician_protein_target_g if active and active.clinician_protein_target_g is not none else '' }}">
+        </label>
+        <label>Clinician calorie target <span class="optional-mark">(optional)</span>
+          <input name="clinician_calorie_target" type="number" value="{{ active.clinician_calorie_target if active and active.clinician_calorie_target is not none else '' }}">
+        </label>
+      </div>
+      <label>Exercise limitations <span class="optional-mark">(optional)</span>
+        <input name="exercise_limitations" placeholder="e.g. bad left knee, avoid high-impact" value="{{ active.exercise_limitations if active and active.exercise_limitations else '' }}">
+      </label>
+      <p class="field-hint">Medication context (potassium-affecting flags, etc.) is managed below in Medications — it informs safety checks but is never used for dosing.</p>
+      <p class="field-error" data-field-error="health"></p>
+    </details>
+
+    <fieldset class="profile-section">
+      <legend>Daily Routine</legend>
+      <div class="grid-2">
+        <label>Wake time <span class="optional-mark">(optional)</span>
+          <input name="wake_time" type="time" value="{{ active.wake_time if active else '' }}">
+        </label>
+        <label>Bed time <span class="optional-mark">(optional)</span>
+          <input name="bed_time" type="time" value="{{ active.bed_time if active else '' }}">
+        </label>
+      </div>
+      <span class="field-hint">When both are set, generated meal plans include a suggested time for each meal.</span>
+    </fieldset>
+
+    <div class="profile-form-actions">
+      <button type="submit" class="primary-btn">{{ 'Save Changes' if active else 'Create Profile' }}</button>
+      {% if active %}<button type="button" id="cancel-edit-btn" class="link-btn">Cancel</button>{% endif %}
+    </div>
+    <p id="profile-form-error" class="error"></p>
+  </form>
+</section>
+
+{% if active %}
+<section class="panel">
+  <h2>Medications</h2>
+  <p class="hint">No dose-change logic here — record what's prescribed, mark doses taken, and the potassium flag is informational only.</p>
+  <table class="med-table">
+    <thead>
+      <tr><th>Name</th><th>Dose</th><th>Frequency</th><th>Scheduled</th><th>K+ risk</th><th>Log today</th><th></th></tr>
+    </thead>
+    <tbody id="med-rows">
+      {% for m in medications %}
+      <tr data-med-id="{{ m.id }}">
+        <td>{{ m.name }}</td>
+        <td>{{ m.dose or '' }}</td>
+        <td>{{ m.frequency or '' }}</td>
+        <td>{{ m.scheduled_time or '' }}</td>
+        <td>{{ 'yes (' + m.potassium_risk_source + ')' if m.potassium_risk else 'no' }}</td>
+        <td>
+          <button class="link-btn log-taken-btn" data-med-id="{{ m.id }}" data-taken="1">Taken</button>
+          <button class="link-btn log-taken-btn" data-med-id="{{ m.id }}" data-taken="0">Missed</button>
+        </td>
+        <td><button class="danger-btn delete-med-btn" data-med-id="{{ m.id }}">Delete</button></td>
+      </tr>
+      {% else %}
+      <tr><td colspan="7" class="muted">No medications recorded.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <h3>Add medication</h3>
+  <form id="med-form">
+    <div class="grid-2">
+      <label>Name <span class="required-mark">*</span> <input name="name" required></label>
+      <label>Dose <span class="optional-mark">(optional)</span> <input name="dose"></label>
+      <label>Frequency <span class="optional-mark">(optional)</span> <input name="frequency" placeholder="e.g. once daily"></label>
+      <label>Scheduled time <span class="optional-mark">(optional)</span> <input name="scheduled_time" type="time"></label>
+    </div>
+    <label>Notes <span class="optional-mark">(optional)</span> <input name="notes"></label>
+    <label class="checkbox">
+      <input type="checkbox" name="potassium_risk_manual"> Manually flag as potassium-affecting
+      (auto-detected for known ARB/ACE-inhibitor/potassium-sparing-diuretic names)
+    </label>
+    <button type="submit" class="primary-btn">Add Medication</button>
+    <p id="med-form-error" class="error"></p>
+  </form>
+</section>
+
+<section class="panel">
+  <h2>Your Data</h2>
+
+  <h3>Import from CSV</h3>
+  <p class="hint">Download a template, fill it in, then upload. Malformed or physiologically impossible rows are rejected individually — the rest still import.</p>
+  <div class="grid-2">
+    {% for kind in ['bp', 'weight', 'sleep', 'exercise'] %}
+      <div>
+        <strong>{{ kind | capitalize }}</strong>
+        <a href="/api/csv-templates/{{ kind }}" class="link-btn">Download template</a>
+        <form class="csv-import-form" data-kind="{{ kind }}">
+          <input type="file" name="file" accept=".csv" required>
+          <button type="submit" class="link-btn">Upload</button>
+        </form>
+        <p class="csv-import-result muted" data-kind="{{ kind }}"></p>
+      </div>
+    {% endfor %}
+  </div>
+
+  <h3>Export</h3>
+  <a href="/api/profiles/{{ active.id }}/export" class="primary-btn" style="display:inline-block;text-decoration:none;">Export My Data (JSON)</a>
+
+  <h3>Delete</h3>
+  <p class="hint">Deletes this profile and everything tied to it — medications, meals, vitals, workouts, plans. Cannot be undone.</p>
+  <form method="post" action="/api/profiles/{{ active.id }}" class="delete-form" data-method="DELETE">
+    <button type="submit" class="danger-btn">Delete My Data</button>
+  </form>
+</section>
+{% endif %}
+
+<script src="/static/profile.js"></script>
+{% endblock %}
