@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "healthpilot_fitness_agent invocation",
+  "type": "object",
+  "required": [
+    "profile_id",
+    "message",
+    "memory_root"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "profile_id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "HealthPilot profile id \u2014 scope is never guessed; the caller must supply exactly which profile this question is about."
+    },
+    "message": {
+      "type": "string",
+      "minLength": 1,
+      "description": "The user's free-text question for the AI Health Coach."
+    },
+    "history": {
+      "type": "array",
+      "description": "Optional prior [{role, content}] turns from the same conversation, passed through unchanged to HealthPilot's orchestrator."
+    },
+    "model": {
+      "type": "string",
+      "description": "Optional model-id override (agents/orchestrator.py::answer_question's model_override) \u2014 omit to use HealthPilot's configured default model."
+    },
+    "memory_root": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Scratch directory this dispatch is permitted to touch. write/append_only are both empty in this skill's memory contract \u2014 a legitimate dispatch makes ZERO filesystem writes here. This is the dispatch-level proof that HealthPilot's chat-tool specialists stay read-only, alongside the structural enforcement in healthpilot/agents/tool_registry.py."
+    }
+  }
+}

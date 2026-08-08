@@ -13,3 +13,9 @@ data/*.db-wal
 data/*.db-shm
 data/exports/
 data/imports/
+
+# aios_core retrofit (PoC): audit-trail memory root for the
+# healthpilot_log_coach_interaction skill — metadata only, but still local
+# runtime data, not source code. See aios_core.md / brain/skills/healthpilot_*
+# for the retrofit this belongs to.
+data/aios_memory/

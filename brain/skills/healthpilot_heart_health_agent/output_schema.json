@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "healthpilot_heart_health_agent result",
+  "type": "object",
+  "required": [
+    "answer",
+    "data_used",
+    "ai_used"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "answer": {
+      "type": "string",
+      "description": "The Coach's answer text \u2014 same shape/content HealthPilot's own /coach/ask endpoint has always returned; unchanged by this retrofit."
+    },
+    "data_used": {
+      "type": "array",
+      "description": "Provenance: which of HealthPilot's real deterministic tools were called and their results. Never fabricated; unchanged from before the retrofit."
+    },
+    "ai_used": {
+      "type": "boolean"
+    },
+    "specialist": {
+      "type": "string",
+      "description": "Which specialist actually answered \u2014 may differ from the requested skill only if HealthPilot's own fallback logic degraded to a no-AI answer."
+    }
+  }
+}
