@@ -7,39 +7,129 @@ vedic_astro/knowledge/ingest.py (chunk + JSON cache), minus book-specific code.
 from __future__ import annotations
 
 import json
+import re
 import sys
 from pathlib import Path
 
 CHUNK_SIZE = 1200
+MIN_CHUNK_SIZE = 400   # below this a chunk carries too little context to rank on
 INDEX_PATH = Path(__file__).parent.parent / "memory" / "index" / "chunks.json"
 
 
+def _sanitize(text: str) -> str:
+    """Strip lone UTF-16 surrogates that pypdf occasionally emits when a PDF's
+    font encoding is malformed (seen on styled math glyphs in finance/quant
+    textbooks). A lone surrogate can't round-trip through utf-8, so leaving it
+    in crashes the index write later (json.dumps -> write_text) — better to
+    drop it here, once, for every source, than let one bad file blank the
+    whole corpus."""
+    return text.encode("utf-8", "surrogatepass").decode("utf-8", "ignore")
+
+
+def _read_epub(path: Path) -> str:
+    """Extract readable text from an EPUB (a zip of XHTML documents). Uses
+    ebooklib to walk the spine and a minimal tag-stripper to turn each XHTML
+    chapter into plain text — no extra HTML-parser dependency, and robust to
+    the messy markup real e-books ship with."""
+    import ebooklib
+    from ebooklib import epub
+    book = epub.read_epub(str(path))
+    parts = []
+    for item in book.get_items_of_type(ebooklib.ITEM_DOCUMENT):
+        html = item.get_content().decode("utf-8", "ignore")
+        html = re.sub(r"(?is)<(script|style)[^>]*>.*?</\1>", " ", html)  # drop scripts/styles
+        text = re.sub(r"(?s)<[^>]+>", " ", html)                        # strip remaining tags
+        text = re.sub(r"&nbsp;", " ", text)
+        text = re.sub(r"&amp;", "&", text).replace("&lt;", "<").replace("&gt;", ">")
+        parts.append(text)
+    return _sanitize(re.sub(r"[ \t]+\n", "\n", "\n\n".join(parts)))
+
+
 def _read_text(path: Path) -> str:
-    if path.suffix.lower() in (".md", ".txt"):
+    ext = path.suffix.lower()
+    if ext in (".md", ".txt"):
         return path.read_text(errors="ignore")
-    if path.suffix.lower() == ".pdf":
+    if ext == ".pdf":
         try:
             import pypdf
             reader = pypdf.PdfReader(str(path))
-            return "\n".join(pg.extract_text() or "" for pg in reader.pages)
+            return _sanitize("\n".join(pg.extract_text() or "" for pg in reader.pages))
+        except Exception:
+            return ""
+    if ext == ".epub":
+        try:
+            return _read_epub(path)
         except Exception:
             return ""
     return ""
 
 
-def _chunk(text: str, size: int = CHUNK_SIZE) -> list[str]:
-    """Split on paragraph boundaries, packing to ~size chars."""
-    paras = [p.strip() for p in text.split("\n\n") if p.strip()]
-    chunks, buf = [], ""
-    for p in paras:
-        if len(buf) + len(p) + 2 > size and buf:
-            chunks.append(buf)
-            buf = p
+def _split_oversized(para: str, size: int) -> list[str]:
+    """Break a paragraph that is already larger than `size` on sentence
+    boundaries, hard-splitting any single sentence that still doesn't fit.
+
+    Needed because PDF and epub extraction often yields no blank lines at
+    all, so an entire chapter arrives as one 'paragraph'. The old packer
+    emitted such a paragraph verbatim, producing chunks up to 73k chars.
+    """
+    if len(para) <= size:
+        return [para]
+    out, buf = [], ""
+    for sent in re.split(r"(?<=[.!?])\s+", para):
+        if len(sent) > size:                      # single monster sentence
+            if buf:
+                out.append(buf)
+                buf = ""
+            out.extend(sent[k:k + size] for k in range(0, len(sent), size))
+            continue
+        if buf and len(buf) + len(sent) + 1 > size:
+            out.append(buf)
+            buf = sent
         else:
-            buf = f"{buf}\n\n{p}" if buf else p
+            buf = f"{buf} {sent}" if buf else sent
+    if buf:
+        out.append(buf)
+    return out
+
+
+def _chunk(text: str, size: int = CHUNK_SIZE,
+           min_size: int = MIN_CHUNK_SIZE) -> list[str]:
+    """Split into ~size-char chunks on paragraph boundaries.
+
+    Two properties the naive packer lacked, both of which wrecked retrieval:
+      * paragraphs longer than `size` are subdivided rather than emitted
+        whole, so no chunk is vastly oversized;
+      * runt chunks are merged forward, so a heading like "Quantum
+        Mechanics" is indexed together with the prose it introduces instead
+        of becoming a standalone hit that carries no information.
+    """
+    units: list[str] = []
+    for p in (p.strip() for p in text.split("\n\n")):
+        if p:
+            units.extend(_split_oversized(p, size))
+
+    chunks: list[str] = []
+    buf = ""
+    for u in units:
+        if buf and len(buf) + len(u) + 2 > size:
+            chunks.append(buf)
+            buf = u
+        else:
+            buf = f"{buf}\n\n{u}" if buf else u
     if buf:
         chunks.append(buf)
-    return chunks
+
+    # Fold anything still too short into its neighbour (a trailing heading, or
+    # a short run between two oversized paragraphs). Cap the merge so this
+    # can't rebuild an enormous chunk.
+    merged: list[str] = []
+    for c in chunks:
+        if merged and (len(c) < min_size or len(merged[-1]) < min_size) \
+                and len(merged[-1]) + len(c) + 2 <= int(size * 1.5):
+            merged[-1] = f"{merged[-1]}\n\n{c}"
+        else:
+            merged.append(c)
+    return merged
 
 
 def ingest(source_dir: str, exts: tuple[str, ...] = (".md", ".txt"),
