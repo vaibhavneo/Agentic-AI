@@ -1,0 +1,769 @@
+{
+ "sessions": {
+  "f4dfccea5067489a": {
+   "turns": [
+    {
+     "ts": "2026-08-09T22:40:57+00:00",
+     "topic": "what's the role of wave function in quantum mechanics",
+     "mode": "explain",
+     "depth": "intermediate",
+     "concept": "what's the role of wave function in quantum mechanics"
+    },
+    {
+     "ts": "2026-08-09T23:17:47+00:00",
+     "topic": "how can we use diffusion models",
+     "mode": "explain",
+     "depth": "intermediate",
+     "concept": "how can we use diffusion models"
+    },
+    {
+     "ts": "2026-08-09T23:18:29+00:00",
+     "topic": "Give me the mathematics principle of diffusion models",
+     "mode": "explain",
+     "depth": "intermediate",
+     "concept": "Give me the mathematics principle of diffusion models"
+    },
+    {
+     "ts": "2026-08-09T23:18:52+00:00",
+     "topic": "Give me the mathematics principle of diffusion models",
+     "mode": "exercise",
+     "depth": "intermediate",
+     "concept": "Give me the mathematics principle of diffusion models"
+    },
+    {
+     "ts": "2026-08-10T00:11:15+00:00",
+     "topic": "what is mathematical intution behind diffusion model",
+     "mode": "explain",
+     "depth": "intermediate",
+     "concept": "what is mathematical intution behind diffusion model"
+    },
+    {
+     "ts": "2026-08-10T00:12:36+00:00",
+     "topic": "what is mathematical intution behind diffusion model",
+     "mode": "exercise",
+     "depth": "intermediate",
+     "concept": "what is mathematical intution behind diffusion model"
+    },
+    {
+     "ts": "2026-08-10T00:14:18+00:00",
+     "topic": "what is mathematical intution behind diffusion model",
+     "mode": "explain",
+     "depth": "advanced",
+     "concept": "what is mathematical intution behind diffusion model"
+    },
+    {
+     "ts": "2026-08-10T00:25:16+00:00",
+     "topic": "I want to understand deep generative model",
+     "mode": "explain",
+     "depth": "advanced",
+     "concept": "I want to understand deep generative model"
+    },
+    {
+     "ts": "2026-08-10T00:42:45+00:00",
+     "topic": "I want to understand deep generative model",
+     "mode": "explain",
+     "depth": "advanced",
+     "concept": "I want to understand deep generative model"
+    },
+    {
+     "ts": "2026-08-10T03:31:06+00:00",
+     "topic": "I want to understand deep generative model",
+     "mode": "exercise",
+     "depth": "advanced",
+     "concept": "I want to understand deep generative model"
+    },
+    {
+     "ts": "2026-08-10T06:41:13+00:00",
+     "topic": "give me the mathematical induction behind variational encoders and Auto encoders",
+     "mode": "explain",
+     "depth": "intermediate",
+     "concept": "give me the mathematical induction behind variational encoders and Auto encoders"
+    },
+    {
+     "ts": "2026-08-10T06:47:26+00:00",
+     "topic": "give me a true understanding of what essentially is the meaning of deep generative learning in the context of contrastive",
+     "mode": "socratic",
+     "depth": "intermediate",
+     "concept": "give me a true understanding of what essentially is the meaning of deep generative learning in the context of contrastive"
+    },
+    {
+     "ts": "2026-08-10T06:50:53+00:00",
+     "topic": "give me a true understanding of what essentially is the meaning of deep generative learning in the context of contrastive",
+     "mode": "socratic",
+     "depth": "advanced",
+     "concept": "give me a true understanding of what essentially is the meaning of deep generative learning in the context of contrastive"
+    },
+    {
+     "ts": "2026-08-10T07:04:51+00:00",
+     "topic": "tell me something about applied AI in finance and how we can use AI in building strong stock prices prediction",
+     "mode": "socratic",
+     "depth": "intermediate",
+     "concept": "tell me something about applied AI in finance and how we can use AI in building strong stock prices prediction"
+    },
+    {
+     "ts": "2026-08-10T07:05:45+00:00",
+     "topic": "tell me something about applied AI in finance and how we can use AI in building strong stock prices prediction",
+     "mode": "socratic",
+     "depth": "intermediate",
+     "concept": "tell me something about applied AI in finance and how we can use AI in building strong stock prices prediction"
+    },
+    {
+     "ts": "2026-08-10T07:07:10+00:00",
+     "topic": "help me understand a way in which I can build a system which can predict or rather project the future of a stock price at 99% probability",
+     "mode": "socratic",
+     "depth": "intermediate",
+     "concept": "help me understand a way in which I can build a system which can predict or rather project the future of a stock price at 99% probability"
+    },
+    {
+     "ts": "2026-08-10T07:24:56+00:00",
+     "topic": "help me understand the way to use AI to improve my stock prediction mechanism of an AI app",
+     "mode": "socratic",
+     "depth": "intermediate",
+     "concept": "help me understand the way to use AI to improve my stock prediction mechanism of an AI app"
+    },
+    {
+     "ts": "2026-08-10T07:25:09+00:00",
+     "topic": "help me understand the way to use AI to improve my stock prediction mechanism of an AI app",
+     "mode": "socratic",
+     "depth": "intermediate",
+     "concept": "help me understand the way to use AI to improve my stock prediction mechanism of an AI app"
+    },
+    {
+     "ts": "2026-08-10T07:29:59+00:00",
+     "topic": "give me a AI model or Foundation model that can be used for a strong stock prediction mechanism using AI building",
+     "mode": "socratic",
+     "depth": "intermediate",
+     "concept": "give me a AI model or Foundation model that can be used for a strong stock prediction mechanism using AI building"
+    },
+    {
+     "ts": "2026-08-11T04:01:35+00:00",
+     "topic": "give me the true picture of what machine learning in in algorithmic trading essentially teaches give me the fundamental principles of that and can I use it to build a trading or a investing ai-based system",
+     "mode": "explain",
+     "depth": "intermediate",
+     "concept": "give me the true picture of what machine learning in in algorithmic trading essentially teaches give me the fundamental principles of that and can I use it to build a trading or a investing ai-based system"
+    }
+   ],
+   "last_topic": "give me the true picture of what machine learning in in algorithmic trading essentially teaches give me the fundamental principles of that and can I use it to build a trading or a investing ai-based system",
+   "last_mode": "explain",
+   "last_depth": "intermediate",
+   "last_concept": "give me the true picture of what machine learning in in algorithmic trading essentially teaches give me the fundamental principles of that and can I use it to build a trading or a investing ai-based system"
+  },
+  "e2c658d6a90a4702": {
+   "turns": [
+    {
+     "ts": "2026-08-09T22:54:06+00:00",
+     "topic": "whats the role of wave function in quantum mechanics",
+     "mode": "explain",
+     "depth": "intermediate",
+     "concept": "whats the role of wave function in quantum mechanics"
+    }
+   ],
+   "last_topic": "whats the role of wave function in quantum mechanics",
+   "last_mode": "explain",
+   "last_depth": "intermediate",
+   "last_concept": "whats the role of wave function in quantum mechanics"
+  },
+  "53ed1b50e4644151": {
+   "turns": [
+    {
+     "ts": "2026-08-09T22:54:22+00:00",
+     "topic": "What are the main types of memory used in AI agent systems?",
+     "mode": "explain",
+     "depth": "intermediate",
+     "concept": "What are the main types of memory used in AI agent systems?"
+    }
+   ],
+   "last_topic": "What are the main types of memory used in AI agent systems?",
+   "last_mode": "explain",
+   "last_depth": "intermediate",
+   "last_concept": "What are the main types of memory used in AI agent systems?"
+  },
+  "6879685d9e264ee7": {
+   "turns": [
+    {
+     "ts": "2026-08-09T22:54:40+00:00",
+     "topic": "Explain the ReAct reasoning and acting pattern for AI agents",
+     "mode": "explain",
+     "depth": "intermediate",
+     "concept": "Explain the ReAct reasoning and acting pattern for AI agents"
+    }
+   ],
+   "last_topic": "Explain the ReAct reasoning and acting pattern for AI agents",
+   "last_mode": "explain",
+   "last_depth": "intermediate",
+   "last_concept": "Explain the ReAct reasoning and acting pattern for AI agents"
+  },
+  "eb43421426814ca8": {
+   "turns": [
+    {
+     "ts": "2026-08-09T22:55:01+00:00",
+     "topic": "How does retrieval augmented generation work",
+     "mode": "explain",
+     "depth": "intermediate",
+     "concept": "How does retrieval augmented generation work"
+    }
+   ],
+   "last_topic": "How does retrieval augmented generation work",
+   "last_mode": "explain",
+   "last_depth": "intermediate",
+   "last_concept": "How does retrieval augmented generation work"
+  },
+  "e8b1fdf4483c481e": {
+   "turns": [
+    {
+     "ts": "2026-08-09T23:33:56+00:00",
+     "topic": "Give me the mathematics principle of diffusion models",
+     "mode": "explain",
+     "depth": "advanced",
+     "concept": "Give me the mathematics principle of diffusion models"
+    }
+   ],
+   "last_topic": "Give me the mathematics principle of diffusion models",
+   "last_mode": "explain",
+   "last_depth": "advanced",
+   "last_concept": "Give me the mathematics principle of diffusion models"
+  },
+  "reliability-test-1": {
+   "turns": [
+    {
+     "ts": "2026-08-09T23:38:09+00:00",
+     "topic": "Give me the mathematics principle of diffusion models",
+     "mode": "explain",
+     "depth": "advanced",
+     "concept": "Give me the mathematics principle of diffusion models"
+    }
+   ],
+   "last_topic": "Give me the mathematics principle of diffusion models",
+   "last_mode": "explain",
+   "last_depth": "advanced",
+   "last_concept": "Give me the mathematics principle of diffusion models"
+  },
+  "reliability-test-2": {
+   "turns": [
+    {
+     "ts": "2026-08-09T23:38:29+00:00",
+     "topic": "Give me the mathematics principle of diffusion models",
+     "mode": "explain",
+     "depth": "advanced",
+     "concept": "Give me the mathematics principle of diffusion models"
+    }
+   ],
+   "last_topic": "Give me the mathematics principle of diffusion models",
+   "last_mode": "explain",
+   "last_depth": "advanced",
+   "last_concept": "Give me the mathematics principle of diffusion models"
+  },
+  "reliability-test-3": {
+   "turns": [
+    {
+     "ts": "2026-08-09T23:38:51+00:00",
+     "topic": "Give me the mathematics principle of diffusion models",
+     "mode": "explain",
+     "depth": "advanced",
+     "concept": "Give me the mathematics principle of diffusion models"
+    }
+   ],
+   "last_topic": "Give me the mathematics principle of diffusion models",
+   "last_mode": "explain",
+   "last_depth": "advanced",
+   "last_concept": "Give me the mathematics principle of diffusion models"
+  },
+  "4ac146a4f9674b88": {
+   "turns": [
+    {
+     "ts": "2026-08-09T23:39:43+00:00",
+     "topic": "Explain the mathematics behind diffusion models",
+     "mode": "explain",
+     "depth": "advanced",
+     "concept": "Explain the mathematics behind diffusion models"
+    },
+    {
+     "ts": "2026-08-10T00:30:12+00:00",
+     "topic": "I want to understand deep generative models",
+     "mode": "explain",
+     "depth": "advanced",
+     "concept": "I want to understand deep generative models"
+    },
+    {
+     "ts": "2026-08-10T03:32:19+00:00",
+     "topic": "I want to understand deep generative models with the key equations",
+     "mode": "explain",
+     "depth": "advanced",
+     "concept": "I want to understand deep generative models with the key equations"
+    }
+   ],
+   "last_topic": "I want to understand deep generative models with the key equations",
+   "last_mode": "explain",
+   "last_depth": "advanced",
+   "last_concept": "I want to understand deep generative models with the key equations"
+  },
+  "greek-test": {
+   "turns": [
+    {
+     "ts": "2026-08-10T00:19:17+00:00",
+     "topic": "Give me the mathematics principle of diffusion models",
+     "mode": "explain",
+     "depth": "advanced",
+     "concept": "Give me the mathematics principle of diffusion models"
+    }
+   ],
+   "last_topic": "Give me the mathematics principle of diffusion models",
+   "last_mode": "explain",
+   "last_depth": "advanced",
+   "last_concept": "Give me the mathematics principle of diffusion models"
+  },
+  "greek-test-1": {
+   "turns": [
+    {
+     "ts": "2026-08-10T00:20:02+00:00",
+     "topic": "Explain the mathematics of the reverse diffusion process",
+     "mode": "explain",
+     "depth": "advanced",
+     "concept": "Explain the mathematics of the reverse diffusion process"
+    }
+   ],
+   "last_topic": "Explain the mathematics of the reverse diffusion process",
+   "last_mode": "explain",
+   "last_depth": "advanced",
+   "last_concept": "Explain the mathematics of the reverse diffusion process"
+  },
+  "greek-test-2": {
+   "turns": [
+    {
+     "ts": "2026-08-10T00:20:22+00:00",
+     "topic": "Explain the mathematics of the reverse diffusion process",
+     "mode": "explain",
+     "depth": "advanced",
+     "concept": "Explain the mathematics of the reverse diffusion process"
+    }
+   ],
+   "last_topic": "Explain the mathematics of the reverse diffusion process",
+   "last_mode": "explain",
+   "last_depth": "advanced",
+   "last_concept": "Explain the mathematics of the reverse diffusion process"
+  },
+  "57c85502369f4d64": {
+   "turns": [
+    {
+     "ts": "2026-08-10T07:01:58+00:00",
+     "topic": "What is gradient descent",
+     "mode": "socratic",
+     "depth": "intro",
+     "concept": "What is gradient descent"
+    }
+   ],
+   "last_topic": "What is gradient descent",
+   "last_mode": "socratic",
+   "last_depth": "intro",
+   "last_concept": "What is gradient descent"
+  },
+  "83c83a89051543a2": {
+   "turns": [
+    {
+     "ts": "2026-08-10T07:02:36+00:00",
+     "topic": "What is an AI agent",
+     "mode": "explain",
+     "depth": "intro",
+     "concept": "What is an AI agent"
+    }
+   ],
+   "last_topic": "What is an AI agent",
+   "last_mode": "explain",
+   "last_depth": "intro",
+   "last_concept": "What is an AI agent"
+  },
+  "39e703faf2ce48a3": {
+   "turns": [
+    {
+     "ts": "2026-08-10T07:15:07+00:00",
+     "topic": "tell me about applied AI in finance and building stock price prediction systems",
+     "mode": "explain",
+     "depth": "advanced",
+     "concept": "tell me about applied AI in finance and building stock price prediction systems"
+    }
+   ],
+   "last_topic": "tell me about applied AI in finance and building stock price prediction systems",
+   "last_mode": "explain",
+   "last_depth": "advanced",
+   "last_concept": "tell me about applied AI in finance and building stock price prediction systems"
+  },
+  "864893c5c6ec4bef": {
+   "turns": [
+    {
+     "ts": "2026-08-10T07:15:39+00:00",
+     "topic": "give me a true understanding of deep generative learning in contrastive learning",
+     "mode": "explain",
+     "depth": "advanced",
+     "concept": "give me a true understanding of deep generative learning in contrastive learning"
+    }
+   ],
+   "last_topic": "give me a true understanding of deep generative learning in contrastive learning",
+   "last_mode": "explain",
+   "last_depth": "advanced",
+   "last_concept": "give me a true understanding of deep generative learning in contrastive learning"
+  },
+  "7cc84dc0db7d4ff1": {
+   "turns": [
+    {
+     "ts": "2026-08-10T07:19:53+00:00",
+     "topic": "what are some of the intermediate steps in Building multi-agent Systems",
+     "mode": "explain",
+     "depth": "advanced",
+     "concept": "what are some of the intermediate steps in Building multi-agent Systems"
+    }
+   ],
+   "last_topic": "what are some of the intermediate steps in Building multi-agent Systems",
+   "last_mode": "explain",
+   "last_depth": "advanced",
+   "last_concept": "what are some of the intermediate steps in Building multi-agent Systems"
+  },
+  "da798620698a45a3": {
+   "turns": [
+    {
+     "ts": "2026-08-10T07:20:20+00:00",
+     "topic": "give me a true understanding of deep generative learning in contrastive learning",
+     "mode": "explain",
+     "depth": "advanced",
+     "concept": "give me a true understanding of deep generative learning in contrastive learning"
+    }
+   ],
+   "last_topic": "give me a true understanding of deep generative learning in contrastive learning",
+   "last_mode": "explain",
+   "last_depth": "advanced",
+   "last_concept": "give me a true understanding of deep generative learning in contrastive learning"
+  },
+  "aaf372340cdb446b": {
+   "turns": [
+    {
+     "ts": "2026-08-10T07:20:49+00:00",
+     "topic": "what are the intermediate steps in building multi-agent systems",
+     "mode": "explain",
+     "depth": "advanced",
+     "concept": "what are the intermediate steps in building multi-agent systems"
+    }
+   ],
+   "last_topic": "what are the intermediate steps in building multi-agent systems",
+   "last_mode": "explain",
+   "last_depth": "advanced",
+   "last_concept": "what are the intermediate steps in building multi-agent systems"
+  },
+  "18f5e509f5af40ce": {
+   "turns": [
+    {
+     "ts": "2026-08-10T07:21:16+00:00",
+     "topic": "explain contrastive representation learning end to end",
+     "mode": "explain",
+     "depth": "advanced",
+     "concept": "explain contrastive representation learning end to end"
+    }
+   ],
+   "last_topic": "explain contrastive representation learning end to end",
+   "last_mode": "explain",
+   "last_depth": "advanced",
+   "last_concept": "explain contrastive representation learning end to end"
+  },
+  "threadtest-1786346801": {
+   "turns": [
+    {
+     "ts": "2026-08-10T07:27:06+00:00",
+     "topic": "help me understand how to build a system to predict stock prices",
+     "mode": "explain",
+     "depth": "intermediate",
+     "concept": "help me understand how to build a system to predict stock prices"
+    }
+   ],
+   "last_topic": "help me understand how to build a system to predict stock prices",
+   "last_mode": "explain",
+   "last_depth": "intermediate",
+   "last_concept": "help me understand how to build a system to predict stock prices"
+  },
+  "verify-1786347092": {
+   "turns": [
+    {
+     "ts": "2026-08-10T07:31:55+00:00",
+     "topic": "help me build a system to predict stock prices",
+     "mode": "explain",
+     "depth": "intermediate",
+     "concept": "help me build a system to predict stock prices"
+    },
+    {
+     "ts": "2026-08-10T07:32:34+00:00",
+     "topic": "what are some of the specific highly Advanced mathematical topics that will help me boost my understanding to build strong AI intelligent systems and agents",
+     "mode": "explain",
+     "depth": "advanced",
+     "concept": "what are some of the specific highly Advanced mathematical topics that will help me boost my understanding to build strong AI intelligent systems and agents"
+    }
+   ],
+   "last_topic": "what are some of the specific highly Advanced mathematical topics that will help me boost my understanding to build strong AI intelligent systems and agents",
+   "last_mode": "explain",
+   "last_depth": "advanced",
+   "last_concept": "what are some of the specific highly Advanced mathematical topics that will help me boost my understanding to build strong AI intelligent systems and agents"
+  },
+  "rel-1": {
+   "turns": [
+    {
+     "ts": "2026-08-10T07:33:08+00:00",
+     "topic": "advanced math topics for building strong AI systems and agents",
+     "mode": "explain",
+     "depth": "advanced",
+     "concept": "advanced math topics for building strong AI systems and agents"
+    }
+   ],
+   "last_topic": "advanced math topics for building strong AI systems and agents",
+   "last_mode": "explain",
+   "last_depth": "advanced",
+   "last_concept": "advanced math topics for building strong AI systems and agents"
+  },
+  "rel-2": {
+   "turns": [
+    {
+     "ts": "2026-08-10T07:33:41+00:00",
+     "topic": "advanced math topics for building strong AI systems and agents",
+     "mode": "explain",
+     "depth": "advanced",
+     "concept": "advanced math topics for building strong AI systems and agents"
+    }
+   ],
+   "last_topic": "advanced math topics for building strong AI systems and agents",
+   "last_mode": "explain",
+   "last_depth": "advanced",
+   "last_concept": "advanced math topics for building strong AI systems and agents"
+  },
+  "rel-3": {
+   "turns": [
+    {
+     "ts": "2026-08-10T07:34:18+00:00",
+     "topic": "advanced math topics for building strong AI systems and agents",
+     "mode": "explain",
+     "depth": "advanced",
+     "concept": "advanced math topics for building strong AI systems and agents"
+    }
+   ],
+   "last_topic": "advanced math topics for building strong AI systems and agents",
+   "last_mode": "explain",
+   "last_depth": "advanced",
+   "last_concept": "advanced math topics for building strong AI systems and agents"
+  },
+  "final-1": {
+   "turns": [
+    {
+     "ts": "2026-08-10T07:46:31+00:00",
+     "topic": "explain the mathematics of transformers with derivations",
+     "mode": "explain",
+     "depth": "advanced",
+     "concept": "explain the mathematics of transformers with derivations"
+    }
+   ],
+   "last_topic": "explain the mathematics of transformers with derivations",
+   "last_mode": "explain",
+   "last_depth": "advanced",
+   "last_concept": "explain the mathematics of transformers with derivations"
+  },
+  "final-2": {
+   "turns": [
+    {
+     "ts": "2026-08-10T07:47:09+00:00",
+     "topic": "what are advanced math topics for building AI systems",
+     "mode": "explain",
+     "depth": "advanced",
+     "concept": "what are advanced math topics for building AI systems"
+    }
+   ],
+   "last_topic": "what are advanced math topics for building AI systems",
+   "last_mode": "explain",
+   "last_depth": "advanced",
+   "last_concept": "what are advanced math topics for building AI systems"
+  },
+  "final-3": {
+   "turns": [
+    {
+     "ts": "2026-08-10T07:47:46+00:00",
+     "topic": "give me a true understanding of contrastive representation learning",
+     "mode": "explain",
+     "depth": "advanced",
+     "concept": "give me a true understanding of contrastive representation learning"
+    }
+   ],
+   "last_topic": "give me a true understanding of contrastive representation learning",
+   "last_mode": "explain",
+   "last_depth": "advanced",
+   "last_concept": "give me a true understanding of contrastive representation learning"
+  },
+  "final-4": {
+   "turns": [
+    {
+     "ts": "2026-08-10T07:48:16+00:00",
+     "topic": "intermediate steps in building multi-agent systems",
+     "mode": "explain",
+     "depth": "advanced",
+     "concept": "intermediate steps in building multi-agent systems"
+    }
+   ],
+   "last_topic": "intermediate steps in building multi-agent systems",
+   "last_mode": "explain",
+   "last_depth": "advanced",
+   "last_concept": "intermediate steps in building multi-agent systems"
+  },
+  "e64c250c05d946b1": {
+   "turns": [
+    {
+     "ts": "2026-08-10T09:15:27+00:00",
+     "topic": "explain quantum entanglement",
+     "mode": "explain",
+     "depth": "intro",
+     "concept": "explain quantum entanglement"
+    }
+   ],
+   "last_topic": "explain quantum entanglement",
+   "last_mode": "explain",
+   "last_depth": "intro",
+   "last_concept": "explain quantum entanglement"
+  },
+  "b23039c652974ee1": {
+   "turns": [
+    {
+     "ts": "2026-08-10T09:15:44+00:00",
+     "topic": "what is a vector space",
+     "mode": "explain",
+     "depth": "intro",
+     "concept": "what is a vector space"
+    }
+   ],
+   "last_topic": "what is a vector space",
+   "last_mode": "explain",
+   "last_depth": "intro",
+   "last_concept": "what is a vector space"
+  },
+  "a6be94f63a23405d": {
+   "turns": [
+    {
+     "ts": "2026-08-10T09:15:57+00:00",
+     "topic": "what is the Bellman equation",
+     "mode": "explain",
+     "depth": "intro",
+     "concept": "what is the Bellman equation"
+    }
+   ],
+   "last_topic": "what is the Bellman equation",
+   "last_mode": "explain",
+   "last_depth": "intro",
+   "last_concept": "what is the Bellman equation"
+  }
+ },
+ "mastery": {
+  "what's the role of wave function in quantum mechanics": {
+   "prior_activity": 1
+  },
+  "whats the role of wave function in quantum mechanics": {
+   "prior_activity": 1
+  },
+  "What are the main types of memory used in AI agent systems?": {
+   "prior_activity": 1
+  },
+  "Explain the ReAct reasoning and acting pattern for AI agents": {
+   "prior_activity": 1
+  },
+  "How does retrieval augmented generation work": {
+   "prior_activity": 1
+  },
+  "how can we use diffusion models": {
+   "prior_activity": 1
+  },
+  "Give me the mathematics principle of diffusion models": {
+   "prior_activity": 7
+  },
+  "Explain the mathematics behind diffusion models": {
+   "prior_activity": 1
+  },
+  "what is mathematical intution behind diffusion model": {
+   "prior_activity": 3
+  },
+  "Explain the mathematics of the reverse diffusion process": {
+   "prior_activity": 2
+  },
+  "I want to understand deep generative model": {
+   "prior_activity": 3
+  },
+  "I want to understand deep generative models": {
+   "prior_activity": 1
+  },
+  "I want to understand deep generative models with the key equations": {
+   "prior_activity": 1
+  },
+  "give me the mathematical induction behind variational encoders and Auto encoders": {
+   "prior_activity": 1
+  },
+  "give me a true understanding of what essentially is the meaning of deep generative learning in the context of contrastive": {
+   "prior_activity": 2
+  },
+  "What is gradient descent": {
+   "prior_activity": 1
+  },
+  "What is an AI agent": {
+   "prior_activity": 1
+  },
+  "tell me something about applied AI in finance and how we can use AI in building strong stock prices prediction": {
+   "prior_activity": 2
+  },
+  "help me understand a way in which I can build a system which can predict or rather project the future of a stock price at 99% probability": {
+   "prior_activity": 1
+  },
+  "tell me about applied AI in finance and building stock price prediction systems": {
+   "prior_activity": 1
+  },
+  "give me a true understanding of deep generative learning in contrastive learning": {
+   "prior_activity": 2
+  },
+  "what are some of the intermediate steps in Building multi-agent Systems": {
+   "prior_activity": 1
+  },
+  "what are the intermediate steps in building multi-agent systems": {
+   "prior_activity": 1
+  },
+  "explain contrastive representation learning end to end": {
+   "prior_activity": 1
+  },
+  "help me understand the way to use AI to improve my stock prediction mechanism of an AI app": {
+   "prior_activity": 2
+  },
+  "help me understand how to build a system to predict stock prices": {
+   "prior_activity": 1
+  },
+  "give me a AI model or Foundation model that can be used for a strong stock prediction mechanism using AI building": {
+   "prior_activity": 1
+  },
+  "help me build a system to predict stock prices": {
+   "prior_activity": 1
+  },
+  "what are some of the specific highly Advanced mathematical topics that will help me boost my understanding to build strong AI intelligent systems and agents": {
+   "prior_activity": 1
+  },
+  "advanced math topics for building strong AI systems and agents": {
+   "prior_activity": 3
+  },
+  "explain the mathematics of transformers with derivations": {
+   "prior_activity": 1
+  },
+  "what are advanced math topics for building AI systems": {
+   "prior_activity": 1
+  },
+  "give me a true understanding of contrastive representation learning": {
+   "prior_activity": 1
+  },
+  "intermediate steps in building multi-agent systems": {
+   "prior_activity": 1
+  },
+  "explain quantum entanglement": {
+   "prior_activity": 1
+  },
+  "what is a vector space": {
+   "prior_activity": 1
+  },
+  "what is the Bellman equation": {
+   "prior_activity": 1
+  },
+  "give me the true picture of what machine learning in in algorithmic trading essentially teaches give me the fundamental principles of that and can I use it to build a trading or a investing ai-based system": {
+   "prior_activity": 1
+  }
+ }
+}

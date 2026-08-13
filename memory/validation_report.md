@@ -1,5 +1,5 @@
 # validation_report.md — Pipeline Validation
-<!-- Generated 2026-07-11 by second_brain/tests/test_pipeline.py. Overwritten each run. -->
+<!-- Generated 2026-08-10 by second_brain/tests/test_pipeline.py. Overwritten each run. -->
 
 **Result: 20/20 pass**
 

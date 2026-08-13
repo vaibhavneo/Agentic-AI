@@ -24,7 +24,7 @@
    "stats": {
     "files": 36,
     "chunks": 96,
-    "last_ingested": "2026-07-11T18:43:01"
+    "last_ingested": "2026-08-09T15:45:45"
    }
   },
   "ai-books": {
@@ -51,7 +51,7 @@
    "stats": {
     "files": 101,
     "chunks": 25812,
-    "last_ingested": "2026-07-05T10:46:18"
+    "last_ingested": "2026-08-09T15:45:46"
    }
   },
   "llm-books": {
@@ -76,9 +76,9 @@
    },
    "index_path": "/Users/vaibhavgupta/Desktop/Agentic AI/memory/corpora/llm-books/chunks.json",
    "stats": {
-    "files": 0,
-    "chunks": 0,
-    "last_ingested": null
+    "files": 64,
+    "chunks": 22171,
+    "last_ingested": "2026-08-09T15:45:47"
    }
   },
   "finance": {
@@ -101,9 +101,9 @@
    },
    "index_path": "/Users/vaibhavgupta/Desktop/Agentic AI/memory/corpora/finance/chunks.json",
    "stats": {
-    "files": 0,
-    "chunks": 0,
-    "last_ingested": null
+    "files": 17,
+    "chunks": 205,
+    "last_ingested": "2026-08-09T15:49:10"
    }
   },
   "personal-notes": {
@@ -129,7 +129,607 @@
    "stats": {
     "files": 47,
     "chunks": 127,
-    "last_ingested": "2026-07-05T10:46:18"
+    "last_ingested": "2026-08-09T15:47:10"
+   }
+  },
+  "desk-ai": {
+   "id": "desk-ai",
+   "name": "AI",
+   "description": "Desktop library: AI",
+   "source_dirs": [
+    "/Users/vaibhavgupta/Desktop/AI"
+   ],
+   "ingest_profile": {
+    "extensions": [
+     ".pdf",
+     ".epub",
+     ".md",
+     ".txt"
+    ],
+    "chunk_size": 1200
+   },
+   "reliability": 1.0,
+   "tags": [],
+   "index_path": "/Users/vaibhavgupta/Desktop/Project Agentic AI/Agentic-AI/memory/corpora/desk-ai/chunks.json",
+   "stats": {
+    "files": 106,
+    "chunks": 6063,
+    "last_ingested": "2026-08-10T00:00:37"
+   }
+  },
+  "desk-ai-agents-and-agentic-ai": {
+   "id": "desk-ai-agents-and-agentic-ai",
+   "name": "AI Agents & Agentic AI",
+   "description": "Desktop library: AI Agents & Agentic AI",
+   "source_dirs": [
+    "/Users/vaibhavgupta/Desktop/AI Agents & Agentic AI"
+   ],
+   "ingest_profile": {
+    "extensions": [
+     ".pdf",
+     ".epub",
+     ".md",
+     ".txt"
+    ],
+    "chunk_size": 1200
+   },
+   "reliability": 1.0,
+   "tags": [],
+   "index_path": "/Users/vaibhavgupta/Desktop/Project Agentic AI/Agentic-AI/memory/corpora/desk-ai-agents-and-agentic-ai/chunks.json",
+   "stats": {
+    "files": 132,
+    "chunks": 10652,
+    "last_ingested": "2026-08-10T00:06:27"
+   }
+  },
+  "desk-ai-research-papers": {
+   "id": "desk-ai-research-papers",
+   "name": "AI Research Papers",
+   "description": "Desktop library: AI Research Papers",
+   "source_dirs": [
+    "/Users/vaibhavgupta/Desktop/AI Research Papers"
+   ],
+   "ingest_profile": {
+    "extensions": [
+     ".pdf",
+     ".epub",
+     ".md",
+     ".txt"
+    ],
+    "chunk_size": 1200
+   },
+   "reliability": 1.0,
+   "tags": [],
+   "index_path": "/Users/vaibhavgupta/Desktop/Project Agentic AI/Agentic-AI/memory/corpora/desk-ai-research-papers/chunks.json",
+   "stats": {
+    "files": 10,
+    "chunks": 20,
+    "last_ingested": "2026-08-10T00:06:36"
+   }
+  },
+  "desk-astrology-books": {
+   "id": "desk-astrology-books",
+   "name": "Astrology Books",
+   "description": "Desktop library: Astrology Books",
+   "source_dirs": [
+    "/Users/vaibhavgupta/Desktop/Astrology Books"
+   ],
+   "ingest_profile": {
+    "extensions": [
+     ".pdf",
+     ".epub",
+     ".md",
+     ".txt"
+    ],
+    "chunk_size": 1200
+   },
+   "reliability": 1.0,
+   "tags": [],
+   "index_path": "/Users/vaibhavgupta/Desktop/Project Agentic AI/Agentic-AI/memory/corpora/desk-astrology-books/chunks.json",
+   "stats": {
+    "files": 27,
+    "chunks": 1439,
+    "last_ingested": "2026-08-10T00:08:21"
+   }
+  },
+  "desk-business-and-self-help": {
+   "id": "desk-business-and-self-help",
+   "name": "Business & Self-Help",
+   "description": "Desktop library: Business & Self-Help",
+   "source_dirs": [
+    "/Users/vaibhavgupta/Desktop/Business & Self-Help"
+   ],
+   "ingest_profile": {
+    "extensions": [
+     ".pdf",
+     ".epub",
+     ".md",
+     ".txt"
+    ],
+    "chunk_size": 1200
+   },
+   "reliability": 1.0,
+   "tags": [],
+   "index_path": "/Users/vaibhavgupta/Desktop/Project Agentic AI/Agentic-AI/memory/corpora/desk-business-and-self-help/chunks.json",
+   "stats": {
+    "files": 19,
+    "chunks": 3090,
+    "last_ingested": "2026-08-10T00:08:41"
+   }
+  },
+  "desk-computer-science": {
+   "id": "desk-computer-science",
+   "name": "Computer Science",
+   "description": "Desktop library: Computer Science",
+   "source_dirs": [
+    "/Users/vaibhavgupta/Desktop/Computer Science"
+   ],
+   "ingest_profile": {
+    "extensions": [
+     ".pdf",
+     ".epub",
+     ".md",
+     ".txt"
+    ],
+    "chunk_size": 1200
+   },
+   "reliability": 1.0,
+   "tags": [],
+   "index_path": "/Users/vaibhavgupta/Desktop/Project Agentic AI/Agentic-AI/memory/corpora/desk-computer-science/chunks.json",
+   "stats": {
+    "files": 23,
+    "chunks": 1273,
+    "last_ingested": "2026-08-10T00:12:07"
+   }
+  },
+  "desk-computer-vision": {
+   "id": "desk-computer-vision",
+   "name": "Computer Vision",
+   "description": "Desktop library: Computer Vision",
+   "source_dirs": [
+    "/Users/vaibhavgupta/Desktop/Computer Vision"
+   ],
+   "ingest_profile": {
+    "extensions": [
+     ".pdf",
+     ".epub",
+     ".md",
+     ".txt"
+    ],
+    "chunk_size": 1200
+   },
+   "reliability": 1.0,
+   "tags": [],
+   "index_path": "/Users/vaibhavgupta/Desktop/Project Agentic AI/Agentic-AI/memory/corpora/desk-computer-vision/chunks.json",
+   "stats": {
+    "files": 16,
+    "chunks": 2541,
+    "last_ingested": "2026-08-10T00:14:33"
+   }
+  },
+  "desk-data-science": {
+   "id": "desk-data-science",
+   "name": "Data Science",
+   "description": "Desktop library: Data Science",
+   "source_dirs": [
+    "/Users/vaibhavgupta/Desktop/Data Science"
+   ],
+   "ingest_profile": {
+    "extensions": [
+     ".pdf",
+     ".epub",
+     ".md",
+     ".txt"
+    ],
+    "chunk_size": 1200
+   },
+   "reliability": 1.0,
+   "tags": [],
+   "index_path": "/Users/vaibhavgupta/Desktop/Project Agentic AI/Agentic-AI/memory/corpora/desk-data-science/chunks.json",
+   "stats": {
+    "files": 43,
+    "chunks": 3286,
+    "last_ingested": "2026-08-10T00:19:27"
+   }
+  },
+  "desk-deep-learning": {
+   "id": "desk-deep-learning",
+   "name": "Deep Learning",
+   "description": "Desktop library: Deep Learning",
+   "source_dirs": [
+    "/Users/vaibhavgupta/Desktop/Deep Learning"
+   ],
+   "ingest_profile": {
+    "extensions": [
+     ".pdf",
+     ".epub",
+     ".md",
+     ".txt"
+    ],
+    "chunk_size": 1200
+   },
+   "reliability": 1.0,
+   "tags": [],
+   "index_path": "/Users/vaibhavgupta/Desktop/Project Agentic AI/Agentic-AI/memory/corpora/desk-deep-learning/chunks.json",
+   "stats": {
+    "files": 73,
+    "chunks": 1203,
+    "last_ingested": "2026-08-10T00:30:02"
+   }
+  },
+  "desk-electronics": {
+   "id": "desk-electronics",
+   "name": "Electronics",
+   "description": "Desktop library: Electronics",
+   "source_dirs": [
+    "/Users/vaibhavgupta/Desktop/Electronics"
+   ],
+   "ingest_profile": {
+    "extensions": [
+     ".pdf",
+     ".epub",
+     ".md",
+     ".txt"
+    ],
+    "chunk_size": 1200
+   },
+   "reliability": 1.0,
+   "tags": [],
+   "index_path": "/Users/vaibhavgupta/Desktop/Project Agentic AI/Agentic-AI/memory/corpora/desk-electronics/chunks.json",
+   "stats": {
+    "files": 27,
+    "chunks": 1204,
+    "last_ingested": "2026-08-10T00:36:13"
+   }
+  },
+  "desk-generative-ai": {
+   "id": "desk-generative-ai",
+   "name": "Generative AI ",
+   "description": "Desktop library: Generative AI ",
+   "source_dirs": [
+    "/Users/vaibhavgupta/Desktop/Generative AI "
+   ],
+   "ingest_profile": {
+    "extensions": [
+     ".pdf",
+     ".epub",
+     ".md",
+     ".txt"
+    ],
+    "chunk_size": 1200
+   },
+   "reliability": 1.0,
+   "tags": [],
+   "index_path": "/Users/vaibhavgupta/Desktop/Project Agentic AI/Agentic-AI/memory/corpora/desk-generative-ai/chunks.json",
+   "stats": {
+    "files": 84,
+    "chunks": 4864,
+    "last_ingested": "2026-08-10T00:43:44"
+   }
+  },
+  "desk-llms": {
+   "id": "desk-llms",
+   "name": "LLMs",
+   "description": "Desktop library: LLMs",
+   "source_dirs": [
+    "/Users/vaibhavgupta/Desktop/LLMs"
+   ],
+   "ingest_profile": {
+    "extensions": [
+     ".pdf",
+     ".epub",
+     ".md",
+     ".txt"
+    ],
+    "chunk_size": 1200
+   },
+   "reliability": 1.0,
+   "tags": [],
+   "index_path": "/Users/vaibhavgupta/Desktop/Project Agentic AI/Agentic-AI/memory/corpora/desk-llms/chunks.json",
+   "stats": {
+    "files": 88,
+    "chunks": 3879,
+    "last_ingested": "2026-08-10T00:49:29"
+   }
+  },
+  "desk-machine-learning": {
+   "id": "desk-machine-learning",
+   "name": "Machine Learning",
+   "description": "Desktop library: Machine Learning",
+   "source_dirs": [
+    "/Users/vaibhavgupta/Desktop/Machine Learning"
+   ],
+   "ingest_profile": {
+    "extensions": [
+     ".pdf",
+     ".epub",
+     ".md",
+     ".txt"
+    ],
+    "chunk_size": 1200
+   },
+   "reliability": 1.0,
+   "tags": [],
+   "index_path": "/Users/vaibhavgupta/Desktop/Project Agentic AI/Agentic-AI/memory/corpora/desk-machine-learning/chunks.json",
+   "stats": {
+    "files": 95,
+    "chunks": 3209,
+    "last_ingested": "2026-08-10T01:04:59"
+   }
+  },
+  "desk-mathematics": {
+   "id": "desk-mathematics",
+   "name": "Mathematics",
+   "description": "Desktop library: Mathematics",
+   "source_dirs": [
+    "/Users/vaibhavgupta/Desktop/Mathematics"
+   ],
+   "ingest_profile": {
+    "extensions": [
+     ".pdf",
+     ".epub",
+     ".md",
+     ".txt"
+    ],
+    "chunk_size": 1200
+   },
+   "reliability": 1.0,
+   "tags": [],
+   "index_path": "/Users/vaibhavgupta/Desktop/Project Agentic AI/Agentic-AI/memory/corpora/desk-mathematics/chunks.json",
+   "stats": {
+    "files": 79,
+    "chunks": 4032,
+    "last_ingested": "2026-08-10T01:22:33"
+   }
+  },
+  "desk-mathematics-for-machine-learning-and-deep-learning": {
+   "id": "desk-mathematics-for-machine-learning-and-deep-learning",
+   "name": "Mathematics for Machine Learning & Deep Learning",
+   "description": "Desktop library: Mathematics for Machine Learning & Deep Learning",
+   "source_dirs": [
+    "/Users/vaibhavgupta/Desktop/Mathematics for Machine Learning & Deep Learning"
+   ],
+   "ingest_profile": {
+    "extensions": [
+     ".pdf",
+     ".epub",
+     ".md",
+     ".txt"
+    ],
+    "chunk_size": 1200
+   },
+   "reliability": 1.0,
+   "tags": [],
+   "index_path": "/Users/vaibhavgupta/Desktop/Project Agentic AI/Agentic-AI/memory/corpora/desk-mathematics-for-machine-learning-and-deep-learning/chunks.json",
+   "stats": {
+    "files": 57,
+    "chunks": 3444,
+    "last_ingested": "2026-08-10T01:33:11"
+   }
+  },
+  "desk-nlp": {
+   "id": "desk-nlp",
+   "name": "NLP",
+   "description": "Desktop library: NLP",
+   "source_dirs": [
+    "/Users/vaibhavgupta/Desktop/NLP"
+   ],
+   "ingest_profile": {
+    "extensions": [
+     ".pdf",
+     ".epub",
+     ".md",
+     ".txt"
+    ],
+    "chunk_size": 1200
+   },
+   "reliability": 1.0,
+   "tags": [],
+   "index_path": "/Users/vaibhavgupta/Desktop/Project Agentic AI/Agentic-AI/memory/corpora/desk-nlp/chunks.json",
+   "stats": {
+    "files": 22,
+    "chunks": 485,
+    "last_ingested": "2026-08-10T01:35:10"
+   }
+  },
+  "desk-physics": {
+   "id": "desk-physics",
+   "name": "Physics",
+   "description": "Desktop library: Physics",
+   "source_dirs": [
+    "/Users/vaibhavgupta/Desktop/Physics"
+   ],
+   "ingest_profile": {
+    "extensions": [
+     ".pdf",
+     ".epub",
+     ".md",
+     ".txt"
+    ],
+    "chunk_size": 1200
+   },
+   "reliability": 1.0,
+   "tags": [],
+   "index_path": "/Users/vaibhavgupta/Desktop/Project Agentic AI/Agentic-AI/memory/corpora/desk-physics/chunks.json",
+   "stats": {
+    "files": 120,
+    "chunks": 125846,
+    "last_ingested": "2026-08-13T09:07:11"
+   }
+  },
+  "desk-python": {
+   "id": "desk-python",
+   "name": "Python",
+   "description": "Desktop library: Python",
+   "source_dirs": [
+    "/Users/vaibhavgupta/Desktop/Python"
+   ],
+   "ingest_profile": {
+    "extensions": [
+     ".pdf",
+     ".epub",
+     ".md",
+     ".txt"
+    ],
+    "chunk_size": 1200
+   },
+   "reliability": 1.0,
+   "tags": [],
+   "index_path": "/Users/vaibhavgupta/Desktop/Project Agentic AI/Agentic-AI/memory/corpora/desk-python/chunks.json",
+   "stats": {
+    "files": 50,
+    "chunks": 2230,
+    "last_ingested": "2026-08-10T02:04:54"
+   }
+  },
+  "desk-quantum-computing": {
+   "id": "desk-quantum-computing",
+   "name": "Quantum Computing",
+   "description": "Desktop library: Quantum Computing",
+   "source_dirs": [
+    "/Users/vaibhavgupta/Desktop/Quantum Computing"
+   ],
+   "ingest_profile": {
+    "extensions": [
+     ".pdf",
+     ".epub",
+     ".md",
+     ".txt"
+    ],
+    "chunk_size": 1200
+   },
+   "reliability": 1.0,
+   "tags": [],
+   "index_path": "/Users/vaibhavgupta/Desktop/Project Agentic AI/Agentic-AI/memory/corpora/desk-quantum-computing/chunks.json",
+   "stats": {
+    "files": 55,
+    "chunks": 33987,
+    "last_ingested": "2026-08-13T08:42:53"
+   }
+  },
+  "desk-reinforcement-learning": {
+   "id": "desk-reinforcement-learning",
+   "name": "Reinforcement Learning",
+   "description": "Desktop library: Reinforcement Learning",
+   "source_dirs": [
+    "/Users/vaibhavgupta/Desktop/Reinforcement Learning"
+   ],
+   "ingest_profile": {
+    "extensions": [
+     ".pdf",
+     ".epub",
+     ".md",
+     ".txt"
+    ],
+    "chunk_size": 1200
+   },
+   "reliability": 1.0,
+   "tags": [],
+   "index_path": "/Users/vaibhavgupta/Desktop/Project Agentic AI/Agentic-AI/memory/corpora/desk-reinforcement-learning/chunks.json",
+   "stats": {
+    "files": 21,
+    "chunks": 1981,
+    "last_ingested": "2026-08-10T02:12:11"
+   }
+  },
+  "desk-robotics": {
+   "id": "desk-robotics",
+   "name": "Robotics",
+   "description": "Desktop library: Robotics",
+   "source_dirs": [
+    "/Users/vaibhavgupta/Desktop/Robotics"
+   ],
+   "ingest_profile": {
+    "extensions": [
+     ".pdf",
+     ".epub",
+     ".md",
+     ".txt"
+    ],
+    "chunk_size": 1200
+   },
+   "reliability": 1.0,
+   "tags": [],
+   "index_path": "/Users/vaibhavgupta/Desktop/Project Agentic AI/Agentic-AI/memory/corpora/desk-robotics/chunks.json",
+   "stats": {
+    "files": 13,
+    "chunks": 1070,
+    "last_ingested": "2026-08-10T02:13:25"
+   }
+  },
+  "desk-university-of-the-cumberlands-assignments": {
+   "id": "desk-university-of-the-cumberlands-assignments",
+   "name": "University of the Cumberlands - Assignments",
+   "description": "Desktop library: University of the Cumberlands - Assignments",
+   "source_dirs": [
+    "/Users/vaibhavgupta/Desktop/University of the Cumberlands - Assignments"
+   ],
+   "ingest_profile": {
+    "extensions": [
+     ".pdf",
+     ".epub",
+     ".md",
+     ".txt"
+    ],
+    "chunk_size": 1200
+   },
+   "reliability": 1.0,
+   "tags": [],
+   "index_path": "/Users/vaibhavgupta/Desktop/Project Agentic AI/Agentic-AI/memory/corpora/desk-university-of-the-cumberlands-assignments/chunks.json",
+   "stats": {
+    "files": 2,
+    "chunks": 591,
+    "last_ingested": "2026-08-10T02:13:40"
+   }
+  },
+  "desk-vaibhav-document": {
+   "id": "desk-vaibhav-document",
+   "name": "Vaibhav- Document",
+   "description": "Desktop library: Vaibhav- Document",
+   "source_dirs": [
+    "/Users/vaibhavgupta/Desktop/Vaibhav- Document"
+   ],
+   "ingest_profile": {
+    "extensions": [
+     ".pdf",
+     ".epub",
+     ".md",
+     ".txt"
+    ],
+    "chunk_size": 1200
+   },
+   "reliability": 1.0,
+   "tags": [],
+   "index_path": "/Users/vaibhavgupta/Desktop/Project Agentic AI/Agentic-AI/memory/corpora/desk-vaibhav-document/chunks.json",
+   "stats": {
+    "files": 7,
+    "chunks": 1,
+    "last_ingested": "2026-08-10T02:13:40"
+   }
+  },
+  "desk-temp-source": {
+   "id": "desk-temp-source",
+   "name": "temp-source",
+   "description": "Desktop library: temp-source",
+   "source_dirs": [
+    "/Users/vaibhavgupta/Desktop/temp-source"
+   ],
+   "ingest_profile": {
+    "extensions": [
+     ".pdf",
+     ".epub",
+     ".md",
+     ".txt"
+    ],
+    "chunk_size": 1200
+   },
+   "reliability": 1.0,
+   "tags": [],
+   "index_path": "/Users/vaibhavgupta/Desktop/Project Agentic AI/Agentic-AI/memory/corpora/desk-temp-source/chunks.json",
+   "stats": {
+    "files": 1,
+    "chunks": 3,
+    "last_ingested": "2026-08-10T02:13:40"
    }
   }
  }

@@ -33,21 +33,134 @@
     font-size:10px; text-transform:uppercase; }
   td { padding:4px 6px; border-bottom:1px solid rgba(255,255,255,.04); }
   .row { display:flex; gap:8px; align-items:center; margin-bottom:6px; }
-  .pill { font-size:10px; padding:2px 8px; border-radius:10px; font-weight:700; }
+  .pill { font-size:10px; padding:2px 8px; border-radius:10px; font-weight:700; white-space:nowrap; }
   .pill.STABLE,.pill.true { background:rgba(63,185,80,.15); color:var(--green); }
   .pill.CONTINUE { background:rgba(210,153,34,.15); color:var(--yellow); }
   .pill.ABORTED,.pill.false,.pill.BLOCKED { background:rgba(248,81,73,.15); color:var(--red); }
+  .pill.introduce { background:rgba(88,166,255,.15); color:var(--accent); }
+  .pill.reinforce { background:rgba(210,153,34,.15); color:var(--yellow); }
+  .pill.advance { background:rgba(63,185,80,.15); color:var(--green); }
   #memContent { max-height:340px; }
+
+  /* ── tabs ─────────────────────────────────────────────────────────── */
+  .tabs { display:flex; gap:6px; margin-bottom:14px; border-bottom:1px solid var(--border); }
+  .tabbtn { background:transparent; color:var(--muted); border:1px solid transparent; border-bottom:0;
+    padding:8px 18px; border-radius:8px 8px 0 0; font-weight:700; cursor:pointer; font-size:13px; }
+  .tabbtn.active { background:var(--card); color:var(--accent); border-color:var(--border); }
+  .tabpanel { display:none; }
+  .tabpanel.active { display:block; }
+
+  /* ── Ask tab ──────────────────────────────────────────────────────── */
+  .ask-layout { display:grid; grid-template-columns:280px 1fr; gap:14px; align-items:start; }
+  @media (max-width:820px) { .ask-layout { grid-template-columns:1fr; } }
+  .chat-log { max-height:520px; overflow-y:auto; display:flex; flex-direction:column; gap:10px; padding:4px 2px; margin-bottom:8px; }
+  .chat-msg { padding:10px 12px; border-radius:8px; font-size:13px; }
+  .chat-msg.user { background:#1c2a3a; align-self:flex-end; max-width:85%; }
+  .chat-msg.assistant { background:#0d1117; border:1px solid var(--border); }
+  .lesson-head { display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-bottom:8px; }
+  /* Structure now comes from block elements mdToHtml emits (headers, spaced
+     paragraphs, formula blocks), so the container must NOT force pre-wrap —
+     that reintroduced the "crammed" whitespace. */
+  .explanation { margin-bottom:8px; }
+  .explanation sub, .explanation sup { font-size:0.72em; line-height:0; }
+  .explanation sub { color:var(--accent); }
+  .explanation sup { color:var(--yellow); }
+  .gaps { margin-bottom:8px; }
+  .evidence summary { cursor:pointer; color:var(--accent); font-size:12px; margin-bottom:4px; }
+  .exercise, .mastery-check, .next-action { margin-top:8px; padding-top:8px; border-top:1px dashed rgba(255,255,255,.08); font-size:12.5px; }
+  .next-action button { font-size:12px; padding:6px 10px; }
+  #micBtn { width:auto; flex:0 0 auto; background:var(--card); border:1px solid var(--border); color:var(--text); }
+  #micBtn.recording { background:var(--red); color:#fff; }
+  #sendBtn { flex:0 0 auto; }
+  #chatInput { flex:1; margin-bottom:0; }
+  #micTranscript { min-height:14px; }
 </style>
 </head>
 <body>
 <h1>🧠 AI Brain — Operator Console</h1>
-<div class="sub">Observability over the Skill Runtime · port 5052 · read-heavy, backend-thin</div>
+<div class="sub">Observability + conversational teaching over the Skill Runtime · port 5052</div>
 
+<div class="tabs">
+  <button class="tabbtn active" id="tabbtn-ask" onclick="showTab('ask')">💬 Ask</button>
+  <button class="tabbtn" id="tabbtn-operate" onclick="showTab('operate')">⚙️ Operate</button>
+</div>
+
+<!-- ══════════════════════════════ ASK TAB ══════════════════════════════ -->
+<div id="tab-ask" class="tabpanel active">
+  <div class="ask-layout">
+
+    <div class="card">
+      <h2>Scope <span style="color:var(--muted);text-transform:none;letter-spacing:0">(required — P9)</span></h2>
+      <div class="row">
+        <select id="scopeType" onchange="renderScopeOptions()">
+          <option value="corpus">Corpus</option>
+          <option value="mission">Mission</option>
+        </select>
+      </div>
+      <div class="row"><select id="scopeValue" onchange="onScopeChange()"></select></div>
+      <div class="sub" id="scopeHint">Retrieval never guesses scope — pick a mission or corpus.</div>
+      <div class="row"><label class="sub" style="display:flex;align-items:center;gap:6px">
+        <input type="checkbox" id="crossCorpus" checked style="width:auto;margin:0">
+        widen to other corpora if this scope has no answer</label></div>
+
+      <h2 style="margin-top:16px">Instruction</h2>
+      <div class="row">
+        <select id="askMode" onchange="updateInstructionHint()">
+          <option value="">mode: auto</option>
+          <option value="explain">explain</option>
+          <option value="socratic">socratic</option>
+          <option value="exercise">exercise</option>
+          <option value="compare">compare</option>
+        </select>
+      </div>
+      <div class="row">
+        <select id="askDepth" onchange="updateInstructionHint()">
+          <option value="">depth: auto</option>
+          <option value="intro">intro</option>
+          <option value="intermediate">intermediate</option>
+          <option value="advanced">advanced</option>
+        </select>
+      </div>
+      <div class="sub" id="instructionHint" style="line-height:1.5"></div>
+
+      <h2 style="margin-top:16px">Voice</h2>
+      <div class="row"><label class="sub" style="display:flex;align-items:center;gap:6px">
+        <input type="checkbox" id="autoSpeak" style="width:auto;margin:0"> auto-speak answers</label></div>
+      <div class="row"><button class="ghost" id="stopSpeakBtn" onclick="stopSpeaking()" disabled>⏹ Stop voice</button></div>
+      <div class="sub">Click the 🎤 button to dictate a question, click it again to stop and send.</div>
+    </div>
+
+    <div class="card">
+      <h2>Ask the Teacher</h2>
+      <div id="chatLog" class="chat-log">
+        <div class="sub">Ask about anything in the selected scope — e.g. "Explain retrieval-augmented generation".
+        Follow-ups like "simpler please" or "now show the math" continue the same concept.</div>
+      </div>
+      <div class="row">
+        <input id="chatInput" placeholder="Ask a question…" onkeydown="if(event.key==='Enter')sendAsk()">
+        <button id="micBtn" title="Click to talk, click again to stop">🎤</button>
+        <button onclick="sendAsk()" id="sendBtn">Ask</button>
+      </div>
+      <div id="micTranscript" class="sub"></div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ═════════════════════════════ OPERATE TAB ═══════════════════════════ -->
+<div id="tab-operate" class="tabpanel">
 <div class="grid">
 
   <div class="card"><h2>System Health</h2><div id="health">loading…</div>
     <div class="row" style="margin-top:8px"><button class="ghost" onclick="loadHealth()">Refresh</button></div>
+  </div>
+
+  <div class="card"><h2>Corpora</h2>
+    <div class="sub" style="margin-bottom:6px">Each corpus's index, independent of the legacy single-index above. A
+      <span class="bad">corrupted_index</span> or <span class="warn">never_ingested</span> corpus answers nothing —
+      Rebuild reads its source_dirs straight from disk (no git/LFS involved).</div>
+    <div id="corporaList">loading…</div>
+    <div class="row" style="margin-top:8px"><button class="ghost" onclick="loadCorpora()">Refresh</button></div>
   </div>
 
   <div class="card"><h2>Ingest Documents</h2>
@@ -97,11 +210,21 @@
   </div>
 
 </div>
+</div>
 
 <script>
 const j = (u, o) => fetch(u, o).then(r => r.json());
 const el = id => document.getElementById(id);
 const pill = v => `<span class="pill ${v}">${v}</span>`;
+const esc = s => (s == null ? '' : String(s)).replace(/[&<>"']/g,
+  c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+function showTab(name) {
+  document.querySelectorAll('.tabpanel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tabbtn').forEach(b => b.classList.remove('active'));
+  el('tab-' + name).classList.add('active');
+  el('tabbtn-' + name).classList.add('active');
+}
 
 async function loadHealth() {
   const h = await j('/api/health');
@@ -124,6 +247,27 @@ async function upload() {
   const r = await j('/api/upload', {method: 'POST', body: fd});
   el('uploadStatus').textContent = r.error ? '✗ ' + r.error :
     `✓ saved ${r.saved} (${r.uploads.length} file(s) in uploads)`;
+}
+
+const CORPUS_STATUS_CLASS = {
+  ok: 'true', never_ingested: 'CONTINUE', missing_index: 'false',
+  empty_index: 'CONTINUE', corrupted_index: 'false',
+};
+async function loadCorpora() {
+  const r = await j('/api/corpora');
+  el('corporaList').innerHTML = r.corpora.map(c => `
+    <div class="kv">
+      <span>${esc(c.name)} <span class="pill ${CORPUS_STATUS_CLASS[c.status] || ''}">${esc(c.status)}</span></span>
+      <span>${c.stats.files ?? 0}f / ${c.stats.chunks ?? 0}c
+        <button class="ghost" style="padding:2px 8px;font-size:11px" onclick="rebuildCorpus('${esc(c.id)}')">Rebuild</button></span>
+    </div>`).join('');
+}
+async function rebuildCorpus(corpusId) {
+  el('corporaList').innerHTML += `<div class="sub">rebuilding ${esc(corpusId)}…</div>`;
+  const r = await j('/api/ingest', {method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({corpus_id: corpusId})});
+  if (r.error) alert(`Rebuild failed for ${corpusId}: ${r.error}${r.detail ? ' — ' + r.detail : ''}`);
+  loadCorpora();
 }
 
 async function ingest() {
@@ -216,7 +360,382 @@ async function loadValidation() {
   ].map(([k, v]) => `<div class="kv"><span>${k}</span><span>${v}</span></div>`).join('');
 }
 
-loadHealth(); loadMemList(); loadLogs(); loadArtifacts(); loadValidation();
+/* ═══════════════════════════ Ask tab (teacher) ═══════════════════════════ */
+
+let SCOPES = {corpora: [], missions: [], default_corpus: 'curated-wiki'};
+let SESSION_ID = null;
+try { SESSION_ID = localStorage.getItem('teacherSessionId'); } catch (e) {}
+
+async function loadScopes() {
+  try { SCOPES = await j('/api/scopes'); } catch (e) { return; }
+  renderScopeOptions();
+}
+
+function renderScopeOptions() {
+  const type = el('scopeType').value;
+  const sel = el('scopeValue');
+  if (type === 'mission') {
+    sel.innerHTML = SCOPES.missions.length
+      ? SCOPES.missions.map(m => `<option value="${esc(m.id)}">${esc(m.title)} (${esc((m.corpora||[]).join('+'))})</option>`).join('')
+      : '<option value="">no missions yet</option>';
+  } else {
+    sel.innerHTML = SCOPES.corpora.map(c =>
+      `<option value="${esc(c.id)}" ${c.id === SCOPES.default_corpus ? 'selected' : ''}>${esc(c.name)}</option>`).join('');
+  }
+  onScopeChange();
+}
+
+function onScopeChange() {
+  const type = el('scopeType').value;
+  const val = el('scopeValue').value;
+  el('scopeHint').textContent = val
+    ? `Scope: ${type} → ${val}`
+    : 'Retrieval never guesses scope — pick a mission or corpus.';
+}
+
+function currentScope() {
+  const type = el('scopeType').value;
+  const val = el('scopeValue').value;
+  if (!val) return {};
+  return type === 'mission' ? {mission_id: val} : {corpora: [val]};
+}
+
+// What each Instruction option actually does — shown live under the dropdowns
+// so the mode/depth controls are self-explanatory instead of mystery knobs.
+const MODE_HELP = {
+  '': 'Auto — inferred from your wording ("compare X vs Y", "quiz me", "explain simply").',
+  explain: 'Explain — a clear, structured, ground-up explanation.',
+  socratic: 'Socratic — teaches by guiding questions, leading you to the answer.',
+  exercise: 'Exercise — practice-first: worked problems + a fresh one to try.',
+  compare: 'Compare — side-by-side of the options, tradeoffs, and when to use each.',
+};
+const DEPTH_HELP = {
+  '': 'Auto — intermediate unless your wording signals otherwise.',
+  intro: 'Intro — intuition and analogies, minimal math.',
+  intermediate: 'Intermediate — standard mechanics with the key equations.',
+  advanced: 'Advanced — full derivations, edge cases, rigorous math.',
+};
+function updateInstructionHint() {
+  const m = MODE_HELP[el('askMode').value] || '';
+  const d = DEPTH_HELP[el('askDepth').value] || '';
+  el('instructionHint').innerHTML = `<b>${esc(m.split('—')[0].trim())}</b> ${esc(m.split('—').slice(1).join('—').trim())}<br>` +
+                                    `<b>${esc(d.split('—')[0].trim())}</b> ${esc(d.split('—').slice(1).join('—').trim())}`;
+}
+
+function addChatMsg(role, html) {
+  const log = el('chatLog');
+  const div = document.createElement('div');
+  div.className = 'chat-msg ' + role;
+  div.innerHTML = html;
+  log.appendChild(div);
+  log.scrollTop = log.scrollHeight;
+  return div;
+}
+
+// Render plain-text math notation as real typography: p_θ -> p<sub>θ</sub>,
+// f_θ^{-1} -> f<sub>θ</sub><sup>-1</sup>, x_{i-1} -> x<sub>i-1</sub>. Without
+// this, subscripts/superscripts show as literal "_" and "^" characters and an
+// "exponential" like ^{-1} never actually looks raised — the exact "distorted,
+// crammed" complaint. Operates on ALREADY-ESCAPED text and only inserts safe
+// <sub>/<sup> tags, so it can't introduce injection. Greek letters are covered
+// via the Unicode \p{L} class (u flag), since e.g. the θ in p_θ isn't ASCII.
+function _mathify(s) {
+  // Braced forms first (may hold hyphens/parens/commas: ^{-1}, _{i-1}, _{q(z|x)}).
+  s = s.replace(/\^\{([^{}]*)\}/g, '<sup>$1</sup>');
+  s = s.replace(/_\{([^{}]*)\}/g, '<sub>$1</sub>');
+  // Then bare single-token sub/superscripts (letters incl. Greek, or digits).
+  s = s.replace(/\^(-?[\p{L}\p{N}]+)/gu, '<sup>$1</sup>');
+  s = s.replace(/_([\p{L}\p{N}]+)/gu, '<sub>$1</sub>');
+  return s;
+}
+
+// A standalone equation line: has a math operator/function AND is symbol-dense
+// rather than a full explanatory sentence (so "the loss is E[x] here" doesn't
+// get pulled out of its paragraph just for containing a bracket). Rendered as
+// its own spaced-out, monospaced block — like a markdown renderer's display-
+// math treatment — instead of running straight into the surrounding prose,
+// which was the "everything crammed together" complaint.
+function _looksLikeFormula(line) {
+  const hasMathOp = /[=∑∏∫√≈≤≥∞∂∇×·±→]/.test(line) ||
+                    /\b(sqrt|log|exp|sum|prod)\(/.test(line);
+  if (!hasMathOp || line.length > 220) return false;
+  const words = line.split(/\s+/).filter(Boolean);
+  const proseWordRatio = words.filter(w => /^[A-Za-z]{4,}$/.test(w)).length / Math.max(1, words.length);
+  return proseWordRatio < 0.4;
+}
+
+// A list item that is really a labelled equation, e.g.
+// "VAE ELBO: log p_θ(x) ≥ ...". Give the equation part display-math styling so
+// the "Summary of Key Equations" list reads as formulas, not run-on bullets.
+function _labelledEquationLi(item) {
+  const m = item.match(/^([A-Za-z][A-Za-z0-9 /()-]{0,40}?):\s+(.*)$/);
+  if (m && _looksLikeFormula(m[2])) {
+    return `<b>${m[1]}:</b><div style="margin:4px 0 2px;padding:6px 12px;` +
+           `background:var(--bg);border-left:3px solid var(--accent);border-radius:4px;` +
+           `font-family:ui-monospace,Menlo,Consolas,monospace;font-size:13px;` +
+           `overflow-x:auto;white-space:pre-wrap;word-break:break-word">${_mathify(m[2])}</div>`;
+  }
+  return _mathify(item);
+}
+
+// Minimal, safe markdown -> HTML: escapes first (so no raw HTML can ever be
+// injected), THEN interprets markdown syntax on the escaped text — headers,
+// bold, lists, standalone formulas, and inline sub/superscript math — so a
+// comprehensive multi-section lesson reads as properly spaced structured prose
+// with real math typography, not a wall of "## "/"**"/"_"/"^" literals. No
+// LaTeX (the teacher prompt writes plain Unicode notation instead).
+function mdToHtml(text) {
+  const lines = esc(text || '').split('\n');
+  let html = '', inList = false;
+  const closeList = () => { if (inList) { html += '</ul>'; inList = false; } };
+  for (let raw of lines) {
+    const line = raw.trim();
+    const h = line.match(/^(#{2,4})\s+(.*)$/);
+    const li = line.match(/^[-*]\s+(.*)$/);
+    if (h) {
+      closeList();
+      const tag = 'h' + Math.min(6, h[1].length + 2);
+      html += `<${tag} style="margin:16px 0 6px">${h[2]}</${tag}>`;
+    } else if (li) {
+      if (!inList) { html += '<ul style="margin:6px 0 10px;padding-left:22px;line-height:1.8">'; inList = true; }
+      html += `<li style="margin-bottom:8px">${_labelledEquationLi(li[1])}</li>`;
+    } else if (line === '') {
+      closeList();
+    } else if (_looksLikeFormula(line)) {
+      closeList();
+      html += `<div style="margin:12px 4px;padding:10px 14px;background:var(--bg);` +
+              `border-left:3px solid var(--accent);border-radius:4px;` +
+              `font-family:ui-monospace,Menlo,Consolas,monospace;font-size:14px;` +
+              `line-height:1.9;overflow-x:auto;white-space:pre-wrap;word-break:break-word">` +
+              `${_mathify(line)}</div>`;
+    } else {
+      closeList();
+      html += `<div style="margin:0 0 12px;line-height:1.7">${_mathify(line)}</div>`;
+    }
+  }
+  closeList();
+  return html.replace(/\*\*(.+?)\*\*/g, '<b>$1</b>').replace(/`([^`]+)`/g, '<code>$1</code>');
+}
+
+function renderLesson(resp) {
+  const l = resp.lesson;
+  const groundedBadge = l.provenance_grounded
+    ? '<span class="pill true">grounded</span>'
+    : '<span class="pill false">⚠ not grounded — no supporting evidence found</span>';
+  const gaps = l.adaptation.prerequisite_gaps || [];
+  const gapsHtml = gaps.length
+    ? `<div class="gaps warn sub">You may want to learn first: ${gaps.map(g =>
+        `<b>${esc(g.concept)}</b> (${esc(g.reason)})`).join('; ')}</div>`
+    : '';
+  const evidence = l.source_evidence.length
+    ? l.source_evidence.map(e => `<div class="chunk"><div class="src">${esc((e.corpus||[]).join('+'))} · ${esc(e.source)}</div>${esc(e.excerpt)}</div>`).join('')
+    : '<div class="sub">none</div>';
+  // Show the mode + depth that were actually applied this turn (esp. useful when
+  // they were auto-inferred), so the Instruction controls are transparent.
+  const rv = resp.resolved || {};
+  const modeDepth = (rv.mode || rv.depth)
+    ? `<span class="pill introduce" title="teaching mode + depth applied">${esc(rv.mode||'explain')} · ${esc(rv.depth||'intermediate')}</span>`
+    : '';
+  const html = `
+    <div class="lesson-head">${groundedBadge} ${modeDepth}
+      <span class="pill ${esc(l.adaptation.level)}">${esc(l.adaptation.level)}</span>
+      <span class="sub">${esc(l.adaptation.rationale)}</span>
+      <button class="ghost speak-btn" title="Read this lesson aloud" style="margin-left:auto;padding:3px 9px;font-size:11px">🔊 Play</button></div>
+    <div class="explanation">${mdToHtml(l.explanation)}</div>
+    ${gapsHtml}
+    <details class="evidence"><summary>Grounded in (${l.source_evidence.length})</summary>${evidence}</details>
+    <div class="exercise"><b>Exercise</b> <span class="sub">(${esc(l.exercise.kind)})</span> — ${esc(l.exercise.prompt)}</div>
+    <div class="mastery-check"><b>Mastery check</b> — ${esc(l.mastery_check.question)}
+      <details><summary>expected signal</summary>${esc(l.mastery_check.expected_signal)}</details></div>
+    <div class="next-action"><button class="ghost next-action-btn" data-action="${esc(l.recommended_next_action.action)}">→ ${esc(l.recommended_next_action.action)}</button></div>
+  `;
+  const div = addChatMsg('assistant', html);
+  div.dataset.speech = resp.speech || '';
+  if (el('autoSpeak').checked) speak(resp.speech);
+}
+
+el('chatLog').addEventListener('click', ev => {
+  const nextBtn = ev.target.closest('.next-action-btn');
+  if (nextBtn) { sendAsk(nextBtn.dataset.action); return; }
+  const speakBtn = ev.target.closest('.speak-btn');
+  if (speakBtn) {
+    // A real click, always within the activation window — the reliable
+    // fallback regardless of why auto-speak (fired after an async fetch)
+    // may not have played.
+    const text = speakBtn.closest('.chat-msg')?.dataset.speech;
+    if (text) speak(text);
+  }
+});
+
+async function sendAsk(overrideText) {
+  const text = (overrideText !== undefined ? overrideText : el('chatInput').value).trim();
+  if (text.length < 3) return;
+  const scope = currentScope();
+  if (!scope.corpora && !scope.mission_id) {
+    addChatMsg('assistant', '<span class="bad">Pick a mission or corpus first — scope is required.</span>');
+    return;
+  }
+  addChatMsg('user', esc(text));
+  el('chatInput').value = '';
+  el('sendBtn').disabled = true;
+  const body = Object.assign({message: text, session_id: SESSION_ID}, scope);
+  const mode = el('askMode').value; if (mode) body.mode = mode;
+  const depth = el('askDepth').value; if (depth) body.depth = depth;
+  body.cross_corpus = el('crossCorpus').checked;
+  try {
+    const r = await fetch('/api/ask', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)});
+    const resp = await r.json();
+    if (!r.ok) {
+      addChatMsg('assistant', `<span class="bad">${esc(resp.error || 'error')}${resp.detail ? ': ' + esc(resp.detail) : ''}</span>`);
+      return;
+    }
+    SESSION_ID = resp.session_id;
+    try { localStorage.setItem('teacherSessionId', SESSION_ID); } catch (e) {}
+    renderLesson(resp);
+  } catch (e) {
+    addChatMsg('assistant', `<span class="bad">request failed: ${esc(String(e))}</span>`);
+  } finally {
+    el('sendBtn').disabled = false;
+  }
+}
+
+/* ── Voice: click-to-talk mic (SpeechRecognition) ───────────────────────
+   Was press-and-hold (mousedown -> start, mouseup -> stop). A normal click
+   fires both within milliseconds — start()/stop() raced each other before
+   the mic permission prompt resolved or any audio was captured, so nothing
+   ever visibly happened: exactly the reported "just sits there" symptom.
+   Click-to-toggle removes the timing race entirely: one click starts and
+   gives immediate visual feedback, a second click (or natural end-of-speech)
+   stops it. */
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+if (SR) {
+  const recognizer = new SR();
+  // continuous=false stops listening at the FIRST brief pause in speech —
+  // normal micro-pauses between clauses (every 6-8 words) were being read as
+  // "done talking", cutting sentences short. continuous=true keeps listening
+  // (accumulating results across pauses) until the user clicks stop.
+  recognizer.continuous = true;
+  recognizer.interimResults = true;
+  let listening = false;
+  const micBtn = el('micBtn');
+
+  recognizer.onresult = e => {
+    let text = '';
+    for (let i = 0; i < e.results.length; i++) text += e.results[i][0].transcript;
+    el('micTranscript').textContent = text;
+    el('chatInput').value = text;
+  };
+  const MIC_ERROR_HELP = {
+    'not-allowed': 'Microphone permission denied — allow it in the browser\'s site settings and retry.',
+    'no-speech': 'No speech detected — click 🎤 and speak, then click again (or pause) to send.',
+    'audio-capture': 'No microphone found.',
+    'network': 'Speech recognition needs network access and failed to reach it.',
+    'aborted': null,   // user-initiated stop; not an error worth surfacing
+  };
+  recognizer.onerror = e => {
+    listening = false;
+    micBtn.classList.remove('recording');
+    const msg = MIC_ERROR_HELP[e.error];
+    if (msg !== null) el('micTranscript').textContent = '⚠ ' + (msg || `mic error: ${e.error}`);
+  };
+  recognizer.onend = () => {
+    // With continuous=true this fires mainly on stop() (the user's second
+    // click) rather than on every micro-pause — but always resync the button
+    // regardless of why it fired, so it can never get stuck showing "recording".
+    const wasListening = listening;
+    listening = false;
+    micBtn.classList.remove('recording');
+    if (wasListening && el('chatInput').value.trim()) {
+      setTimeout(() => sendAsk(), 200);
+    }
+  };
+  micBtn.addEventListener('click', () => {
+    if (listening) {
+      recognizer.stop();          // onend handles cleanup + auto-send
+      return;
+    }
+    el('micTranscript').textContent = '🎙 listening… click again to stop.';
+    el('chatInput').value = '';
+    try {
+      recognizer.start();
+      listening = true;
+      micBtn.classList.add('recording');
+    } catch (e) {
+      el('micTranscript').textContent = '⚠ could not start microphone: ' + e;
+    }
+  });
+} else {
+  el('micBtn').style.display = 'none';
+  el('micTranscript').textContent = 'Voice input isn\'t supported in this browser (needs Chrome/Edge/Safari).';
+}
+
+/* ── Voice: auto-speak answers (speechSynthesis) ───────────────────────
+   Known Chrome/WebKit failure modes this works around, all silent (no error
+   event, audio just never plays):
+     1. cancel() immediately followed by speak() races internally — the new
+        utterance can be dropped. Only cancel when actually speaking/pending,
+        and give cancel() a beat before the next speak().
+     2. getVoices() can be empty on the very first call of a page session
+        (voice list loads async) — speak() then no-ops. Wait for
+        'voiceschanged' once if so, with a timeout so we never hang forever.
+     3. Very long single utterances are flaky in some engines — speak in
+        sentence-sized chunks (also queues naturally: multiple speak() calls
+        play back-to-back) instead of one multi-thousand-character utterance,
+        which single-source explanations now routinely are. */
+function _voicesReady() {
+  if (!('speechSynthesis' in window)) return Promise.resolve(false);
+  if (window.speechSynthesis.getVoices().length > 0) return Promise.resolve(true);
+  return new Promise(resolve => {
+    const done = () => resolve(window.speechSynthesis.getVoices().length > 0);
+    window.speechSynthesis.addEventListener('voiceschanged', done, {once: true});
+    setTimeout(done, 1000);   // don't hang forever if voiceschanged never fires
+  });
+}
+
+let _speakGeneration = 0;   // bumped on stop/new speak so stale queued chunks don't resume
+
+async function speak(text) {
+  if (!('speechSynthesis' in window) || !text) return;
+  const gen = ++_speakGeneration;
+  const synth = window.speechSynthesis;
+  if (synth.speaking || synth.pending) {
+    synth.cancel();
+    await new Promise(r => setTimeout(r, 80));
+  }
+  if (!(await _voicesReady())) {
+    el('micTranscript').textContent = '⚠ no speech voices available on this system/browser.';
+    return;
+  }
+  if (gen !== _speakGeneration) return;   // superseded while we were waiting
+
+  const chunks = text.match(/[^.!?\n]+[.!?\n]*/g) || [text];
+  el('stopSpeakBtn').disabled = false;
+  let started = false;
+  const startTimer = setTimeout(() => {
+    if (!started) el('micTranscript').textContent = '⚠ voice did not start — try the 🔊 button on the message.';
+  }, 3000);
+  chunks.forEach((chunk, i) => {
+    const u = new SpeechSynthesisUtterance(chunk.trim());
+    u.onstart = () => { started = true; clearTimeout(startTimer); };
+    if (i === chunks.length - 1) {
+      u.onend = () => { if (gen === _speakGeneration) el('stopSpeakBtn').disabled = true; };
+    }
+    synth.speak(u);
+  });
+}
+function stopSpeaking() {
+  _speakGeneration++;   // stop any chunks still queued from resuming
+  if ('speechSynthesis' in window) { try { window.speechSynthesis.cancel(); } catch (e) {} }
+  el('stopSpeakBtn').disabled = true;
+}
+if (!('speechSynthesis' in window)) {
+  el('autoSpeak').disabled = true;
+  el('stopSpeakBtn').style.display = 'none';
+}
+
+loadScopes();
+updateInstructionHint();
+loadHealth(); loadCorpora(); loadMemList(); loadLogs(); loadArtifacts(); loadValidation();
 </script>
 </body>
 </html>

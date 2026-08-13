@@ -19,8 +19,16 @@ if str(ROOT) not in sys.path:
 from flask import Flask, jsonify, request, send_from_directory
 
 # Depend ONLY on the AIOS Core public SDK (PROJECT_CHARTER.md P10, req #3).
-from aios_core import skill, workflow, memory
+from aios_core import skill, workflow, memory, mission as mission_sdk
 from aios_core.runtime.registry import Registry   # discovery (health panel)
+from second_brain import corpus_manager
+
+# The teacher skill's ONE model seam. Reused, not reimplemented (the app's
+# LLM adapter lives in learn_agent — brain/console must not fork it). Called
+# as `teacher_adapter.make_llm_adapter()` (not imported by name) so tests can
+# monkeypatch the module attribute the same way learn_agent's own tests do.
+from learn_agent import teacher_adapter
+import teach_session as ts
 
 def dispatch(sid, inputs, context=None):
     return skill.run(sid, inputs, context)
@@ -30,6 +38,12 @@ METRICS_PATH = memory.metrics_path()
 MEMORY = ROOT / "memory"
 UPLOADS = MEMORY / "uploads"
 WIKI_BOOKS = Path("~/Documents/brain/Vaibhav's Second Brain/wiki/books").expanduser()
+SESSIONS_PATH = MEMORY / "teacher_sessions.json"
+DEFAULT_CORPUS = "ai-books"              # the actual book library (25.8k chunks);
+                                          # curated-wiki (96 chunks, hand-written notes)
+                                          # was a misleading default — most questions
+                                          # aren't in scope for it. /api/search below
+                                          # keeps curated-wiki deliberately (debug tool).
 
 app = Flask(__name__, static_folder="static")
 
@@ -90,13 +104,53 @@ def upload():
 
 @app.route("/api/ingest", methods=["POST"])
 def ingest():
-    source = (request.json or {}).get("source", "wiki")
+    data = request.json or {}
+    corpus_id = data.get("corpus_id")
+    if corpus_id:
+        # Rebuild a registered corpus (memory/corpora/<id>/chunks.json) straight
+        # from its source_dirs — the self-service fix for exactly the failure
+        # mode that broke this console once already: a corpus's index file
+        # ends up corrupted or missing (e.g. an un-pulled Git LFS pointer sitting
+        # where the real chunks.json belongs) while the source library on disk
+        # is still intact. No need to touch git or wait on an operator.
+        r = dispatch("book_ingestion", {"corpus_id": corpus_id})
+        if not r.ok:
+            return jsonify({"error": r.failure, "detail": r.failure_detail}), 500
+        return jsonify({"note": f"corpus '{corpus_id}' rebuilt from its source_dirs",
+                        **r.output, "metrics": r.metrics})
+    source = data.get("source", "wiki")
     src_dir = str(UPLOADS) if source == "uploads" else str(WIKI_BOOKS)
     r = dispatch("book_ingestion", {"source_dir": src_dir})
     if not r.ok:
         return jsonify({"error": r.failure, "detail": r.failure_detail}), 500
     return jsonify({"note": "index rebuilt from source (backend semantics: one index)",
                     **r.output, "metrics": r.metrics})
+
+
+@app.route("/api/corpora")
+def corpora_status():
+    """Per-corpus health — surfaces a corpus whose registry stats claim chunks
+    but whose index file is missing/corrupted (the failure mode that silently
+    broke every out-of-scope Ask query until it was diagnosed and rebuilt)."""
+    out = []
+    for c in corpus_manager.list_corpora():
+        idx = Path(c["index_path"])
+        stats = c.get("stats", {})
+        status = "ok"
+        if not idx.exists():
+            status = "missing_index"
+        elif stats.get("chunks", 0) == 0:
+            status = "never_ingested"
+        else:
+            try:
+                d = json.loads(idx.read_text())
+                if len(d.get("chunks", [])) == 0:
+                    status = "empty_index"
+            except (json.JSONDecodeError, UnicodeDecodeError):
+                status = "corrupted_index"  # e.g. an un-pulled Git LFS pointer stub
+        out.append({"id": c["id"], "name": c.get("name", c["id"]),
+                    "status": status, "stats": stats})
+    return jsonify({"corpora": out})
 
 
 # ── Search / retrieval ─────────────────────────────────────────────────────
@@ -109,6 +163,63 @@ def search():
     if not r.ok:
         return jsonify({"error": r.failure, "detail": r.failure_detail}), 500
     return jsonify(r.output)
+
+
+# ── Teacher (conversational) ────────────────────────────────────────────────
+@app.route("/api/scopes")
+def scopes():
+    """Corpora + missions the Ask tab lets the operator pick as REQUIRED
+    retrieval scope (P9 — the console never guesses it for the user)."""
+    corpora = [{"id": c["id"], "name": c.get("name", c["id"])}
+               for c in corpus_manager.list_corpora()]
+    missions = [{"id": m["id"], "title": m["title"], "corpora": m.get("corpora", [])}
+                for m in mission_sdk.list_all()]
+    return jsonify({"corpora": corpora, "missions": missions, "default_corpus": DEFAULT_CORPUS})
+
+
+@app.route("/api/ask", methods=["POST"])
+def ask():
+    data = request.json or {}
+    message = (data.get("message") or "").strip()
+    mission_id = data.get("mission_id")
+    corpora = data.get("corpora")
+    if not mission_id and not corpora:
+        return jsonify({"error": "scope required: pick a mission or corpus "
+                                  "(P9 — scope is never guessed)"}), 400
+    if len(message) < 3:
+        return jsonify({"error": "message too short"}), 400
+
+    session_id = (data.get("session_id") or "").strip() or ts.new_session_id()
+    store = ts.load_store(SESSIONS_PATH)
+    session = ts.get_session(store, session_id)
+    turn = ts.resolve_turn(session, message, explicit_topic=data.get("topic"),
+                           explicit_mode=data.get("mode"), explicit_depth=data.get("depth"))
+
+    inputs = {"topic": turn["topic"], "mode": turn["mode"], "depth": turn["depth"]}
+    if mission_id:
+        inputs["mission_id"] = mission_id
+    if corpora:
+        inputs["corpora"] = corpora
+    if data.get("cross_corpus") is not None:
+        inputs["cross_corpus"] = bool(data["cross_corpus"])
+    if turn["is_followup"] and session.get("last_concept"):
+        mastery = ts.build_mastery_input(store, session["last_concept"])
+        if mastery:
+            inputs["mastery"] = mastery
+
+    context = {"agent_adapter": teacher_adapter.make_llm_adapter()}
+    r = dispatch("teacher", inputs, context)
+    if not r.ok:
+        return jsonify({"error": r.failure, "detail": r.failure_detail,
+                        "resolved": turn, "session_id": session_id}), 502
+
+    lesson = r.output
+    concept_name = lesson["concept_candidate"]["name"]
+    ts.record_turn(store, session_id, turn["topic"], turn["mode"], turn["depth"], concept_name)
+    ts.bump_mastery(store, concept_name)
+    ts.save_store(SESSIONS_PATH, store)
+    return jsonify({"session_id": session_id, "resolved": turn, "lesson": lesson,
+                    "speech": ts.to_speech(lesson["explanation"])})
 
 
 # ── Recursive planner ──────────────────────────────────────────────────────

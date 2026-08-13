@@ -14,6 +14,13 @@ learn_agent/data/
 **/metrics.jsonl
 data/last_self_check.json
 
+# Desktop-library corpora: ~1.2 GB of chunk indexes derived from local books.
+# desk-physics/chunks.json alone is 162 MB, past GitHub's 100 MB hard limit.
+# Regenerate with corpus_manager.ingest_corpus(<id>) from the source dirs named
+# in memory/corpora/registry.json, which IS tracked.
+memory/corpora/desk-*/
+*.bak-prechunkfix
+
 # Python / OS noise
 __pycache__/
 *.py[cod]

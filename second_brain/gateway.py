@@ -32,7 +32,14 @@ def _get_retriever(corpus_id: str) -> Retriever | None:
     idx = Path(c["index_path"])
     if not idx.exists() or c["stats"]["chunks"] == 0:
         return None                       # registered but not ingested
-    r = Retriever(idx)
+    try:
+        r = Retriever(idx)
+    except (json.JSONDecodeError, KeyError, UnicodeDecodeError):
+        # A corrupted index (e.g. an un-pulled Git LFS pointer stub sitting
+        # where real chunks.json should be) must degrade this ONE corpus to
+        # "no hits" — matching retrieve_context's "empty on no-signal"
+        # contract — never crash the whole /api/ask request for every corpus.
+        return None
     _retrievers[corpus_id] = r
     return r
 

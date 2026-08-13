@@ -1,5 +1,5 @@
 # critic_report.md — Evidence Verification
-<!-- Generated 2026-07-11 by second_brain/critic.py. Overwritten each run. -->
+<!-- Generated 2026-08-10 by second_brain/critic.py. Overwritten each run. -->
 
 | concept | confidence | status | flags |
 |---|---|---|---|

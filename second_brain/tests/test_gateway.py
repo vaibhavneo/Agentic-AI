@@ -80,14 +80,17 @@ def test_cross_corpus_flagging():
     import tempfile
     from second_brain import corpus_manager as cm
     tmp = Path(tempfile.mkdtemp(prefix="gwtest_corpus_"))
+    # Use ONLY invented nonsense tokens (zqxvium, flurbo, blorptang) with no real
+    # words, and query only those, so no other registered corpus can partially
+    # match — the widening assertion stays hermetic even when the ambient
+    # registry holds a large real-book library.
     (tmp / "zqx.md").write_text(
-        "# Flurbo dynamics\n\nThe zqxvium flurbo resonance principle states "
-        "that flurbo dynamics stabilize under zqxvium coupling.\n")
+        "# Flurbo\n\nThe zqxvium flurbo blorptang: flurbo zqxvium blorptang.\n")
     cm.register({"id": "gwtest-synth", "name": "t", "description": "t",
                  "source_dirs": [str(tmp)]})
     cm.ingest_corpus("gwtest-synth")
 
-    query = "zqxvium flurbo resonance principle"
+    query = "zqxvium flurbo blorptang"
     _make_mission("gwtest-b", ["personal-notes"], cross=True)
     r = retrieve(query, mission_id="gwtest-b", top_k=5)
     outside = [h for h in r["hits"] if "gwtest-synth" in h["corpus"]]
@@ -143,8 +146,20 @@ def test_dedup_keeps_both_provenances():
 
 def test_unregistered_and_empty_corpora():
     print("=== registered-but-empty corpora are skipped, not fatal ===")
-    r = retrieve("anything at all", corpora=["finance"])   # registered, not ingested
-    check("empty corpus → empty result, no crash", r["n"] == 0)
+    # Register a corpus but never ingest it — a fresh fixture, not a hardcoded
+    # production corpus (those are all expected to be populated now; the
+    # console once shipped with several silently un-ingested, which this
+    # gateway behavior alone can't catch — see /api/corpora for that check).
+    from second_brain import corpus_manager as cm
+    cm.register({"id": "gwtest-empty", "name": "t", "description": "t",
+                 "source_dirs": []})
+    try:
+        r = retrieve("anything at all", corpora=["gwtest-empty"])
+        check("empty corpus → empty result, no crash", r["n"] == 0)
+    finally:
+        reg = cm.load_registry(); reg["corpora"].pop("gwtest-empty", None)
+        cm.save_registry(reg)
+        gateway._retrievers.pop("gwtest-empty", None)
     try:
         retrieve("x", corpora=["no-such-corpus"])
         check("unknown corpus raises KeyError", False)
