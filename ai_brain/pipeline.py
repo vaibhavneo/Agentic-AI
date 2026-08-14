@@ -91,17 +91,42 @@ class Budget:
 
 
 def _call(client, stage, depth, system, user, budget, force=None):
+    """One model call, with an automatic retry when the budget is swallowed.
+
+    deepseek-v4 reasons before answering and those tokens count against
+    max_tokens, so a budget sized for the prose alone can be consumed entirely
+    by the reasoning chain and return empty content with finish_reason
+    "length". This has now bitten three separate stages — the observed case
+    here was a survey call reporting completion=3000, reasoning=3000, content
+    length 0 on a 14k-character prompt.
+
+    Retrying once with double the room is far cheaper than losing the run, and
+    putting it here means every stage inherits the guard instead of each one
+    rediscovering the failure.
+    """
     spec = force or plan_for(stage, depth)
     if spec is None:
         return ""
     model, max_tokens = spec
-    t0 = time.monotonic()
-    resp = client.chat.completions.create(
-        model=model, max_tokens=max_tokens,
-        messages=[{"role": "system", "content": system},
-                  {"role": "user", "content": user}])
-    budget.record(stage, model, resp.usage, time.monotonic() - t0)
-    return resp.choices[0].message.content or ""
+
+    def once(limit):
+        t0 = time.monotonic()
+        resp = client.chat.completions.create(
+            model=model, max_tokens=limit,
+            messages=[{"role": "system", "content": system},
+                      {"role": "user", "content": user}])
+        budget.record(stage, model, resp.usage, time.monotonic() - t0)
+        return (resp.choices[0].message.content or "").strip(), resp
+
+    text, resp = once(max_tokens)
+    if not text:
+        finish = getattr(resp.choices[0], "finish_reason", "")
+        used = getattr(getattr(resp.usage, "completion_tokens_details", None),
+                       "reasoning_tokens", 0) or 0
+        budget.by_stage.setdefault(stage, {})["retried"] = (
+            f"empty at {max_tokens} tokens (finish={finish}, reasoning={used})")
+        text, _ = once(max_tokens * 2)
+    return text
 
 
 def _json_from(text: str, fallback: dict) -> dict:
