@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Brain — grounded in your own library</title>
+<link rel="stylesheet" href="/vendor/katex/katex.min.css">
+<script src="/vendor/katex/katex.min.js"></script>
+<style>
+:root{
+  --bg:#FAFAFB; --surface:#FFFFFF; --surface2:#F1F3F8; --border:#DDE1EC;
+  --text:#12151F; --muted:#5A6377;
+  --accent:#3F5BD9; --accent-soft:rgba(63,91,217,.10);
+  --violet:#6D4AA8; --violet-soft:rgba(109,74,168,.10);
+  --amber:#A9690D; --amber-soft:rgba(169,105,13,.10);
+  --magenta:#A63A6B; --magenta-soft:rgba(166,58,107,.10);
+  --green:#1F7A4D; --green-soft:rgba(31,122,77,.10);
+  --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  --serif:ui-serif,Georgia,"Iowan Old Style",serif;
+  --sans:system-ui,-apple-system,"Segoe UI",sans-serif;
+  --r:10px;
+}
+@media (prefers-color-scheme:dark){:root{
+  --bg:#0B0E17; --surface:#131829; --surface2:#1B2135; --border:#28304A;
+  --text:#DDE3F0; --muted:#8592AD;
+  --accent:#7D93F0; --accent-soft:rgba(125,147,240,.12);
+  --violet:#A98BE8; --violet-soft:rgba(169,139,232,.12);
+  --amber:#E0A44A; --amber-soft:rgba(224,164,74,.12);
+  --magenta:#E27BAE; --magenta-soft:rgba(226,123,174,.12);
+  --green:#4FBF8B; --green-soft:rgba(79,191,139,.12);
+}}
+*,*::before,*::after{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font-family:var(--sans);font-size:15px;line-height:1.6;-webkit-font-smoothing:antialiased}
+.wrap{max-width:900px;margin:0 auto;padding:34px 20px 80px}
+
+header h1{font-family:var(--serif);font-size:1.5rem;font-weight:600;margin:0;letter-spacing:-.01em}
+header p{margin:3px 0 0;color:var(--muted);font-size:.86rem}
+.shelfbar{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:14px 0 22px;
+  padding:9px 12px;border:1px solid var(--border);border-radius:var(--r);background:var(--surface);font-size:.78rem}
+.shelfbar .pill{font-family:var(--mono);font-size:.7rem;padding:2px 7px;border-radius:20px;
+  background:var(--surface2);color:var(--muted)}
+.shelfbar .ok{background:var(--green-soft);color:var(--green);font-weight:700}
+.shelfbar .no{background:var(--amber-soft);color:var(--amber);font-weight:700}
+
+.log{margin-bottom:18px}
+.msg{margin-bottom:14px;display:flex}
+.msg.me{justify-content:flex-end}
+.bubble{max-width:88%;background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:13px 16px}
+.msg.me .bubble{background:var(--accent-soft);border-color:transparent}
+
+.trace{font-family:var(--mono);font-size:.75rem;border-left:2px solid var(--border);padding-left:11px}
+.trace-row{display:flex;gap:9px;padding:2px 0;color:var(--muted)}
+.trace-row .st{color:var(--accent);min-width:70px;font-weight:600}
+.trace-row.run .st::after{content:"…"}
+.trace-row.err .st{color:var(--magenta)}
+
+.prov{display:inline-block;font-family:var(--mono);font-size:.63rem;font-weight:700;letter-spacing:.05em;
+  text-transform:uppercase;padding:1px 6px;border-radius:4px;vertical-align:.12em}
+.prov-retrieved{background:var(--violet-soft);color:var(--violet)}
+.prov-adapted{background:var(--amber-soft);color:var(--amber)}
+.adapt-bar{display:flex;gap:9px;align-items:center;flex-wrap:wrap;font-size:.77rem;color:var(--muted);
+  border:1px solid var(--border);border-radius:8px;padding:7px 11px;margin-bottom:12px}
+
+.cite{display:inline-block;font-family:var(--mono);font-size:.68rem;font-weight:700;padding:0 5px;
+  border-radius:4px;background:var(--violet-soft);color:var(--violet);cursor:pointer;vertical-align:.1em}
+.cite:hover{outline:1px solid var(--violet)}
+.cite.miss{background:var(--magenta-soft);color:var(--magenta)}
+
+.prose{font-family:var(--serif);font-size:1.02rem;line-height:1.72}
+.prose p{margin:0 0 .85em}
+.prose .sec-h{font-family:var(--sans);font-size:.72rem;font-weight:700;letter-spacing:.08em;
+  text-transform:uppercase;color:var(--muted);margin:1.3em 0 .5em}
+.prose code{font-family:var(--mono);font-size:.88em;background:var(--surface2);padding:1px 5px;border-radius:4px}
+.prose pre{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:11px 13px;
+  overflow-x:auto;font-family:var(--mono);font-size:.82rem;line-height:1.5}
+.prose pre code{background:none;padding:0}
+.eqblock{background:var(--surface2);border:1px solid var(--border);border-radius:8px;
+  padding:13px;margin:.8em 0;text-align:center;overflow-x:auto}
+.prose li{margin:.25em 0}
+
+details.fold{margin-top:13px;border-top:1px solid var(--border);padding-top:9px}
+details.fold>summary{cursor:pointer;font-size:.75rem;color:var(--muted);list-style:none}
+details.fold>summary::-webkit-details-marker{display:none}
+details.fold>summary::before{content:"▸ ";color:var(--accent)}
+details.fold[open]>summary::before{content:"▾ "}
+
+.ev-item{border:1px solid var(--border);border-radius:8px;padding:9px 11px;margin-bottom:6px;background:var(--surface)}
+.ev-item.rej{opacity:.55;border-style:dashed}
+.ev-head{display:flex;gap:8px;align-items:baseline;flex-wrap:wrap;font-size:.75rem;margin-bottom:5px}
+.ev-src{font-weight:600}
+.ev-shelf{font-family:var(--mono);font-size:.68rem;background:var(--surface2);padding:1px 6px;border-radius:4px;color:var(--muted)}
+.ev-score{font-family:var(--mono);font-size:.7rem;color:var(--muted)}
+.ev-text{font-size:.81rem;color:var(--muted);line-height:1.5;max-height:5.4em;overflow:hidden}
+.ev-item.open .ev-text{max-height:none}
+.ev-why{font-family:var(--mono);font-size:.7rem;color:var(--magenta)}
+.strength{font-family:var(--mono);font-size:.72rem}
+.s-usable{color:var(--green)} .s-weak{color:var(--amber)} .s-none{color:var(--magenta)}
+
+.composer{position:sticky;bottom:0;background:linear-gradient(transparent,var(--bg) 22%);padding-top:16px}
+.crow{display:flex;gap:9px;align-items:flex-end;flex-wrap:wrap}
+textarea{flex:1;min-width:240px;font:inherit;font-size:.92rem;padding:10px 13px;border:1px solid var(--border);
+  border-radius:9px;background:var(--surface);color:var(--text);resize:vertical}
+textarea:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+select{font:inherit;font-size:.85rem;padding:8px 10px;border:1px solid var(--border);border-radius:8px;
+  background:var(--surface);color:var(--text)}
+button.go{font:inherit;font-size:.9rem;font-weight:600;padding:9px 20px;border:none;border-radius:8px;
+  background:var(--accent);color:#fff;cursor:pointer}
+button.go:hover{opacity:.9}
+button.go:disabled{opacity:.45;cursor:not-allowed}
+.hint{font-size:.74rem;color:var(--muted);margin:8px 0 0}
+.katex{font-size:1.04em}
+.eqblock .katex-display{margin:0}
+.empty{color:var(--muted);font-size:.88rem;border:1px dashed var(--border);border-radius:var(--r);padding:15px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>AI Brain</h1>
+    <p>Answers grounded in your own library — LLMs, machine learning, mathematics, robotics, vision, Python, electronics.</p>
+  </header>
+
+  <div class="shelfbar" id="shelfbar"><span class="pill">checking shelves…</span></div>
+
+  <div class="log" id="log">
+    <div class="empty" id="empty">
+      Ask anything across your library. Try <b>“how does LoRA fine-tuning actually work”</b>,
+      <b>“compare PPO and DPO”</b>, or <b>“what is the reparameterisation trick”</b>.
+      Every claim is tagged with the book it came from; anything untagged is the model’s own synthesis.
+    </div>
+  </div>
+
+  <div class="composer">
+    <div class="crow">
+      <textarea id="q" rows="2" placeholder="Ask your library…"></textarea>
+      <select id="mode" title="How to answer">
+        <option value="explain">Explain</option>
+        <option value="socratic">Socratic</option>
+        <option value="exercise">Exercise</option>
+        <option value="compare">Compare</option>
+      </select>
+      <select id="depth" title="Assumed background">
+        <option value="intro">Intro</option>
+        <option value="intermediate" selected>Intermediate</option>
+        <option value="advanced">Advanced</option>
+      </select>
+      <button class="go" id="ask" type="button">Ask</button>
+    </div>
+    <p class="hint" id="hint">Intro and Intermediate use the fast model; Advanced uses the deeper reasoning model and takes longer.</p>
+  </div>
+</div>
+
+<script>
+const esc=s=>String(s??"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+
+function tex(s, display){
+  if(window.katex){
+    try{ return katex.renderToString(String(s),{displayMode:!!display,throwOnError:false,
+      strict:false,output:"html",maxSize:20,maxExpand:600}); }catch(e){}
+  }
+  return '<code>'+esc(s)+'</code>';
+}
+
+/* Markdown-lite + LaTeX + citation chips. Math and code are pulled out before
+   escaping so their contents survive verbatim. */
+function renderProse(md, ev){
+  const kept=new Set(((ev&&ev.kept)||[]).map(c=>c.tag));
+  let s=String(md||""); const B=[],I=[],C=[];
+  s=s.replace(/```(\w*)\n([\s\S]*?)```/g,(m,l,c)=>{C.push(c); return "C"+(C.length-1)+"";});
+  s=s.replace(/\\\[([\s\S]*?)\\\]|\$\$([\s\S]*?)\$\$/g,(m,a,b)=>{B.push(a!==undefined?a:b); return "B"+(B.length-1)+"";});
+  s=s.replace(/\\\(([\s\S]*?)\\\)|\$([^$\n]+)\$/g,(m,a,b)=>{I.push(a!==undefined?a:b); return "I"+(I.length-1)+"";});
+  s=esc(s);
+  s=s.replace(/`([^`\n]+)`/g,(m,c)=>"<code>"+c+"</code>");
+  s=s.replace(/\*\*([^*]+)\*\*/g,"<b>$1</b>");
+  s=s.replace(/(^|[^*])\*([^*\n]+)\*(?!\*)/g,"$1<i>$2</i>");
+  s=s.replace(/^#{1,4}\s*(.+)$/gm,'<div class="sec-h">$1</div>');
+  s=s.replace(/\[(S\d+)\]/g,(m,t)=>'<span class="cite'+(kept.has(t)?"":" miss")+'" data-cite="'+t+
+    '" title="'+(kept.has(t)?"jump to source":"model cited a source that was never supplied")+'">'+t+'</span>');
+  s=s.split(/\n{2,}/).map(p=>{
+    p=p.trim(); if(!p) return "";
+    if(/^[BC]\d+$/.test(p)) return p;
+    if(/^(-{3,}|\*{3,})$/.test(p)) return '<hr style="border:none;border-top:1px solid var(--border);margin:1.4em 0">';
+    if(/^\s*([-*]|\d+\.)\s/.test(p)){
+      const items=p.split(/\n(?=\s*(?:[-*]|\d+\.)\s)/)
+        .map(x=>"<li>"+x.replace(/^\s*(?:[-*]|\d+\.)\s*/,"").replace(/\n/g," ")+"</li>").join("");
+      return /^\s*\d+\./.test(p) ? "<ol>"+items+"</ol>" : "<ul>"+items+"</ul>";
+    }
+    if(/^<div class="sec-h">/.test(p)) return p;
+    return "<p>"+p.replace(/\n/g," ")+"</p>";
+  }).join("");
+  s=s.replace(/C(\d+)/g,(m,i)=>"<pre><code>"+esc(C[+i])+"</code></pre>");
+  s=s.replace(/B(\d+)/g,(m,i)=>'<div class="eqblock">'+tex(B[+i],true)+"</div>");
+  s=s.replace(/I(\d+)/g,(m,i)=>tex(I[+i],false));
+  return '<div class="prose">'+s+"</div>";
+}
+
+function renderEvidence(ev){
+  if(!ev) return "";
+  if(!ev.available)
+    return '<div class="ev-why">Library unavailable — '+esc(ev.reason||"")+"</div>";
+  const k=ev.kept||[], rj=ev.rejected||[];
+  let h='<div class="ev-head"><span class="strength s-'+esc(ev.evidence_strength||"none")+'">evidence: '+
+    esc(ev.evidence_strength||"none")+'</span><span class="ev-score">'+(ev.searched||[]).length+
+    ' shelves searched · '+k.length+' used · '+rj.length+' rejected</span></div>';
+  h+=k.map(c=>'<div class="ev-item" id="cite-'+esc(c.tag)+'"><div class="ev-head">'+
+     '<span class="cite">'+esc(c.tag)+'</span><span class="prov prov-retrieved">retrieved</span>'+
+     '<span class="ev-src">'+esc(c.source)+'</span><span class="ev-shelf">'+esc(c.shelf)+'</span>'+
+     '<span class="ev-score">BM25 '+c.raw_score+'</span></div>'+
+     '<div class="ev-text">'+esc(c.text)+'</div></div>').join("");
+  if(rj.length) h+='<details class="fold"><summary>'+rj.length+' retrieved but rejected</summary>'+
+     rj.map(c=>'<div class="ev-item rej"><div class="ev-head"><span class="ev-src">'+esc(c.source)+
+       '</span><span class="ev-score">BM25 '+c.raw_score+'</span><span class="ev-why">'+esc(c.why||"")+
+       '</span></div><div class="ev-text">'+esc((c.text||"").slice(0,180))+'</div></div>').join("")+'</details>';
+  h+='<div class="ev-score" style="margin-top:7px">'+esc(ev.scoring_note||"")+'</div>';
+  return h;
+}
+
+function renderAudit(d){
+  const a=d.audit||{}, ho=d.honesty||{};
+  const bad=(a.hallucinated_tags||[]).length;
+  return '<div class="ev-score">'+(a.sentences||0)+' sentences · cited '+
+    ((a.cited||[]).join(", ")||"none")+' · '+(a.uncited_sentences||0)+' uncited'+
+    (bad?' · <span style="color:var(--magenta)">'+bad+' fabricated citation(s)</span>':'')+
+    '</div><div class="ev-score" style="margin-top:5px">'+esc(ho.note||"")+'</div>';
+}
+
+async function loadShelves(){
+  const bar=document.getElementById("shelfbar");
+  try{
+    const s=await (await fetch("/api/shelves")).json();
+    if(!s.available){
+      bar.innerHTML='<span class="pill no">no library</span>'+
+        '<span>This instance has no book indexes — it answers from general knowledge and says so. '+
+        'The full '+s.total+'-shelf brain runs where the books live.</span>';
+      return;
+    }
+    bar.innerHTML='<span class="pill ok">'+s.indexed+' / '+s.total+' shelves</span>'+
+      '<span class="pill">'+s.total_mb+' MB indexed</span>'+
+      s.shelves.filter(x=>x.has_index).slice(0,9)
+        .map(x=>'<span class="pill">'+esc(x.corpus.replace("desk-",""))+'</span>').join("");
+  }catch(e){ bar.innerHTML='<span class="pill no">shelf status unavailable</span>'; }
+}
+loadShelves();
+
+let busy=false;
+function ask(){
+  if(busy) return;
+  const ta=document.getElementById("q"), q=ta.value.trim();
+  if(!q) return;
+  busy=true; document.getElementById("ask").disabled=true;
+  ta.value="";
+  const empty=document.getElementById("empty"); if(empty) empty.remove();
+  const log=document.getElementById("log");
+
+  const me=document.createElement("div"); me.className="msg me";
+  me.innerHTML='<div class="bubble">'+esc(q)+"</div>";
+  const bot=document.createElement("div"); bot.className="msg";
+  bot.innerHTML='<div class="bubble"><div class="trace"></div></div>';
+  log.appendChild(me); log.appendChild(bot);
+  me.scrollIntoView({block:"start",behavior:"smooth"});
+
+  const bubble=bot.querySelector(".bubble"), trace=bot.querySelector(".trace"), rows={};
+  const put=(st,msg,cls)=>{
+    let r=rows[st];
+    if(!r){ r=document.createElement("div");
+      r.innerHTML='<span class="st">'+esc(st)+'</span><span class="mg"></span>';
+      trace.appendChild(r); rows[st]=r; }
+    r.className="trace-row "+(cls===undefined?"run":cls);
+    r.querySelector(".mg").textContent=msg||"";
+  };
+  const finish=()=>{ busy=false; document.getElementById("ask").disabled=false; };
+
+  const url="/api/ask?q="+encodeURIComponent(q)+
+    "&mode="+encodeURIComponent(document.getElementById("mode").value)+
+    "&depth="+encodeURIComponent(document.getElementById("depth").value);
+  let es, settled=false;
+  try{ es=new EventSource(url); }
+  catch(e){ put("error","cannot open stream","err"); finish(); return; }
+
+  ["retrieve","adapt","compose"].forEach(st=>es.addEventListener(st,e=>{
+    let d={}; try{ d=JSON.parse(e.data); }catch(_){}
+    put(st,d.msg||"");
+  }));
+  es.addEventListener("done",e=>{
+    settled=true; es.close(); finish();
+    let d; try{ d=JSON.parse(e.data); }catch(err){ put("error","bad payload","err"); return; }
+    Object.keys(rows).forEach(k=>rows[k].className="trace-row");
+    bubble.innerHTML=
+      '<div class="adapt-bar"><span class="prov prov-adapted">adapted</span><span>mode <b>'+
+        esc(d.mode)+'</b> · depth <b>'+esc(d.depth)+'</b> · <b>'+esc(d.model)+'</b> · '+d.elapsed_s+'s</span></div>'+
+      renderProse(d.prose,d.evidence)+
+      '<details class="fold" open><summary>Sources &amp; provenance</summary>'+renderEvidence(d.evidence)+'</details>'+
+      '<details class="fold"><summary>Pipeline trace &amp; citation audit</summary>'+
+        '<div class="trace">'+trace.innerHTML+'</div>'+renderAudit(d)+'</details>';
+    bubble.querySelectorAll("[data-cite]").forEach(c=>c.addEventListener("click",()=>{
+      const t=document.getElementById("cite-"+c.dataset.cite);
+      if(t){ t.classList.add("open"); t.scrollIntoView({block:"center",behavior:"smooth"});
+        t.style.borderColor="var(--violet)"; setTimeout(()=>t.style.borderColor="",1600); }
+    }));
+    me.scrollIntoView({block:"start",behavior:"smooth"});
+  });
+  es.addEventListener("error",e=>{
+    let d=null; try{ d=JSON.parse(e.data); }catch(_){}
+    settled=true; es.close(); finish();
+    put("error",(d&&d.message)||"stream failed","err");
+  });
+  es.onerror=()=>{ if(!settled){ settled=true; es.close(); finish();
+    put("error","connection lost","err"); } };
+}
+
+document.getElementById("ask").addEventListener("click",ask);
+document.getElementById("q").addEventListener("keydown",e=>{
+  if(e.key==="Enter"&&!e.shiftKey){ e.preventDefault(); ask(); }
+});
+</script>
+</body>
+</html>
