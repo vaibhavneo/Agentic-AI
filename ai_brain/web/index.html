@@ -107,6 +107,11 @@ button.go{font:inherit;font-size:.9rem;font-weight:600;padding:9px 20px;border:n
   background:var(--accent);color:#fff;cursor:pointer}
 button.go:hover{opacity:.9}
 button.go:disabled{opacity:.45;cursor:not-allowed}
+.icon-btn{font:inherit;font-size:1rem;line-height:1;padding:9px 12px;border:1px solid var(--border);
+  border-radius:8px;background:var(--surface);color:var(--text);cursor:pointer}
+.icon-btn:hover{border-color:var(--accent)}
+.icon-btn[aria-pressed="true"]{border-color:var(--magenta);background:var(--magenta-soft)}
+.icon-btn:disabled{opacity:.4;cursor:not-allowed}
 .hint{font-size:.74rem;color:var(--muted);margin:8px 0 0}
 .katex{font-size:1.04em}
 .eqblock .katex-display{margin:0}
@@ -144,9 +149,11 @@ button.go:disabled{opacity:.45;cursor:not-allowed}
         <option value="intermediate" selected>Intermediate</option>
         <option value="advanced">Advanced</option>
       </select>
+      <button class="icon-btn" id="mic" type="button" title="Ask by voice" aria-pressed="false">🎤</button>
       <button class="go" id="ask" type="button">Ask</button>
     </div>
     <p class="hint" id="hint">Intro and Intermediate use the fast model; Advanced uses the deeper reasoning model and takes longer.</p>
+    <p class="hint" id="voicenote"></p>
   </div>
 </div>
 
@@ -307,6 +314,54 @@ function ask(){
   es.onerror=()=>{ if(!settled){ settled=true; es.close(); finish();
     put("error","connection lost","err"); } };
 }
+
+/* Voice input. The defaults (continuous=false, interimResults=false) stop at
+   the first pause and e.results[0] keeps only that fragment, which turns a
+   spoken question into a truncated phrase — so stay open until the user stops,
+   show words as they land, and keep every final segment. */
+(function initMic(){
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  const btn=document.getElementById("mic"), note=document.getElementById("voicenote");
+  if(!SR){ btn.disabled=true; btn.title="Voice input isn't supported in this browser";
+    note.textContent="Voice input isn't available in this browser — type instead."; return; }
+  let rec=null, listening=false, stopping=false, base="", finalText="";
+  const ta=()=>document.getElementById("q");
+  btn.addEventListener("click",()=>{
+    if(listening){ stopping=true; note.textContent="Finishing up…"; rec&&rec.stop(); return; }
+    try{
+      rec=new SR(); rec.lang="en-US"; rec.continuous=true; rec.interimResults=true; rec.maxAlternatives=1;
+      base=ta().value.trim(); finalText=""; stopping=false;
+      rec.onstart=()=>{ listening=true; btn.setAttribute("aria-pressed","true"); btn.textContent="🔴";
+        note.textContent="Listening… speak naturally, then press 🔴 to finish."; };
+      rec.onresult=e=>{
+        let interim="";
+        for(let i=e.resultIndex;i<e.results.length;i++){
+          const seg=e.results[i];
+          if(seg.isFinal) finalText+=(finalText?" ":"")+seg[0].transcript.trim();
+          else interim+=seg[0].transcript;
+        }
+        ta().value=[base,finalText,interim.trim()].filter(Boolean).join(" ");
+        note.textContent=interim.trim()?"Listening… “"+interim.trim()+"”":"Listening… press 🔴 when done.";
+      };
+      rec.onerror=e=>{
+        if(e.error==="no-speech"){ note.textContent="Didn't catch anything — press 🎤 to retry."; return; }
+        if(e.error==="aborted") return;
+        note.textContent="Voice input didn't work ("+e.error+")"+
+          (e.error==="not-allowed"?" — allow microphone access for this site.":" — you can type instead.");
+      };
+      rec.onend=()=>{
+        /* Chrome ends the session after a long silence even with continuous=true;
+           resume unless the user actually pressed stop. */
+        if(listening&&!stopping){ try{ rec.start(); return; }catch(_){} }
+        listening=false; stopping=false;
+        btn.setAttribute("aria-pressed","false"); btn.textContent="🎤";
+        note.textContent=finalText?"Heard: “"+finalText+"” — edit if needed, then press Ask."
+                                  :"Nothing captured — press 🎤 to try again.";
+      };
+      rec.start();
+    }catch(err){ note.textContent="Voice input couldn't start ("+err.message+")."; listening=false; }
+  });
+})();
 
 document.getElementById("ask").addEventListener("click",ask);
 document.getElementById("q").addEventListener("keydown",e=>{
