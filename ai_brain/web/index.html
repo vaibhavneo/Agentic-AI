@@ -58,6 +58,8 @@ header p{margin:3px 0 0;color:var(--muted);font-size:.86rem}
   text-transform:uppercase;padding:1px 6px;border-radius:4px;vertical-align:.12em}
 .prov-retrieved{background:var(--violet-soft);color:var(--violet)}
 .prov-adapted{background:var(--amber-soft);color:var(--amber)}
+.prov-computed{background:var(--green-soft);color:var(--green)}
+.prov-web{background:var(--accent-soft);color:var(--accent)}
 .adapt-bar{display:flex;gap:9px;align-items:center;flex-wrap:wrap;font-size:.77rem;color:var(--muted);
   border:1px solid var(--border);border-radius:8px;padding:7px 11px;margin-bottom:12px}
 
@@ -222,6 +224,50 @@ function renderEvidence(ev){
   return h;
 }
 
+function renderHeader(d){
+  const r=d.routing||{}, used=["books","web","tools"].filter(k=>r[k]);
+  const b=d.budget||{};
+  return '<div class="adapt-bar"><span class="prov prov-adapted">'+esc(d.depth)+'</span>'+
+    '<span>mode <b>'+esc(d.mode)+'</b> · routed to <b>'+(used.join(" + ")||"books")+'</b>'+
+    ' · '+(b.llm_calls||0)+' LLM calls · '+((b.total_tokens||0).toLocaleString())+' tokens · '+d.elapsed_s+'s</span></div>';
+}
+function renderWeb(d){
+  const w=(d.web||{}).hits||[], t=d.tool;
+  let h="";
+  if(t&&t.ok) h+='<div class="ev-item"><div class="ev-head"><span class="cite">T1</span>'+
+    '<span class="prov prov-computed">computed</span><span class="ev-src">'+esc(t.expression)+'</span></div>'+
+    '<div class="ev-text">= '+esc(String(t.result))+' — evaluated, not model output</div></div>';
+  h+=w.map((x,i)=>'<div class="ev-item"><div class="ev-head"><span class="cite">W'+(i+1)+'</span>'+
+    '<span class="prov prov-web">reference</span><span class="ev-src">'+esc(x.title)+'</span></div>'+
+    '<div class="ev-text">'+esc(x.snippet)+'</div></div>').join("");
+  if(w.length) h+='<div class="ev-score">'+esc((d.web||{}).note||"")+'</div>';
+  return h;
+}
+function renderChecks(d){
+  const a=d.assessment||{}, v=d.validation||{};
+  const list=(t,arr,cls)=>(arr&&arr.length)?'<div class="ev-score"><b>'+t+':</b> <span class="'+(cls||"")+'">'+
+    arr.map(esc).join(" · ")+'</span></div>':"";
+  const vc=v.verdict==="pass"?"s-usable":v.verdict==="caution"?"s-weak":"s-none";
+  return '<div class="ev-score">evidence confidence: <b>'+esc(a.confidence||"n/a")+'</b>'+
+      (a.skipped?' (skipped at this depth)':'')+'</div>'+
+    list("agreements",a.agreements)+list("conflicts",a.conflicts,"s-weak")+
+    list("gaps",a.gaps,"s-weak")+list("off-topic",a.off_topic)+
+    '<div class="ev-score" style="margin-top:8px">validation: <b class="'+vc+'">'+esc(v.verdict||"n/a")+'</b>'+
+      ' · '+(v.uncited_sentences||0)+'/'+(v.sentences||0)+' sentences uncited</div>'+
+    list("unsupported claims",v.unsupported_claims,"s-weak")+
+    list("contradicts sources",v.contradicts_sources,"s-none")+
+    list("fabricated tags",v.fabricated_tags,"s-none")+
+    (v.note?'<div class="ev-score">'+esc(v.note)+'</div>':"");
+}
+function renderBudget(d){
+  const b=d.budget||{}, by=b.by_stage||{};
+  const rows=Object.keys(by).map(k=>'<div class="ev-score">'+k.padEnd(12,"\u00a0")+
+    ' <b>'+esc(by[k].model.replace("deepseek-v4-",""))+'</b> · '+by[k].completion+
+    ' completion tok · '+by[k].secs+'s</div>').join("");
+  return rows+'<div class="ev-score" style="margin-top:6px"><b>total</b> '+(b.llm_calls||0)+
+    ' calls · '+((b.total_tokens||0).toLocaleString())+' tokens ('+((b.reasoning_tokens||0).toLocaleString())+
+    ' reasoning)</div><div class="ev-score">'+esc((d.honesty||{}).note||"")+'</div>';
+}
 function renderAudit(d){
   const a=d.audit||{}, ho=d.honesty||{};
   const bad=(a.hallucinated_tags||[]).length;
@@ -284,7 +330,7 @@ function ask(){
   try{ es=new EventSource(url); }
   catch(e){ put("error","cannot open stream","err"); finish(); return; }
 
-  ["retrieve","adapt","compose"].forEach(st=>es.addEventListener(st,e=>{
+  ["understand","route","gather","evidence","reasoning","professor","validation"].forEach(st=>es.addEventListener(st,e=>{
     let d={}; try{ d=JSON.parse(e.data); }catch(_){}
     put(st,d.msg||"");
   }));
@@ -293,12 +339,12 @@ function ask(){
     let d; try{ d=JSON.parse(e.data); }catch(err){ put("error","bad payload","err"); return; }
     Object.keys(rows).forEach(k=>rows[k].className="trace-row");
     bubble.innerHTML=
-      '<div class="adapt-bar"><span class="prov prov-adapted">adapted</span><span>mode <b>'+
-        esc(d.mode)+'</b> · depth <b>'+esc(d.depth)+'</b> · <b>'+esc(d.model)+'</b> · '+d.elapsed_s+'s</span></div>'+
+      renderHeader(d)+
       renderProse(d.prose,d.evidence)+
-      '<details class="fold" open><summary>Sources &amp; provenance</summary>'+renderEvidence(d.evidence)+'</details>'+
-      '<details class="fold"><summary>Pipeline trace &amp; citation audit</summary>'+
-        '<div class="trace">'+trace.innerHTML+'</div>'+renderAudit(d)+'</details>';
+      '<details class="fold" open><summary>Sources &amp; provenance</summary>'+renderEvidence(d.evidence)+renderWeb(d)+'</details>'+
+      '<details class="fold"><summary>Evidence engine &amp; validation</summary>'+renderChecks(d)+'</details>'+
+      '<details class="fold"><summary>Pipeline trace &amp; token budget</summary>'+
+        '<div class="trace">'+trace.innerHTML+'</div>'+renderBudget(d)+'</details>';
     bubble.querySelectorAll("[data-cite]").forEach(c=>c.addEventListener("click",()=>{
       const t=document.getElementById("cite-"+c.dataset.cite);
       if(t){ t.classList.add("open"); t.scrollIntoView({block:"center",behavior:"smooth"});

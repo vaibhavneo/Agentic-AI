@@ -18,7 +18,8 @@ HERE = Path(__file__).resolve().parent
 if str(HERE) not in sys.path:
     sys.path.insert(0, str(HERE))
 
-from brain_tutor import BRAIN_CORPORA, BRAIN_ROOT, answer_stream  # noqa: E402
+from brain_tutor import BRAIN_CORPORA, BRAIN_ROOT  # noqa: E402
+from pipeline import run as answer_stream           # noqa: E402  (9-stage flow)
 
 WEB_ROOT = HERE / "web"
 CONTENT_TYPES = {
