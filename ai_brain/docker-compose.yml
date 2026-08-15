@@ -1,0 +1,30 @@
+# Convenience wrapper for the same image the Dockerfile builds.
+#
+#   DEEPSEEK_API_KEY=sk-... docker compose up -d
+#
+# On the Oracle box this is what systemd calls, so the local and deployed
+# runs are the same command rather than two things that drift apart.
+
+services:
+  ai-brain:
+    build: .
+    image: ai-brain:latest
+    container_name: ai-brain
+    restart: unless-stopped
+    ports:
+      - "${HOST_PORT:-8080}:8080"
+    environment:
+      # Required for "Ask". Everything else — the Brain Lab, the curriculum —
+      # is keyless and works without it.
+      DEEPSEEK_API_KEY: "${DEEPSEEK_API_KEY:-}"
+      PORT: "8080"
+    # Answers stream for minutes and the box is small; keep one instance from
+    # starving the host if a runaway request appears.
+    mem_limit: 1g
+    healthcheck:
+      test: ["CMD", "python3", "-c",
+             "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8080/api/status',timeout=4).status==200 else 1)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s

@@ -1,0 +1,23 @@
+# Keep the build context to what the image actually needs. Without this the
+# whole memory/ directory and any local venv get shipped into the image.
+.git
+.gitignore
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+.env
+.DS_Store
+
+# Runtime state, not build input — the container creates its own.
+memory/
+*.db
+*.sqlite3
+
+# Never ship the book indexes even if someone puts them here; they are
+# gigabytes and the curriculum is what grounds a hosted instance.
+second_brain/
+desk-*/
+*.jsonl
+chunks.json

@@ -1,0 +1,99 @@
+#cloud-config
+# Paste this into "Show advanced options → Initialization script" when creating
+# the Oracle Compute instance. It brings the box up ready to run the container:
+# Docker installed, the firewall actually open, and a systemd unit waiting for
+# the image.
+#
+# Oracle Linux 9 on Ampere A1 (aarch64). For an Ubuntu image, swap the dnf
+# block for apt — everything else is the same.
+
+package_update: true
+
+packages:
+  - git
+  - docker
+  - docker-cli
+  - firewalld
+
+write_files:
+  # The unit that keeps the app alive across reboots. It shells out to
+  # docker rather than using compose so the box needs one fewer dependency.
+  - path: /etc/systemd/system/ai-brain.service
+    permissions: "0644"
+    content: |
+      [Unit]
+      Description=AI Brain
+      After=docker.service network-online.target
+      Requires=docker.service
+      Wants=network-online.target
+
+      [Service]
+      Restart=always
+      RestartSec=5
+      # The key lives here, root-only, not in the unit file and not in the
+      # image. `systemctl show` would print anything set with Environment=.
+      EnvironmentFile=/etc/ai-brain.env
+      ExecStartPre=-/usr/bin/docker rm -f ai-brain
+      ExecStart=/usr/bin/docker run --rm --name ai-brain \
+        -p 127.0.0.1:8080:8080 \
+        -e DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY} \
+        -e PORT=8080 \
+        --memory 1g \
+        ai-brain:latest
+      ExecStop=/usr/bin/docker stop ai-brain
+
+      [Install]
+      WantedBy=multi-user.target
+
+  # Caddy terminates TLS and proxies to the container. Binding the container
+  # to 127.0.0.1 above means the app is never exposed directly — only through
+  # this, with a real certificate.
+  - path: /etc/caddy/Caddyfile
+    permissions: "0644"
+    content: |
+      # Replace with your domain to get automatic Let's Encrypt TLS.
+      # Until you have one, `:80` serves plain HTTP on the public IP.
+      :80 {
+        # Answers stream for minutes; the default 30s proxy timeout would cut
+        # every one of them off mid-sentence.
+        reverse_proxy 127.0.0.1:8080 {
+          flush_interval -1
+          transport http {
+            response_header_timeout 10m
+            read_timeout 10m
+          }
+        }
+      }
+
+  - path: /etc/ai-brain.env
+    permissions: "0600"
+    owner: root:root
+    content: |
+      # Fill this in, then: systemctl restart ai-brain
+      DEEPSEEK_API_KEY=
+
+runcmd:
+  - systemctl enable --now docker
+  - usermod -aG docker opc
+
+  # Oracle images ship with a REJECT rule early in the INPUT chain, so opening
+  # the port in the console's security list is necessary but not sufficient —
+  # the packet reaches the box and is dropped there. This is the single most
+  # common reason an Oracle instance looks unreachable when everything else is
+  # right.
+  - systemctl enable --now firewalld
+  - firewall-cmd --permanent --add-service=http
+  - firewall-cmd --permanent --add-service=https
+  - firewall-cmd --reload
+  - iptables -I INPUT 1 -p tcp --dport 80 -j ACCEPT
+  - iptables -I INPUT 1 -p tcp --dport 443 -j ACCEPT
+  - (which netfilter-persistent && netfilter-persistent save) || iptables-save > /etc/sysconfig/iptables || true
+
+  - systemctl daemon-reload
+  - systemctl enable ai-brain
+
+final_message: |
+  Box is ready. Nothing is running yet — it needs the image and the key:
+    1. ship the image      (see deploy/deploy-oracle.sh)
+    2. put the key in      /etc/ai-brain.env
+    3. systemctl start ai-brain

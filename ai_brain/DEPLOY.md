@@ -48,6 +48,22 @@ non-zero on any failure.
 `python3 brainlab.py test` runs the same closed-form checks offline, and
 `python3 curriculum.py "<question>"` shows which topics a question matches.
 
+## Container
+
+    docker build -t ai-brain .
+    docker run --rm -p 8080:8080 -e DEEPSEEK_API_KEY=sk-... ai-brain
+
+466 MB, builds in ~20 s, runs as non-root. `docker compose up -d` reads
+`DEEPSEEK_API_KEY` from the environment. Verified by running the 42-check
+smoke test against the container, not just by the image building.
+
+Oracle's Always Free shape is Ampere A1 (aarch64); an image built on Apple
+Silicon is already correct, and from x86 you need `--platform linux/arm64` or
+it dies on the box with "exec format error".
+
+See `deploy/ORACLE.md` for the migration, `deploy/cloud-init.yaml` to provision
+the box and `deploy/deploy-oracle.sh` to ship to it.
+
 ## Railway
 
 Service `ai-brain` in project **Stock-AI-Agent-VG**. Note the project also
