@@ -41,6 +41,7 @@ import time
 from concurrent.futures import ThreadPoolExecutor
 from typing import Iterator
 
+import curriculum as CUR
 from brain_tutor import (BRAIN_CORPORA, MODEL_DEEP, MODEL_FAST, _api_key,
                          looks_like_frontmatter, retrieve_evidence)
 
@@ -381,23 +382,47 @@ DEPTH_DIRECTIVE = {
                 "than sketch, engage with failure modes.",
 }
 
-_PROF_SYS = """You are the reader's own tutor, answering from their personal \
-library. Teach, synthesise, and where the question invites it, recommend a \
-path forward.
+_PROF_SYS = """You are the reader's own tutor across machine learning, \
+mathematics, robotics, vision, electronics and software. Build the intuition \
+first, then formalise it. Teach, synthesise, and where the question invites \
+it, recommend a path forward.
 
-Cite sources inline by tag — [S1] for books, [W1] for web, [T1] for a computed \
-value. Never invent a tag that was not supplied. Where you go beyond the \
-sources, that is welcome, but do not imply a source backs a claim it does not; \
-if the evidence is thin or off-topic, say so in one sentence up front.
+Cite inline by tag — [C:topic-id] a curriculum topic, [S#] a book from their \
+library, [W#] web, [T1] a computed value. Never invent a tag that was not \
+supplied.
 
-Never state a numeric result of your own when a [T] tool value exists — refer \
-to the computed value. Use LaTeX for mathematics."""
+The [C:] curriculum topics are real material, not a fallback. Their concepts \
+and equations are yours to build on and connect, and on a machine without the \
+book indexes they may be all you have — that is not a reason to hedge.
+
+NEVER state a numeric result of your own when a [T] tool value exists — refer \
+to the computed value in words rather than restating the digits.
+
+Answer the question. Lead with the substance, never with an apology or an \
+inventory of what you lack. The reader came for the idea and how it connects, \
+not for a report on your retrieval. Sourcing is shown by your tags, so it \
+needs no preamble.
+
+Reason across the sources you were given rather than summarising them one by \
+one — joining two things the library treats separately is exactly the work \
+expected here. Going beyond the sources is welcome; just never imply a source \
+backs a claim it does not.
+
+When something genuinely falls outside everything supplied, note it in one \
+short clause at the point where it arises — "the retrieved passages do not \
+cover this, so the following is general knowledge" — and carry on. Never open \
+with it, never dwell on it, and never let it displace the explanation. Use \
+LaTeX for mathematics."""
 
 
 def professor_engine(question, understanding, book_ev, web_res, tool_res,
-                     assessment, reasoning, mode, depth, client, budget):
-    src_parts = [f"[{c['tag']}] ({c['source']} — {c['shelf']} shelf)\n{c['text'][:1100]}"
-                 for c in book_ev.get("kept", [])]
+                     assessment, reasoning, mode, depth, client, budget,
+                     topics=()):
+    # Curriculum first. On a host with no book indexes these are the only
+    # sources there are, and they are real material — not a fallback apology.
+    src_parts = ([CUR.curriculum_block(list(topics))] if topics else [])
+    src_parts += [f"[{c['tag']}] ({c['source']} — {c['shelf']} shelf)\n{c['text'][:1100]}"
+                  for c in book_ev.get("kept", [])]
     src_parts += [f"[W{i}] ({h['title']})\n{h['snippet']}"
                   for i, h in enumerate(web_res.get("hits", []), 1)]
     if tool_res and tool_res.get("ok"):
@@ -426,26 +451,53 @@ SOURCES and reply with ONLY JSON:
 
 {"unsupported_claims":["specific claims presented as fact that no source backs"],
  "contradicts_sources":["claims that conflict with a source, naming the tag"],
+ "restated_computed_numbers":["any figure the answer states that should have
+   come from [T1] but was written out instead — include rounded or
+   spelled-out restatements, not just exact digits"],
  "verdict":"pass|caution|fail",
  "note":"one sentence for the reader, or empty"}
 
-Judge only sourcing and consistency. Do not rewrite or critique style."""
+Judge only sourcing and consistency. Do not rewrite or critique style.
+
+Judge sourcing honesty, not coverage. Content the answer itself flags as
+unsupported, or openly attributes to general knowledge, is CORRECT behaviour
+and must not lower the verdict.
+
+A retrieved passage is an EXCERPT, not the whole of what a source says.
+Standard development of material the excerpt raises — deriving a stated
+result, working a standard example, explaining a named concept in depth — is
+expected elaboration, not an unsupported claim. Teaching requires saying far
+more than an excerpt contains. Only call something unsupported when it belongs
+to none of the supplied material AND is presented as if it came from it.
+
+Do not expect a citation on every sentence. Prose that develops an
+already-cited point needs no tag of its own; demanding one would make ordinary
+exposition look dishonest.
+
+Reserve "fail" for claims presented as sourced that are not, for contradictions
+of a supplied source, or for restating a computed number instead of referring
+to it. If the only issue is that the answer says more than the excerpts do,
+that is "pass"."""
 
 
-def validation(question, prose, book_ev, web_res, tool_res, depth, client, budget):
+def validation(question, prose, book_ev, web_res, tool_res, depth, client, budget,
+               topics=()):
     """Structural checks always run; the semantic pass is depth-gated."""
     offered = {c["tag"] for c in book_ev.get("kept", [])}
     offered |= {f"W{i}" for i in range(1, len(web_res.get("hits", [])) + 1)}
+    offered |= {f"C:{t.id}" for t in topics}
     if tool_res and tool_res.get("ok"):
         offered.add("T1")
-    cited = set(re.findall(r"\[([SWT]\d+)\]", prose))
+    # [C:topic-id] has to be in the pattern or every curriculum citation reads
+    # as uncited prose and none of them count toward "cited".
+    cited = set(re.findall(r"\[((?:C:[\w\-]+)|(?:[SWT]\d+))\]", prose))
     sentences = [s for s in re.split(r"(?<=[.!?])\s+", prose) if len(s.strip()) > 40]
     structural = {
         "cited": sorted(cited), "offered": sorted(offered),
         "fabricated_tags": sorted(cited - offered),
         "unused_sources": sorted(offered - cited),
         "sentences": len(sentences),
-        "uncited_sentences": sum(1 for s in sentences if not re.search(r"\[[SWT]\d+\]", s)),
+        "uncited_sentences": sum(1 for s in sentences if not re.search(r"\[[A-Z]", s)),
     }
     if plan_for("validation", depth) is None:
         structural.update(verdict="pass" if not structural["fabricated_tags"] else "caution",
@@ -453,9 +505,15 @@ def validation(question, prose, book_ev, web_res, tool_res, depth, client, budge
                           note="intro depth — structural checks only")
         return structural
 
+    # [T1] is offered as a citable tag above, so the validator has to be shown
+    # it too. Without this it looked for the tool result, failed to find it,
+    # and reported a correctly-cited computed value as an unsupported claim —
+    # the same shape of bug as a source being citable but invisible.
     src = "\n\n".join(
+        ([CUR.curriculum_block(list(topics))] if topics else []) +
         [f"[{c['tag']}] {c['text'][:700]}" for c in book_ev.get("kept", [])] +
-        [f"[W{i}] {h['snippet']}" for i, h in enumerate(web_res.get("hits", []), 1)])
+        [f"[W{i}] {h['snippet']}" for i, h in enumerate(web_res.get("hits", []), 1)] +
+        ([f"[T1] {tool_res.get('result')}"] if tool_res and tool_res.get("ok") else []))
     raw = _call(client, "validation", depth, _VALIDATE_SYS,
                 f"QUESTION: {question}\n\nSOURCES:\n{src or '(none)'}\n\n"
                 f"ANSWER:\n{prose[:6000]}", budget)
@@ -464,6 +522,7 @@ def validation(question, prose, book_ev, web_res, tool_res, depth, client, budge
     structural.update(semantic_skipped=False,
                       unsupported_claims=sem.get("unsupported_claims", []),
                       contradicts_sources=sem.get("contradicts_sources", []),
+                      restated_computed_numbers=sem.get("restated_computed_numbers", []),
                       note=sem.get("note", ""),
                       verdict=("caution" if structural["fabricated_tags"]
                                else sem.get("verdict", "pass")))
@@ -499,6 +558,11 @@ def run(question: str, mode: str = "explain",
     yield "understand", {"msg": f"{u['intent']} · {', '.join(u['topics'][:4])}",
                          "understanding": u}
 
+    # 2b ── curriculum: which topics does this question touch?
+    # Matched from the question plus the terms the understanding stage pulled
+    # out, so a question that names a concept obliquely still lands.
+    topics = CUR.match_topics(question + " " + " ".join(u["topics"][:6]), k=4)
+
     # 3 ── route
     r = route(u, depth)
     picked = [k for k in ("books", "web", "tools") if r[k]]
@@ -518,11 +582,14 @@ def run(question: str, mode: str = "explain",
             book_ev = f_books.result()
         if f_web:
             web_res = f_web.result()
-    gathered = (f"{len(book_ev.get('kept', []))} book passage(s)"
+    gathered = (f"{len(topics)} curriculum topic(s), "
+                f"{len(book_ev.get('kept', []))} book passage(s)"
                 + (f", {len(web_res.get('hits', []))} web result(s)" if r["web"] else "")
                 + (", 1 computed value" if tool_res and tool_res.get("ok") else ""))
     yield "gather", {"msg": f"{gathered} · {int((time.monotonic()-t0)*1000)}ms",
-                     "evidence": book_ev, "web": web_res, "tool": tool_res}
+                     "evidence": book_ev, "web": web_res, "tool": tool_res,
+                     "topics": [{"id": t.id, "title": t.title, "level": t.level}
+                                for t in topics]}
 
     # 5 ── evidence engine
     yield "evidence", {"msg": "Verifying and comparing sources…"}
@@ -548,7 +615,7 @@ def run(question: str, mode: str = "explain",
         try:
             box["prose"] = professor_engine(question, u, book_ev, web_res, tool_res,
                                             assessment, reasoning, mode, depth,
-                                            client, budget)
+                                            client, budget, topics)
         except Exception as exc:
             box["error"] = f"{type(exc).__name__}: {exc}"
 
@@ -573,9 +640,14 @@ def run(question: str, mode: str = "explain",
 
     # 8 ── validation
     yield "validation", {"msg": "Checking the answer against its sources…"}
-    checks = validation(question, prose, book_ev, web_res, tool_res, depth, client, budget)
-    yield "validation", {"msg": (f"{checks['verdict']} · {checks['uncited_sentences']}"
-                                 f"/{checks['sentences']} uncited"
+    checks = validation(question, prose, book_ev, web_res, tool_res, depth, client,
+                        budget, topics)
+    # Report what was cited, not how many sentences went untagged. A ratio like
+    # "43/55 uncited" sitting next to the verdict reads as an accusation, when a
+    # long explanation resting on a handful of sources is what good teaching
+    # looks like. The count stays in the payload for the evidence panel.
+    yield "validation", {"msg": (f"{checks['verdict']} · {len(checks['cited'])} "
+                                 f"source{'' if len(checks['cited']) == 1 else 's'} cited"
                                  + (f" · {len(checks['fabricated_tags'])} fabricated tag(s)"
                                     if checks["fabricated_tags"] else "")),
                          "validation": checks}
@@ -585,16 +657,19 @@ def run(question: str, mode: str = "explain",
         "question": question, "mode": mode, "depth": depth,
         "prose": prose, "understanding": u, "routing": r,
         "evidence": book_ev, "web": web_res, "tool": tool_res,
+        "topics": [{"id": t.id, "title": t.title, "level": t.level} for t in topics],
         "assessment": assessment, "reasoning": reasoning, "validation": checks,
         "budget": budget.summary(),
         "elapsed_s": int(time.monotonic() - t_start),
         "honesty": {
             "grounded_in_library": bool(book_ev.get("kept")),
+            "covered_by_curriculum": bool(topics),
             "shelves_searched": len(book_ev.get("searched", [])),
             "used_web": bool(web_res.get("hits")),
             "used_tools": bool(tool_res and tool_res.get("ok")),
-            "note": ("Tags: [S] your books, [W] web, [T] a computed value. "
-                     "Untagged sentences are the model's own synthesis."),
+            "note": ("Tags: [C:] curriculum, [S] your books, [W] web, "
+                     "[T] a computed value. Untagged sentences are the "
+                     "model's own synthesis."),
         },
     }
 

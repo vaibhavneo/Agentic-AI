@@ -49,11 +49,107 @@ class BrainHandler(BaseHTTPRequestHandler):
             self._ask(parsed.query)
         elif parsed.path == "/api/shelves":
             self._shelves()
+        elif parsed.path == "/api/lab":
+            self._lab_info()
+        elif parsed.path == "/api/symbolic":
+            self._symbolic(parsed.query)
+        elif parsed.path == "/api/matrix":
+            self._matrix(parsed.query)
+        elif parsed.path == "/api/descent":
+            self._descent(parsed.query)
+        elif parsed.path == "/api/curriculum":
+            self._curriculum(parsed.query)
         elif parsed.path == "/api/status":
             self._json({"ok": True, "corpora": len(BRAIN_CORPORA),
                         "key_set": bool(os.getenv("DEEPSEEK_API_KEY"))})
         else:
             self._static(parsed.path)
+
+    # ── Brain Lab: everything below is computed, never generated ─────────
+
+    def _lab(self):
+        import brainlab
+        return brainlab
+
+    def _lab_info(self) -> None:
+        """What the lab can do — the UI builds its controls from this."""
+        lab = self._lab()
+        self._json({"operations": lab.OPERATIONS,
+                    "matrix_operations": lab.MATRIX_OPS,
+                    "surfaces": lab.PRESET_SURFACES})
+
+    def _symbolic(self, query: str) -> None:
+        p = parse_qs(query)
+        expr = p.get("expr", [""])[0].strip()
+        if not expr:
+            self._json({"ok": False, "error": "expr parameter required",
+                        "operations": self._lab().OPERATIONS}, status=400)
+            return
+        subs = {}
+        for pair in p.get("subs", [""])[0].split(","):
+            if "=" in pair:
+                k, _, v = pair.partition("=")
+                subs[k.strip()] = v.strip()
+        self._json(self._lab().evaluate(
+            expr,
+            operation=p.get("op", ["simplify"])[0],
+            variable=p.get("var", ["x"])[0],
+            at=p.get("at", [None])[0],
+            order=int(p.get("order", ["6"])[0] or 6),
+            subs=subs or None,
+            variables=p.get("vars", [""])[0]))
+
+    def _matrix(self, query: str) -> None:
+        p = parse_qs(query)
+        m = p.get("m", [""])[0].strip()
+        if not m:
+            self._json({"ok": False, "error": "m parameter required (the matrix)",
+                        "operations": self._lab().MATRIX_OPS}, status=400)
+            return
+        try:
+            n_iter = int(p.get("iter", ["50"])[0])
+        except ValueError:
+            n_iter = 50
+        self._json(self._lab().matrix_lab(
+            m, operation=p.get("op", ["summary"])[0],
+            rhs=p.get("b", [""])[0], n_iter=n_iter))
+
+    def _descent(self, query: str) -> None:
+        p = parse_qs(query)
+        f = p.get("f", [""])[0].strip()
+        if not f:
+            self._json({"ok": False, "error": "f parameter required",
+                        "surfaces": list(self._lab().PRESET_SURFACES)}, status=400)
+            return
+        try:
+            self._json(self._lab().gradient_descent(
+                f, start=p.get("start", ["1, 1"])[0],
+                lr=float(p.get("lr", ["0.1"])[0]),
+                steps=int(p.get("steps", ["60"])[0]),
+                variables=p.get("vars", [""])[0],
+                momentum=float(p.get("momentum", ["0"])[0])))
+        except ValueError as exc:
+            self._json({"ok": False, "error": f"bad parameter: {exc}"}, status=400)
+
+    def _curriculum(self, query: str) -> None:
+        """The curriculum, and which topics a question would match."""
+        import curriculum as CUR
+        p = parse_qs(query)
+        q = p.get("q", [""])[0].strip()
+        if q:
+            self._json({"question": q, "matched": [
+                {"id": t.id, "title": t.title, "level": t.level,
+                 "key_concepts": t.key_concepts, "key_equations": t.key_equations,
+                 "intuition": t.intuition}
+                for t in CUR.match_topics(q, int(p.get("k", ["4"])[0] or 4))]})
+            return
+        self._json({"total": len(CUR.TOPICS), "levels": CUR.LEVELS,
+                    "topics": [{"id": t.id, "title": t.title, "level": t.level,
+                                "prerequisites": t.prerequisites,
+                                "key_concepts": t.key_concepts,
+                                "key_equations": t.key_equations,
+                                "intuition": t.intuition, "shelves": t.shelves}
+                               for t in CUR.TOPICS.values()]})
 
     # ── endpoints ────────────────────────────────────────────────────────
 

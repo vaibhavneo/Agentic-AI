@@ -1,1 +1,14 @@
+# The DeepSeek client speaks the OpenAI wire protocol.
 openai>=1.0.0
+
+# research.check_identity() imports sympy lazily inside a try/except, so a
+# missing wheel does not crash the app — it just makes every symbolic check
+# return ok:false with a ModuleNotFoundError the reader never sees explained.
+# Undeclared, that is exactly what happened on any host installing only what
+# this file lists.
+sympy>=1.12
+
+# brainlab.py — sympy differentiates, numpy does the linear algebra. Both are
+# hard requirements of /api/symbolic, /api/matrix and /api/descent; without
+# them those endpoints raise ImportError on the first call.
+numpy>=1.24
