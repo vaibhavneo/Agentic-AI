@@ -118,6 +118,60 @@ button.go:disabled{opacity:.45;cursor:not-allowed}
 .katex{font-size:1.04em}
 .eqblock .katex-display{margin:0}
 .empty{color:var(--muted);font-size:.88rem;border:1px dashed var(--border);border-radius:var(--r);padding:15px}
+
+/* ── tabs + Brain Lab ── */
+.tabs{display:flex;gap:7px;margin:16px 0 6px;flex-wrap:wrap}
+.tabs button{font:inherit;font-size:.82rem;padding:6px 14px;border-radius:20px;cursor:pointer;
+  border:1px solid var(--border);background:var(--surface);color:var(--muted)}
+.tabs button[aria-selected="true"]{background:var(--accent-soft);border-color:var(--accent);color:var(--accent);font-weight:600}
+.panel{display:none}
+.panel.on{display:block}
+.lab-modes{display:flex;gap:7px;flex-wrap:wrap;margin:14px 0 16px}
+/* the sub-panes need their own show/hide — without this all three stack */
+.lab-pane{display:none}
+.lab-pane.on{display:block}
+.chip{font:inherit;font-size:.78rem;padding:5px 13px;border-radius:20px;cursor:pointer;
+  border:1px solid var(--border);background:var(--surface);color:var(--muted)}
+.chip[aria-selected="true"]{background:var(--accent-soft);border-color:var(--accent);
+  color:var(--accent);font-weight:600}
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin:4px 0 10px}
+.err{color:var(--magenta);font-size:.84rem}
+.lab-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.05fr);gap:20px;align-items:start}
+@media (max-width:860px){.lab-grid{grid-template-columns:1fr}}
+.field{display:flex;flex-direction:column;gap:4px;margin-bottom:11px}
+.field label{font-size:.75rem;color:var(--muted);letter-spacing:.02em}
+.field input,.field select,.field textarea{font:inherit;font-size:.86rem;padding:7px 9px;border-radius:8px;
+  border:1px solid var(--border);background:var(--surface);color:var(--text);width:100%}
+.field textarea{font-family:var(--mono);resize:vertical}
+.row3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px}
+.inrow{display:flex;gap:7px;align-items:flex-start}
+.inrow textarea{flex:1;min-width:0}
+.out{background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);padding:14px 16px;min-height:140px;overflow-x:auto}
+.out-head{font-family:var(--mono);font-size:.9rem;color:var(--accent);margin-bottom:10px;padding-bottom:9px;border-bottom:1px solid var(--border)}
+.out-row{display:flex;justify-content:space-between;gap:12px;padding:5px 0;border-bottom:1px solid var(--border);font-size:.84rem}
+.out-row:last-child{border-bottom:none}
+.out-row .k{color:var(--muted)}
+.out-row .v{font-family:var(--mono);font-variant-numeric:tabular-nums;text-align:right;overflow-wrap:anywhere}
+.lab-note{font-size:.75rem;color:var(--muted);margin:10px 0 0;padding-top:9px;border-top:1px solid var(--border)}
+.lab-legend{font-size:.72rem;color:var(--muted);margin:0 0 6px}
+.lab-plot{width:100%;height:auto;display:block;margin:4px 0 12px;background:var(--surface);
+  border:1px solid var(--border);border-radius:var(--r)}
+.lab-plot .axis{stroke:var(--border);stroke-width:1}
+.lab-plot .curve{fill:none;stroke:var(--accent);stroke-width:1.8}
+.lab-plot .pathline{fill:none;stroke:var(--magenta);stroke-width:1.6}
+.lab-plot .pt{fill:var(--magenta)}
+.lab-plot text{font-size:9px;fill:var(--muted);font-family:var(--mono)}
+.mat{font-family:var(--mono);font-size:.8rem;border-collapse:collapse;margin:2px 0 10px}
+.mat td{border:1px solid var(--border);padding:3px 8px;text-align:right;font-variant-numeric:tabular-nums}
+.heard{font-family:var(--mono);font-size:.72rem;color:var(--accent)}
+.cur-item{border:1px solid var(--border);border-radius:var(--r);background:var(--surface);padding:11px 13px;margin-bottom:9px}
+.cur-head{display:flex;justify-content:space-between;gap:10px;align-items:baseline}
+.cur-head b{font-size:.9rem}
+.cur-lvl{font-family:var(--mono);font-size:.68rem;padding:2px 7px;border-radius:20px;
+  background:var(--violet-soft);color:var(--violet)}
+.cur-con{font-size:.76rem;color:var(--muted);margin:5px 0 0}
+.cur-eq{margin-top:7px;font-size:.85rem;overflow-x:auto}
+.cur-count{font-size:.78rem;color:var(--muted);margin:0 0 12px}
 </style>
 </head>
 <body>
@@ -129,6 +183,13 @@ button.go:disabled{opacity:.45;cursor:not-allowed}
 
   <div class="shelfbar" id="shelfbar"><span class="pill">checking shelves…</span></div>
 
+  <nav class="tabs" role="tablist">
+    <button role="tab" data-tab="ask" aria-selected="true">Ask</button>
+    <button role="tab" data-tab="lab" aria-selected="false">Brain Lab</button>
+    <button role="tab" data-tab="cur" aria-selected="false">Curriculum <span id="cur-n"></span></button>
+  </nav>
+
+  <section class="panel on" id="p-ask">
   <div class="log" id="log">
     <div class="empty" id="empty">
       Ask anything across your library. Try <b>“how does LoRA fine-tuning actually work”</b>,
@@ -157,6 +218,100 @@ button.go:disabled{opacity:.45;cursor:not-allowed}
     <p class="hint" id="hint">Intro and Intermediate use the fast model; Advanced uses the deeper reasoning model and takes longer.</p>
     <p class="hint" id="voicenote"></p>
   </div>
+  </section>
+
+  <!-- ── Brain Lab ── -->
+  <section class="panel" id="p-lab">
+    <p class="hint" style="margin-top:14px">Type or speak the mathematics. Symbolic work goes
+    through sympy, the linear algebra through numpy, and gradient descent runs on an exact
+    symbolic gradient. Every number here is computed — none of it is generated by a model.</p>
+
+    <div class="lab-modes">
+      <button class="chip" data-lab="sym" aria-selected="true">Symbolic</button>
+      <button class="chip" data-lab="mat" aria-selected="false">Matrix</button>
+      <button class="chip" data-lab="gd"  aria-selected="false">Gradient descent</button>
+    </div>
+
+    <div class="lab-pane on" id="l-sym">
+      <div class="lab-grid">
+        <div>
+          <div class="field"><label for="s-expr">Expression</label>
+            <div class="inrow">
+              <textarea id="s-expr" rows="2" spellcheck="false"
+                placeholder="e.g.  log(1 + exp(-y*f))   or   x**2 + 3*x*y + y**2"></textarea>
+              <button class="icon-btn" id="s-mic" type="button" title="Speak it" aria-pressed="false">🎤</button>
+            </div>
+          </div>
+          <div class="row3">
+            <div class="field"><label for="s-op">Operation</label><select id="s-op"></select></div>
+            <div class="field"><label for="s-var">Variable</label><input id="s-var" value="x"></div>
+            <div class="field"><label for="s-at">At / limit</label><input id="s-at" placeholder="0, oo"></div>
+          </div>
+          <div class="row3">
+            <div class="field"><label for="s-vars">Variables (gradient / Hessian)</label><input id="s-vars" placeholder="x,y"></div>
+            <div class="field"><label for="s-subs">Substitute</label><input id="s-subs" placeholder="a=2"></div>
+            <div class="field" style="justify-content:end"><button class="go" id="s-go">Compute</button></div>
+          </div>
+        </div>
+        <div class="out" id="s-out"><span class="empty">Type an expression and compute.</span></div>
+      </div>
+    </div>
+
+    <div class="lab-pane" id="l-mat">
+      <div class="lab-grid">
+        <div>
+          <div class="field"><label for="m-in">Matrix &mdash; rows separated by <code>;</code></label>
+            <textarea id="m-in" rows="3" spellcheck="false" placeholder="2, 0&#10;0, 3">2, 0; 0, 3</textarea>
+          </div>
+          <div class="row3">
+            <div class="field"><label for="m-op">Operation</label><select id="m-op"></select></div>
+            <div class="field"><label for="m-b">b (least squares)</label><input id="m-b" placeholder="3; 1"></div>
+            <div class="field" style="justify-content:end"><button class="go" id="m-go">Compute</button></div>
+          </div>
+          <div class="chips" id="m-examples"></div>
+        </div>
+        <div class="out" id="m-out"><span class="empty">Enter a matrix and compute.</span></div>
+      </div>
+    </div>
+
+    <div class="lab-pane" id="l-gd">
+      <div class="lab-grid">
+        <div>
+          <div class="field"><label for="g-preset">Start from</label><select id="g-preset"></select></div>
+          <p class="lab-legend" id="g-note"></p>
+          <div class="field"><label for="g-f">Function f</label>
+            <div class="inrow">
+              <textarea id="g-f" rows="2" spellcheck="false" placeholder="x**2 + 20*y**2"></textarea>
+              <button class="icon-btn" id="g-mic" type="button" title="Speak it" aria-pressed="false">🎤</button>
+            </div>
+          </div>
+          <div class="row3">
+            <div class="field"><label for="g-start">Start point</label><input id="g-start" value="3, 4"></div>
+            <div class="field"><label for="g-lr">Learning rate</label><input id="g-lr" value="0.1" inputmode="decimal"></div>
+            <div class="field"><label for="g-steps">Steps</label><input id="g-steps" value="80" inputmode="numeric"></div>
+          </div>
+          <div class="row3">
+            <div class="field"><label for="g-mom">Momentum</label><input id="g-mom" value="0" inputmode="decimal"></div>
+            <div class="field"><label for="g-vars">Variables</label><input id="g-vars" placeholder="x,y"></div>
+            <div class="field" style="justify-content:end"><button class="go" id="g-go">Descend</button></div>
+          </div>
+        </div>
+        <div class="out" id="g-out"><span class="empty">Pick a surface and descend.</span></div>
+      </div>
+    </div>
+    <p class="hint" id="labvoice"></p>
+  </section>
+
+  <!-- ── Curriculum ── -->
+  <section class="panel" id="p-cur">
+    <p class="hint" style="margin-top:14px">The spine the answers stand on. These topics are
+    citable sources in their own right — when the book shelves are unavailable, as they are on
+    the hosted instance, they are what the answer is grounded in.</p>
+    <div class="field"><label for="c-q">Which topics would a question match?</label>
+      <input id="c-q" placeholder="e.g. why does attention divide by sqrt(d_k)"></div>
+    <p class="cur-count" id="c-count"></p>
+    <div id="c-list"></div>
+  </section>
 </div>
 
 <script>
@@ -412,6 +567,291 @@ function ask(){
 document.getElementById("ask").addEventListener("click",ask);
 document.getElementById("q").addEventListener("keydown",e=>{
   if(e.key==="Enter"&&!e.shiftKey){ e.preventDefault(); ask(); }
+});
+
+/* ════════════════════════════════════════════════════════════════════════
+   Tabs, Brain Lab and Curriculum browser
+   ════════════════════════════════════════════════════════════════════════ */
+const $ = id => document.getElementById(id);
+const PANELS = {ask:"p-ask", lab:"p-lab", cur:"p-cur"};
+
+document.querySelectorAll('.tabs button').forEach(b => b.addEventListener("click", () => {
+  document.querySelectorAll('.tabs button').forEach(o =>
+    o.setAttribute("aria-selected", String(o === b)));
+  Object.entries(PANELS).forEach(([k, id]) => $(id).classList.toggle("on", k === b.dataset.tab));
+  if (b.dataset.tab === "cur") loadCurriculum();
+}));
+
+/* Speech gives words; sympy needs operators. Ordered longest-phrase-first so
+   "square root of" is consumed before the bare "square" rule turns it into
+   **2. Nothing here is a parser — it gets close enough that a glance fixes
+   the rest, which is why the converted text is always shown. */
+const SPEECH_MATH = [
+  [/\bsquare root of\b/gi,"sqrt("], [/\bsquare root\b/gi,"sqrt("],
+  [/\bpartial derivative of\b/gi,"Derivative("],
+  [/\bthe gradient of\b/gi,""], [/\bgradient of\b/gi,""],
+  [/\be to the minus\b/gi,"exp(-"], [/\be to the\b/gi,"exp("],
+  [/\bexponential of\b/gi,"exp("],
+  [/\bnatural log of\b/gi,"log("], [/\blog of\b/gi,"log("],
+  [/\bsigmoid of\b/gi,"sigmoid("], [/\brelu of\b/gi,"relu("],
+  [/\braised to the power (?:of )?/gi,"**"], [/\bto the power (?:of )?/gi,"**"],
+  [/\b(squared|square)\b/gi,"**2"], [/\bcubed\b/gi,"**3"],
+  [/\bdivided by\b/gi,"/"], [/\bover\b/gi,"/"],
+  [/\btimes\b/gi,"*"], [/\bmultiplied by\b/gi,"*"],
+  [/\bplus\b/gi,"+"], [/\bminus\b/gi,"-"], [/\bnegative\b/gi,"-"],
+  [/\bis equal to\b/gi,"="], [/\bequals\b/gi,"="],
+  [/\bless than or equal to\b/gi,"<="], [/\bgreater than or equal to\b/gi,">="],
+  [/\bless than\b/gi,"<"], [/\bgreater than\b/gi,">"],
+  [/\bone half\b/gi,"1/2"], [/\bhalf\b/gi,"1/2"],
+  [/\babsolute value of\b/gi,"Abs("],
+  [/\bopen (?:paren|parenthesis|bracket)\b/gi,"("],
+  [/\bclose (?:paren|parenthesis|bracket)\b/gi,")"],
+  [/\s*\b(?:naught|nought|sub zero)\b/gi,"0"],
+  [/\bd\s*k\b/gi,"d_k"], [/\binfinity\b/gi,"oo"],
+  [/\bzero\b/gi,"0"], [/\bone\b/gi,"1"], [/\btwo\b/gi,"2"], [/\bthree\b/gi,"3"],
+  [/\bfour\b/gi,"4"], [/\bfive\b/gi,"5"], [/\bsix\b/gi,"6"], [/\bseven\b/gi,"7"],
+  [/\beight\b/gi,"8"], [/\bnine\b/gi,"9"], [/\bten\b/gi,"10"],
+];
+/* Matching is case-insensitive but the text is never lower-cased: this domain
+   is full of case-carrying names (X vs x, W vs w) and folding them breaks the
+   match against whatever the user typed elsewhere. */
+function speechToMath(str){
+  let t = " " + String(str || "") + " ";
+  for (const [re, rep] of SPEECH_MATH) t = t.replace(re, rep);
+  t = t.replace(/\s*([+\-*/=<>(),])\s*/g, "$1").replace(/\*\*\s*/g, "**")
+       .replace(/\s+/g, " ").trim();
+  for (let prev = null; prev !== t; ) { prev = t; t = t.replace(/(\w)\s+(\w)/g, "$1*$2"); }
+  const open = (t.match(/\(/g) || []).length, close = (t.match(/\)/g) || []).length;
+  if (open > close) t += ")".repeat(open - close);
+  return t;
+}
+
+function attachMic(opts){
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  const btn = $(opts.btn), note = $(opts.note);
+  if (!btn) return;
+  if (!SR){ btn.disabled = true; btn.title = "Voice input isn't supported in this browser"; return; }
+  let rec = null, listening = false, stopping = false, base = "", finalText = "";
+  btn.addEventListener("click", () => {
+    if (listening){ stopping = true; note.textContent = "Finishing up…"; rec && rec.stop(); return; }
+    try{
+      rec = new SR(); rec.lang = "en-US"; rec.continuous = true;
+      rec.interimResults = true; rec.maxAlternatives = 1;
+      base = $(opts.target).value.trim(); finalText = ""; stopping = false;
+      rec.onstart = () => { listening = true; btn.setAttribute("aria-pressed","true");
+        btn.textContent = "🔴"; note.textContent = "Listening… press 🔴 to finish."; };
+      rec.onresult = e => {
+        let interim = "";
+        for (let i = e.resultIndex; i < e.results.length; i++){
+          const seg = e.results[i];
+          if (seg.isFinal) finalText += (finalText ? " " : "") + seg[0].transcript.trim();
+          else interim += seg[0].transcript;
+        }
+        const spoken = [finalText, interim.trim()].filter(Boolean).join(" ");
+        $(opts.target).value = [base, speechToMath(spoken)].filter(Boolean).join(" ");
+      };
+      rec.onerror = e => { if (e.error !== "aborted") note.textContent = "Voice input didn't work (" + e.error + ")"; };
+      rec.onend = () => {
+        if (listening && !stopping){ try { rec.start(); return; } catch(_){} }
+        listening = false; stopping = false;
+        btn.setAttribute("aria-pressed","false"); btn.textContent = "🎤";
+        note.innerHTML = finalText
+          ? 'Heard: “' + esc(finalText) + '” → <span class="heard">' + esc(speechToMath(finalText)) + "</span>"
+          : "Nothing captured — press 🎤 to try again.";
+      };
+      rec.start();
+    }catch(err){ note.textContent = "Voice input couldn't start (" + err.message + ")"; listening = false; }
+  });
+}
+
+async function labFetch(url, outEl){
+  outEl.innerHTML = '<span class="empty">Computing…</span>';
+  try { return await (await fetch(url)).json(); }
+  catch(err){
+    outEl.innerHTML = '<span class="err">Couldn\'t reach the lab (' + esc(err.message) +
+      '). The Brain Lab needs the server running.</span>';
+    return null;
+  }
+}
+function labError(j, outEl){
+  if (j && j.ok !== false) return false;
+  outEl.innerHTML = '<span class="err">' + esc((j && (j.error || j.message)) || "Unknown error") + "</span>" +
+    (j && j.hint ? '<p class="lab-note">' + esc(j.hint) + "</p>" : "");
+  return true;
+}
+const pairs = v => String(v || "").split(",").map(x => x.trim()).filter(Boolean).join(",");
+const num = (v, d) => { const n = parseFloat(v); return Number.isFinite(n) ? n : d; };
+const matTable = M => '<table class="mat"><tbody>' +
+  M.map(r => "<tr>" + (Array.isArray(r) ? r : [r]).map(c => "<td>" + c + "</td>").join("") + "</tr>").join("") +
+  "</tbody></table>";
+
+/* ── lab mode switching ── */
+document.querySelectorAll("[data-lab]").forEach(b => b.addEventListener("click", () => {
+  document.querySelectorAll("[data-lab]").forEach(o => o.setAttribute("aria-selected", String(o === b)));
+  ["sym","mat","gd"].forEach(k => $("l-" + k).classList.toggle("on", k === b.dataset.lab));
+}));
+
+/* ── populate controls from the server, so the UI can't drift from the lab ── */
+(async function initLab(){
+  let info = {};
+  try { info = await (await fetch("/api/lab")).json(); } catch(_){ return; }
+  $("s-op").innerHTML = (info.operations || []).map(o => '<option value="' + o + '">' + o + "</option>").join("");
+  $("m-op").innerHTML = (info.matrix_operations || []).map(o => '<option value="' + o + '">' + o + "</option>").join("");
+  const surf = info.surfaces || {};
+  $("g-preset").innerHTML = Object.entries(surf)
+    .map(([k, p]) => '<option value="' + k + '">' + esc(p.label) + "</option>").join("");
+  function applySurface(){
+    const p = surf[$("g-preset").value]; if (!p) return;
+    $("g-f").value = p.f; $("g-start").value = p.start; $("g-lr").value = p.lr;
+    $("g-note").textContent = p.note;
+  }
+  $("g-preset").addEventListener("change", applySurface);
+  applySurface();
+
+  $("m-examples").innerHTML =
+    ['<button class="chip" data-m="2, 0; 0, 3">diag(2,3)</button>',
+     '<button class="chip" data-m="1, 2; 2, 4">singular</button>',
+     '<button class="chip" data-m="4, 1; 1, 3">symmetric PD</button>',
+     '<button class="chip" data-m="1, 1; 1, -1">2x2 system</button>',
+     '<button class="chip" data-m="1, 2, 3; 4, 5, 6">3-col, rank 2</button>'].join(" ");
+  $("m-examples").addEventListener("click", e => {
+    const b = e.target.closest("[data-m]"); if (b) $("m-in").value = b.dataset.m;
+  });
+
+  // Show the topic count in the tab straight away; waiting until the tab is
+  // opened hides the single most useful fact about the curriculum.
+  fetch("/api/curriculum").then(r => r.json())
+    .then(j => { CUR_CACHE = j; $("cur-n").textContent = j.total; })
+    .catch(() => {});
+
+  attachMic({btn:"s-mic", note:"labvoice", target:"s-expr"});
+  attachMic({btn:"g-mic", note:"labvoice", target:"g-f"});
+  $("s-go").addEventListener("click", runSymbolic);
+  $("m-go").addEventListener("click", runMatrix);
+  $("g-go").addEventListener("click", runDescent);
+})();
+
+async function runSymbolic(){
+  const out = $("s-out"), expr = $("s-expr").value.trim();
+  if (!expr){ out.innerHTML = '<span class="err">Type an expression first.</span>'; return; }
+  const q = new URLSearchParams({expr, op: $("s-op").value, var: $("s-var").value.trim() || "x"});
+  if ($("s-at").value.trim()) q.set("at", $("s-at").value.trim());
+  if ($("s-vars").value.trim()) q.set("vars", pairs($("s-vars").value));
+  if ($("s-subs").value.trim()) q.set("subs", pairs($("s-subs").value));
+  const j = await labFetch("/api/symbolic?" + q, out); if (!j || labError(j, out)) return;
+  let h = '<div class="out-head">' + esc(j.operation) + "</div>";
+  h += '<div class="lab-legend">input</div><div>' + tex(j.input_latex || j.input, true) + "</div>";
+  h += '<div class="lab-legend" style="margin-top:12px">result</div><div>' + tex(j.latex || j.result, true) + "</div>";
+  if (j.variables) h += '<div class="out-row"><span class="k">with respect to</span><span class="v">' + j.variables.join(", ") + "</span></div>";
+  if (j.numeric !== undefined) h += '<div class="out-row"><span class="k">numeric</span><span class="v">' + esc(j.numeric) + "</span></div>";
+  h += '<div class="out-row"><span class="k">plain text</span><span class="v">' + esc(j.result) + "</span></div>";
+  h += '<p class="lab-note">Computed by sympy. Paste the plain-text form back in to keep working on it.</p>';
+  out.innerHTML = h;
+}
+
+async function runMatrix(){
+  const out = $("m-out"), m = $("m-in").value.trim();
+  if (!m){ out.innerHTML = '<span class="err">Enter a matrix first.</span>'; return; }
+  const q = new URLSearchParams({m, op: $("m-op").value});
+  if ($("m-b").value.trim()) q.set("b", $("m-b").value.trim());
+  const j = await labFetch("/api/matrix?" + q, out); if (!j || labError(j, out)) return;
+  let h = '<div class="out-head">' + esc(j.operation) + " · " + j.shape.join("×") + "</div>";
+  h += '<div class="lab-legend">A</div>' + matTable(j.matrix);
+  const rows = [["rank","rank"],["determinant","determinant"],["trace","trace"],
+                ["condition_number","condition number"],["frobenius_norm","Frobenius norm"],
+                ["symmetric","symmetric"],["method","method"],["dominant_eigenvalue","dominant eigenvalue"],
+                ["residual_norm","residual ‖Ax−b‖"]];
+  for (const [k, label] of rows)
+    if (j[k] !== undefined) h += '<div class="out-row"><span class="k">' + label + '</span><span class="v">' + esc(j[k]) + "</span></div>";
+  if (j.singular_values) h += '<div class="out-row"><span class="k">singular values</span><span class="v">' + j.singular_values.join(", ") + "</span></div>";
+  if (j.eigenvalues) h += '<div class="out-row"><span class="k">eigenvalues</span><span class="v">' +
+    j.eigenvalues.map(v => typeof v === "object" ? v.re + (v.im >= 0 ? "+" : "") + v.im + "i" : v).join(", ") + "</span></div>";
+  if (j.solution) h += '<div class="out-row"><span class="k">x</span><span class="v">' + j.solution.join(", ") + "</span></div>";
+  for (const [k, label] of [["eigenvectors","eigenvectors (columns)"],["U","U"],["Vt","Vᵀ"],["result","result"]])
+    if (j[k]) h += '<div class="lab-legend" style="margin-top:10px">' + label + "</div>" + matTable(j[k]);
+  if (j.rayleigh_trace) h += '<div class="lab-legend" style="margin-top:10px">Rayleigh quotient per iteration</div>' +
+    linePlot(j.rayleigh_trace, "λ estimate");
+  if (j.note) h += '<p class="lab-note">' + esc(j.note) + "</p>";
+  out.innerHTML = h;
+}
+
+async function runDescent(){
+  const out = $("g-out"), f = $("g-f").value.trim();
+  if (!f){ out.innerHTML = '<span class="err">Write a function first.</span>'; return; }
+  const q = new URLSearchParams({f, start: $("g-start").value.trim() || "1",
+    lr: num($("g-lr").value, 0.1), steps: Math.max(1, Math.min(2000, num($("g-steps").value, 80))),
+    momentum: num($("g-mom").value, 0)});
+  if ($("g-vars").value.trim()) q.set("vars", pairs($("g-vars").value));
+  const j = await labFetch("/api/descent?" + q, out); if (!j || labError(j, out)) return;
+  let h = '<div class="out-head">minimise f by gradient descent</div>';
+  h += '<div class="lab-legend">f</div><div>' + tex(j.function_latex, true) + "</div>";
+  h += '<div class="lab-legend" style="margin-top:10px">∇f (exact, differentiated symbolically)</div><div>' +
+       tex("\\left[" + j.gradient_latex.join(",\\; ") + "\\right]", true) + "</div>";
+  h += '<div class="lab-legend" style="margin-top:12px">loss per step</div>' + linePlot(j.loss_trace, "f");
+  h += '<div class="out-row"><span class="k">start</span><span class="v">' + j.start.join(", ") + "</span></div>";
+  h += '<div class="out-row"><span class="k">final point</span><span class="v">' + j.final_point.join(", ") + "</span></div>";
+  h += '<div class="out-row"><span class="k">final f</span><span class="v">' + esc(j.final_value) + "</span></div>";
+  h += '<div class="out-row"><span class="k">‖∇f‖ at the end</span><span class="v">' +
+       esc(j.grad_norm_trace[j.grad_norm_trace.length - 1]) + "</span></div>";
+  h += '<div class="out-row"><span class="k">steps run</span><span class="v">' + j.steps_run + "</span></div>";
+  h += '<div class="out-row"><span class="k">diverged</span><span class="v">' + j.diverged + "</span></div>";
+  h += '<p class="lab-note">' + esc(j.note) + "</p>";
+  out.innerHTML = h;
+}
+
+/* A log-scaled trace: losses span many orders of magnitude, and on a linear
+   axis everything after the first few steps is a flat line on the floor. */
+function linePlot(series, label){
+  if (!series || series.length < 2) return "";
+  const W = 520, H = 150, L = 46, R = 10, T = 10, B = 22;
+  const pos = series.filter(v => v > 0);
+  const useLog = pos.length === series.length && Math.max(...pos) / Math.min(...pos) > 100;
+  const ys = series.map(v => useLog ? Math.log10(v) : v);
+  const lo = Math.min(...ys), hi = Math.max(...ys), span = (hi - lo) || 1;
+  const px = i => L + i / (series.length - 1) * (W - L - R);
+  const py = v => T + (hi - v) / span * (H - T - B);
+  const d = ys.map((v, i) => (i ? "L" : "M") + px(i).toFixed(1) + " " + py(v).toFixed(1)).join(" ");
+  const fmt = v => (Math.abs(v) >= 1e4 || (v !== 0 && Math.abs(v) < 1e-3)) ? v.toExponential(1) : v.toPrecision(4);
+  return '<svg class="lab-plot" viewBox="0 0 ' + W + " " + H + '" role="img" aria-label="' + esc(label) + ' per step">' +
+    '<path class="curve" d="' + d + '"/>' +
+    '<line class="axis" x1="' + L + '" y1="' + (H - B) + '" x2="' + (W - R) + '" y2="' + (H - B) + '"/>' +
+    '<line class="axis" x1="' + L + '" y1="' + T + '" x2="' + L + '" y2="' + (H - B) + '"/>' +
+    '<text x="2" y="' + (T + 8) + '">' + fmt(series[ys.indexOf(hi)]) + "</text>" +
+    '<text x="2" y="' + (H - B) + '">' + fmt(series[ys.indexOf(lo)]) + "</text>" +
+    '<text x="' + L + '" y="' + (H - 6) + '">step 0</text>' +
+    '<text x="' + (W - R) + '" y="' + (H - 6) + '" text-anchor="end">' + (series.length - 1) + "</text>" +
+    "</svg>" + (useLog ? '<p class="lab-legend">log₁₀ scale — the range spans orders of magnitude</p>' : "");
+}
+
+/* ── curriculum browser ── */
+let CUR_CACHE = null;
+async function loadCurriculum(){
+  if (!CUR_CACHE){
+    try { CUR_CACHE = await (await fetch("/api/curriculum")).json(); }
+    catch(_){ $("c-list").innerHTML = '<span class="err">Couldn\'t load the curriculum.</span>'; return; }
+    $("cur-n").textContent = CUR_CACHE.total;
+  }
+  renderCurriculum(CUR_CACHE.topics, CUR_CACHE.total + " topics");
+}
+function renderCurriculum(topics, caption){
+  $("c-count").textContent = caption;
+  $("c-list").innerHTML = topics.map(t =>
+    '<div class="cur-item"><div class="cur-head"><b>' + esc(t.title) + "</b>" +
+    '<span class="cur-lvl">' + esc(t.level) + "</span></div>" +
+    '<p class="cur-con">' + esc(t.key_concepts.join(" · ")) + "</p>" +
+    ((t.key_equations || []).length
+      ? '<div class="cur-eq">' + t.key_equations.slice(0, 2).map(e => tex(e, true)).join("") + "</div>" : "") +
+    "</div>").join("");
+}
+$("c-q").addEventListener("input", async e => {
+  const q = e.target.value.trim();
+  if (!q){ if (CUR_CACHE) renderCurriculum(CUR_CACHE.topics, CUR_CACHE.total + " topics"); return; }
+  try{
+    const j = await (await fetch("/api/curriculum?q=" + encodeURIComponent(q))).json();
+    renderCurriculum(j.matched, j.matched.length
+      ? j.matched.length + " topic(s) this question would match"
+      : "no topic matches — the answer would come from books and general knowledge");
+  }catch(_){}
 });
 </script>
 </body>
