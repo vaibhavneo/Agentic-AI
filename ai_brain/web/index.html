@@ -15,6 +15,7 @@
   --amber:#A9690D; --amber-soft:rgba(169,105,13,.10);
   --magenta:#A63A6B; --magenta-soft:rgba(166,58,107,.10);
   --green:#1F7A4D; --green-soft:rgba(31,122,77,.10);
+  --teal:#0E7C86; --teal-soft:rgba(14,124,134,.10);
   --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
   --serif:ui-serif,Georgia,"Iowan Old Style",serif;
   --sans:system-ui,-apple-system,"Segoe UI",sans-serif;
@@ -28,6 +29,7 @@
   --amber:#E0A44A; --amber-soft:rgba(224,164,74,.12);
   --magenta:#E27BAE; --magenta-soft:rgba(226,123,174,.12);
   --green:#4FBF8B; --green-soft:rgba(79,191,139,.12);
+  --teal:#4FC3CE; --teal-soft:rgba(79,195,206,.12);
 }}
 *,*::before,*::after{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--text);font-family:var(--sans);font-size:15px;line-height:1.6;-webkit-font-smoothing:antialiased}
@@ -60,6 +62,7 @@ header p{margin:3px 0 0;color:var(--muted);font-size:.86rem}
 .prov-adapted{background:var(--amber-soft);color:var(--amber)}
 .prov-computed{background:var(--green-soft);color:var(--green)}
 .prov-web{background:var(--accent-soft);color:var(--accent)}
+.prov-curriculum{background:var(--teal-soft);color:var(--teal)}
 .adapt-bar{display:flex;gap:9px;align-items:center;flex-wrap:wrap;font-size:.77rem;color:var(--muted);
   border:1px solid var(--border);border-radius:8px;padding:7px 11px;margin-bottom:12px}
 
@@ -327,8 +330,21 @@ function tex(s, display){
 
 /* Markdown-lite + LaTeX + citation chips. Math and code are pulled out before
    escaping so their contents survive verbatim. */
-function renderProse(md, ev){
-  const kept=new Set(((ev&&ev.kept)||[]).map(c=>c.tag));
+// "offered" mirrors validation()'s own construction (pipeline.py) exactly —
+// book tags + W1..Wn + C:topic-id + T1 — so a model-fabricated [C:...] gets
+// the same red "miss" styling a fabricated [S9] already got. Previously this
+// only ever looked at book tags, so curriculum/web/tool citations rendered
+// as inert bracket text instead of clickable, sourced chips.
+function offeredTags(d){
+  const kept=new Set(((d&&d.evidence&&d.evidence.kept)||[]).map(c=>c.tag));
+  ((d&&d.topics)||[]).forEach(t=>kept.add("C:"+t.id));
+  const hits=(d&&d.web&&d.web.hits)||[];
+  for (let i=1;i<=hits.length;i++) kept.add("W"+i);
+  if (d&&d.tool&&d.tool.ok) kept.add("T1");
+  return kept;
+}
+function renderProse(md, d){
+  const kept=offeredTags(d);
   let s=String(md||""); const B=[],I=[],C=[];
   s=s.replace(/```(\w*)\n([\s\S]*?)```/g,(m,l,c)=>{C.push(c); return "C"+(C.length-1)+"";});
   s=s.replace(/\\\[([\s\S]*?)\\\]|\$\$([\s\S]*?)\$\$/g,(m,a,b)=>{B.push(a!==undefined?a:b); return "B"+(B.length-1)+"";});
@@ -338,7 +354,7 @@ function renderProse(md, ev){
   s=s.replace(/\*\*([^*]+)\*\*/g,"<b>$1</b>");
   s=s.replace(/(^|[^*])\*([^*\n]+)\*(?!\*)/g,"$1<i>$2</i>");
   s=s.replace(/^#{1,4}\s*(.+)$/gm,'<div class="sec-h">$1</div>');
-  s=s.replace(/\[(S\d+)\]/g,(m,t)=>'<span class="cite'+(kept.has(t)?"":" miss")+'" data-cite="'+t+
+  s=s.replace(/\[((?:C:[\w\-]+)|(?:[SWT]\d+))\]/g,(m,t)=>'<span class="cite'+(kept.has(t)?"":" miss")+'" data-cite="'+t+
     '" title="'+(kept.has(t)?"jump to source":"model cited a source that was never supplied")+'">'+t+'</span>');
   s=s.split(/\n{2,}/).map(p=>{
     p=p.trim(); if(!p) return "";
@@ -379,24 +395,60 @@ function renderEvidence(ev){
   return h;
 }
 
+// What was QUERIED (d.routing, set before retrieval even runs) is not the
+// same claim as what actually GROUNDED the answer (d.honesty, computed after
+// retrieval) — the old header conflated the two ("routed to books" even when
+// retrieval came back empty and the model fell through to general
+// knowledge). honesty.grounded_in_library / covered_by_curriculum / used_web
+// are already computed and shipped by pipeline.py on every response; this
+// just reads them instead of leaving them unused.
+function groundingBadge(d){
+  const h=d.honesty||{}, ev=d.evidence||{};
+  const kept=(ev.kept||[]).length, topics=(d.topics||[]).length;
+  if (h.grounded_in_library){
+    const weak = ev.evidence_strength === "weak";
+    return {cls: weak?"s-weak":"s-usable",
+            text: "grounded in "+kept+" book passage"+(kept===1?"":"s")+(weak?" (weak match)":"")};
+  }
+  if (h.covered_by_curriculum)
+    return {cls:"s-weak", text:"no book match — grounded in "+topics+" curriculum note"+(topics===1?"":"s")+", not retrieved text"};
+  if (h.used_web)
+    return {cls:"s-weak", text:"no book or curriculum match — web reference only"};
+  return {cls:"s-none", text:"no book, curriculum or web match — general knowledge only"};
+}
 function renderHeader(d){
   const r=d.routing||{}, used=["books","web","tools"].filter(k=>r[k]);
-  const b=d.budget||{};
+  const b=d.budget||{}, g=groundingBadge(d);
   return '<div class="adapt-bar"><span class="prov prov-adapted">'+esc(d.depth)+'</span>'+
-    '<span>mode <b>'+esc(d.mode)+'</b> · routed to <b>'+(used.join(" + ")||"books")+'</b>'+
+    '<span>mode <b>'+esc(d.mode)+'</b> · queried <b>'+(used.join(" + ")||"books")+'</b>'+
+    ' · <b class="'+g.cls+'">'+esc(g.text)+'</b>'+
     ' · '+(b.llm_calls||0)+' LLM calls · '+((b.total_tokens||0).toLocaleString())+' tokens · '+d.elapsed_s+'s</span></div>';
 }
 function renderWeb(d){
   const w=(d.web||{}).hits||[], t=d.tool;
   let h="";
-  if(t&&t.ok) h+='<div class="ev-item"><div class="ev-head"><span class="cite">T1</span>'+
+  if(t&&t.ok) h+='<div class="ev-item" id="cite-T1"><div class="ev-head"><span class="cite">T1</span>'+
     '<span class="prov prov-computed">computed</span><span class="ev-src">'+esc(t.expression)+'</span></div>'+
     '<div class="ev-text">= '+esc(String(t.result))+' — evaluated, not model output</div></div>';
-  h+=w.map((x,i)=>'<div class="ev-item"><div class="ev-head"><span class="cite">W'+(i+1)+'</span>'+
+  h+=w.map((x,i)=>'<div class="ev-item" id="cite-W'+(i+1)+'"><div class="ev-head"><span class="cite">W'+(i+1)+'</span>'+
     '<span class="prov prov-web">reference</span><span class="ev-src">'+esc(x.title)+'</span></div>'+
     '<div class="ev-text">'+esc(x.snippet)+'</div></div>').join("");
   if(w.length) h+='<div class="ev-score">'+esc((d.web||{}).note||"")+'</div>';
   return h;
+}
+// Curriculum topics ([C:id]) are author-written reference notes, not
+// retrieved book text — DEPLOY.md documents this fallback as intentional,
+// but until now the UI never said so anywhere; a curriculum citation looked
+// exactly like a retrieved one. Same .ev-item pattern renderEvidence() uses
+// for book sources, with the new .prov-curriculum badge (not .prov-adapted,
+// which already means something else — depth level — in this same UI).
+function renderCurriculumUsed(d){
+  const topics=(d&&d.topics)||[];
+  if(!topics.length) return "";
+  return topics.map(t=>'<div class="ev-item" id="cite-C:'+esc(t.id)+'"><div class="ev-head">'+
+    '<span class="cite">C:'+esc(t.id)+'</span><span class="prov prov-curriculum">curriculum</span>'+
+    '<span class="ev-src">'+esc(t.title)+'</span><span class="ev-shelf">'+esc(t.level)+'</span></div>'+
+    '<div class="ev-text">Author-written reference topic, not retrieved book text.</div></div>').join("");
 }
 function renderChecks(d){
   const a=d.assessment||{}, v=d.validation||{};
@@ -423,15 +475,6 @@ function renderBudget(d){
     ' calls · '+((b.total_tokens||0).toLocaleString())+' tokens ('+((b.reasoning_tokens||0).toLocaleString())+
     ' reasoning)</div><div class="ev-score">'+esc((d.honesty||{}).note||"")+'</div>';
 }
-function renderAudit(d){
-  const a=d.audit||{}, ho=d.honesty||{};
-  const bad=(a.hallucinated_tags||[]).length;
-  return '<div class="ev-score">'+(a.sentences||0)+' sentences · cited '+
-    ((a.cited||[]).join(", ")||"none")+' · '+(a.uncited_sentences||0)+' uncited'+
-    (bad?' · <span style="color:var(--magenta)">'+bad+' fabricated citation(s)</span>':'')+
-    '</div><div class="ev-score" style="margin-top:5px">'+esc(ho.note||"")+'</div>';
-}
-
 async function loadShelves(){
   const bar=document.getElementById("shelfbar");
   try{
@@ -495,8 +538,8 @@ function ask(){
     Object.keys(rows).forEach(k=>rows[k].className="trace-row");
     bubble.innerHTML=
       renderHeader(d)+
-      renderProse(d.prose,d.evidence)+
-      '<details class="fold" open><summary>Sources &amp; provenance</summary>'+renderEvidence(d.evidence)+renderWeb(d)+'</details>'+
+      renderProse(d.prose,d)+
+      '<details class="fold" open><summary>Sources &amp; provenance</summary>'+renderEvidence(d.evidence)+renderCurriculumUsed(d)+renderWeb(d)+'</details>'+
       '<details class="fold"><summary>Evidence engine &amp; validation</summary>'+renderChecks(d)+'</details>'+
       '<details class="fold"><summary>Pipeline trace &amp; token budget</summary>'+
         '<div class="trace">'+trace.innerHTML+'</div>'+renderBudget(d)+'</details>';
