@@ -151,6 +151,19 @@ if check("/api/ask streams", st == 200, f"HTTP {st}"):
     check("an answer came back", '"prose"' in text)
     check("curriculum reached the answer", "C:" in text,
           "the hosted box has no book indexes, so this is what grounds it")
+    # Milestone-1 regression tripwire: the frontend header used to claim
+    # "routed to books" from d.routing alone, with no cross-check against
+    # what retrieval actually returned. honesty.grounded_in_library /
+    # covered_by_curriculum are the fields that fix that — assert they're
+    # actually present and boolean in the real payload, not just that some
+    # other field exists.
+    done_lines = [ln for ln in text.splitlines() if ln.startswith("data: ") and '"honesty"' in ln]
+    if check("a 'done' event with honesty carried the payload", bool(done_lines)):
+        honesty = json.loads(done_lines[-1][len("data: "):]).get("honesty", {})
+        check("honesty.grounded_in_library is a real boolean",
+              isinstance(honesty.get("grounded_in_library"), bool), str(honesty))
+        check("honesty.covered_by_curriculum is a real boolean",
+              isinstance(honesty.get("covered_by_curriculum"), bool), str(honesty))
     low = text.lower()
     for phrase in ("evidence is thin", "no sources", "off-topic"):
         check(f"opener free of {phrase!r}", low.count(phrase) == 0)

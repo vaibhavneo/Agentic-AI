@@ -348,6 +348,18 @@ def reasoning_engine(question, understanding, book_ev, web_res, tool_res,
         return {"skipped": True,
                 "reason": "intro depth — reasoning folded into the teaching stage",
                 "text": ""}
+    # Mirrors evidence_engine's own empty-input guard (above): with nothing
+    # retrieved, this stage would be sent "SOURCES:\n(none)" and asked which
+    # evidence tag supports each step of a skeleton professor_engine then
+    # expands — work that's not just wasted, it risks priming the final
+    # answer to sound structured about material that doesn't exist. This is
+    # also the call that turned the empty-grounding case into the observed
+    # 91s/12,702-token/4-call outlier: evidence_engine already self-skips
+    # here, so removing this one too drops the worst case to 3 calls.
+    if not book_ev.get("kept") and not web_res.get("hits") and not (tool_res and tool_res.get("ok")):
+        return {"skipped": True,
+                "reason": "no book, web or tool evidence — nothing to build a reasoning skeleton from",
+                "text": ""}
     src = "\n\n".join(
         [f"[{c['tag']}] {c['source']}\n{c['text'][:900]}" for c in book_ev.get("kept", [])] +
         [f"[W{i}] {h['title']}: {h['snippet']}" for i, h in enumerate(web_res.get("hits", []), 1)] +
@@ -604,7 +616,7 @@ def run(question: str, mode: str = "explain",
     yield "reasoning", {"msg": "Building the argument…"}
     reasoning = reasoning_engine(question, u, book_ev, web_res, tool_res,
                                  assessment, depth, client, budget)
-    yield "reasoning", {"msg": ("folded into teaching (intro depth)" if reasoning.get("skipped")
+    yield "reasoning", {"msg": (reasoning["reason"] if reasoning.get("skipped")
                                 else f"{len(reasoning['text'].split())} words of skeleton"),
                         "reasoning": reasoning}
 

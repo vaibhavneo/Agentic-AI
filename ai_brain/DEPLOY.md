@@ -26,13 +26,30 @@ of this deployment. `retrieve_evidence()` degrades deliberately: it returns
 
 **This is why `curriculum.py` exists.** Its 47 topics are first-class citable
 sources tagged `[C:topic-id]`, reaching the professor and the validator alike.
-Verified by pointing `BRAIN_ROOT` at a directory that does not exist: "why does
-scaled dot-product attention divide by sqrt(d_k)" still matches four topics,
-cites three, and returns a correct variance argument with verdict `pass` and
-zero books. Losing the shelves costs breadth, not grounding.
+Losing the shelves costs breadth, not grounding.
+
+**Correction (Milestone 1):** pointing `BRAIN_ROOT` at a nonexistent directory
+does **not** actually simulate this — `second_brain`'s own module is found via
+a path relative to its own file location regardless of `BRAIN_ROOT`, so it
+stays importable from inside this monorepo checkout no matter what `BRAIN_ROOT`
+points at. The only faithful way to reproduce the bookless condition is the
+real deployed instance, or `docker build -t ai-brain .` from this directory —
+the build context is `ai_brain/` alone, so the built image genuinely lacks
+`second_brain/`, matching production exactly. Verified this way: "Are
+interpretable AI and explainable AI the same thing?" matches four curriculum
+topics and cites all four, with zero books, in ~48s (down from an earlier
+~91s/12,702-token/4-call case caused by a since-fixed bug where a reasoning
+call ran on empty evidence anyway).
 
 To restore book grounding, run locally against the indexes or point
 `SECOND_BRAIN_ROOT` at a slim subset.
+
+**The header badge is honest about which of these happened, not just that a
+book search was attempted.** "routed to books" (the query attempted) used to
+be the only signal shown, even when retrieval came back empty. It now also
+shows what actually grounded the answer: real book passages (green), curriculum
+notes only (amber — not retrieved text, said explicitly), web-only (amber), or
+general knowledge with no match at all (magenta).
 
 ## Verifying a deployment
 
