@@ -127,16 +127,24 @@ def _chunk_with_chapters(text: str, chapter_boundaries: list[tuple[int, str | No
     boundary right at the edge — gets chapter: None rather than guessing
     which one, matching the same anti-fabrication principle as the rest of
     this milestone: a chunk should claim only what it actually,
-    unambiguously knows."""
+    unambiguously knows.
+
+    Same sub-piece offset tracking as _chunk_with_pages() (see its docstring
+    for the real bug this fixes): a paragraph can itself span a chapter
+    boundary once _split_oversized() subdivides it, so the offset advances
+    within a paragraph as its sub-pieces are consumed, not just between
+    paragraphs."""
     raw_pieces = text.split("\n\n")
     units: list[tuple[str, str | None]] = []
     offset = 0
     for raw in raw_pieces:
         p = raw.strip()
         if p:
-            chapter = _chapter_for_offset(chapter_boundaries, offset)
+            sub_offset = 0
             for piece in _split_oversized(p, size):
+                chapter = _chapter_for_offset(chapter_boundaries, offset + sub_offset)
                 units.append((piece, chapter))
+                sub_offset += len(piece) + 1
         offset += len(raw) + 2
 
     chunks: list[tuple[str, list]] = []
@@ -237,8 +245,20 @@ def _chunk_with_pages(text: str, page_boundaries: list[int],
     text.split("\\n\\n"): split and "\\n\\n".join are exact inverses, so
     accumulating each piece's length (+2 for the separator) as we iterate
     gives every paragraph's true starting offset in the original text with no
-    fragile substring search — the offset is computed on the *un-stripped*
-    piece, before _split_oversized/.strip() run, so it stays exact.
+    fragile substring search.
+
+    A paragraph itself can span many pages — PDF text extraction often
+    yields very few "\\n\\n" breaks (an entire multi-page section can arrive
+    as one giant paragraph), so _split_oversized() alone ends up doing most
+    of the real subdivision. The offset must therefore advance *within* a
+    paragraph as its sub-pieces are consumed too, not just between
+    paragraphs — the first cut of this function tagged every sub-piece of an
+    oversized paragraph with the same page (the paragraph's own start),
+    which on a real 58-page paper left all 156 chunks reporting page 1.
+    _split_oversized() consumes sentences left-to-right and repacks them with
+    a single space, so accumulating each sub-piece's length (+1 for that
+    space) approximates its position within the paragraph closely enough to
+    track which page it actually falls on.
     """
     raw_pieces = text.split("\n\n")
     units: list[tuple[str, int | None]] = []      # (paragraph piece, page)
@@ -246,9 +266,11 @@ def _chunk_with_pages(text: str, page_boundaries: list[int],
     for raw in raw_pieces:
         p = raw.strip()
         if p:
-            page = _page_for_offset(page_boundaries, offset)
+            sub_offset = 0
             for piece in _split_oversized(p, size):
+                page = _page_for_offset(page_boundaries, offset + sub_offset)
                 units.append((piece, page))
+                sub_offset += len(piece) + 1
         offset += len(raw) + 2                    # +2 for the "\n\n" split() consumed
 
     chunks: list[tuple[str, list]] = []

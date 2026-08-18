@@ -116,6 +116,30 @@ check("the first chunk is attributed to page 1", chunked[0][1]["page_start"] == 
 check("the last chunk is attributed to page 3 (or spans into it)",
       chunked[-1][1]["page_end"] == 3)
 
+print("\n[regression: an oversized single paragraph spanning many pages must NOT all get page 1]")
+# Real PDF extraction often yields almost no "\n\n" breaks — an entire multi-
+# page section can arrive as one giant paragraph that _split_oversized()
+# alone subdivides. The first cut of _chunk_with_pages() tagged every one of
+# those sub-pieces with the page the *paragraph* started on — on a real
+# 58-page paper this put page 1 on all 156 chunks, including the very last
+# one. Build a single oversized "paragraph" (no "\n\n" anywhere in it) that
+# spans 5 synthetic pages and confirm the resulting chunks' pages advance.
+sentence = "This is one sentence about the topic at hand. "
+giant_paragraph = sentence * 400                      # comfortably > CHUNK_SIZE, zero "\n\n"
+five_pages = [giant_paragraph[i * (len(giant_paragraph) // 5):(i + 1) * (len(giant_paragraph) // 5)]
+              for i in range(5)]
+gp_boundaries, off = [], 0
+for pg in five_pages:
+    gp_boundaries.append(off)
+    off += len(pg)
+gp_chunked = _chunk_with_pages(giant_paragraph, gp_boundaries, size=200, min_size=50)
+gp_pages = [m.get("page_start") for _, m in gp_chunked]
+check("pages advance across an oversized single paragraph, not stuck at page 1",
+      len(set(gp_pages)) > 1, str(gp_pages))
+check("the last chunk of the oversized paragraph is NOT attributed to page 1",
+      gp_chunked[-1][1].get("page_start", 1) > 1, str(gp_chunked[-1][1]))
+check("pages are monotonically non-decreasing", gp_pages == sorted(gp_pages), str(gp_pages))
+
 print("\n[_chunk_with_pages produces byte-identical TEXT to plain _chunk() — the real regression check]")
 plain_chunks = _chunk(joined, size=200, min_size=50)
 paged_texts = [t for t, _ in chunked]
