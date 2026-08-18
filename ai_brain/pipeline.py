@@ -361,6 +361,35 @@ def evidence_engine(question, book_ev, web_res, tool_res, depth, client, budget)
     return out
 
 
+def _filter_off_topic(book_ev: dict, off_topic_tags) -> dict:
+    """Drop kept passages evidence_engine flagged as off_topic before they
+    reach reasoning/professor/validation.
+
+    Found via a real eval-suite failure, not inferred: a technical-book
+    library asked an unrelated culinary question (Neapolitan pizza) BM25-
+    matched a Python tutorial's `pizza = {...}` dict example and a RAG demo
+    whose test query happened to be "a round Margherita pizza" — both
+    cleared the score/length/frontmatter filters (they're real, well-formed
+    prose that genuinely contains those words), and evidence_engine
+    correctly flagged them off_topic. But off_topic had existed as a purely
+    informational field since before this session started — nothing ever
+    excluded a flagged item from SOURCES, so professor_engine wove the
+    incidental tutorial examples into a confident, citation-backed-looking
+    answer about actual pizza. Passing every quality filter proves a chunk
+    shares vocabulary with the question, never that it is actually about it.
+
+    Returns a new dict; the caller's original book_ev is left untouched so
+    the evidence panel can still show everything that was actually
+    retrieved, off-topic or not — only what reasoning/professor/validation
+    are shown changes."""
+    off = set(off_topic_tags or ())
+    if not off:
+        return book_ev
+    filtered = dict(book_ev)
+    filtered["kept"] = [c for c in book_ev.get("kept", []) if c["tag"] not in off]
+    return filtered
+
+
 # ── stage 6: reasoning engine ─────────────────────────────────────────────
 
 _REASON_SYS = """You are the reasoning stage. Do NOT write the final answer and \
@@ -600,13 +629,33 @@ def validation(question, prose, book_ev, web_res, tool_res, depth, client, budge
                 f"ANSWER:\n{prose[:6000]}", budget)
     sem = _json_from(raw, {"verdict": "pass", "note": "", "unsupported_claims": [],
                            "contradicts_sources": []})
+    restated = sem.get("restated_computed_numbers", [])
+    # Found via the eval suite (Milestone 6): the semantic pass already
+    # detects a restated [T1] number correctly (the JSON schema above has
+    # carried this field since before this session started) but it never
+    # affected the verdict — a "What is 15% of 240?" answer that did its
+    # own arithmetic four different ways instead of citing [T1] still came
+    # back "pass". The rule this protects ("never restate a tool's digits —
+    # let the deterministic tool be the source of truth, not the model's
+    # own recomputation, which can silently slip") is a real correctness
+    # guard, not just style, so a violation is worth surfacing at the same
+    # tier as a fabricated tag: caution, not fail. Severity-max, not a flat
+    # override — an existing "fail" from the semantic pass itself (a real
+    # unsupported claim or source contradiction) must never be silently
+    # downgraded to "caution" just because a restated number also happened
+    # to be present. A first cut of this fix got exactly that wrong; caught
+    # by this file's own third case below before it ever shipped.
+    _SEVERITY = {"pass": 0, "caution": 1, "fail": 2}
+    candidates = [sem.get("verdict", "pass")]
+    if structural["fabricated_tags"] or restated:
+        candidates.append("caution")
+    verdict = max(candidates, key=lambda v: _SEVERITY.get(v, 0))
     structural.update(semantic_skipped=False,
                       unsupported_claims=sem.get("unsupported_claims", []),
                       contradicts_sources=sem.get("contradicts_sources", []),
-                      restated_computed_numbers=sem.get("restated_computed_numbers", []),
+                      restated_computed_numbers=restated,
                       note=sem.get("note", ""),
-                      verdict=("caution" if structural["fabricated_tags"]
-                               else sem.get("verdict", "pass")))
+                      verdict=verdict)
     return structural
 
 
@@ -718,6 +767,17 @@ def run(question: str, mode: str = "explain",
                                f"confidence {assessment.get('confidence')}"),
                        "assessment": assessment}
 
+    # Milestone 6 (eval-suite finding): off_topic flags a kept passage as
+    # not actually relevant, but nothing ever excluded it from what the
+    # professor sees — see _filter_off_topic's docstring for the real bug
+    # this closes. book_ev_retrieved keeps the original, unfiltered result
+    # for the evidence panel, so a reader can still see everything that was
+    # actually retrieved; book_ev is reassigned to the filtered view from
+    # here on, so every downstream stage reasons and writes only from what
+    # evidence_engine actually judged relevant.
+    book_ev_retrieved = book_ev
+    book_ev = _filter_off_topic(book_ev, assessment.get("off_topic"))
+
     # 6 ── reasoning
     yield "reasoning", {"msg": "Building the argument…"}
     reasoning = reasoning_engine(question, u, book_ev, web_res, tool_res,
@@ -819,7 +879,10 @@ def run(question: str, mode: str = "explain",
     yield "done", {
         "question": question, "mode": mode, "depth": depth,
         "prose": prose, "understanding": u, "routing": r,
-        "evidence": book_ev, "web": web_res, "tool": tool_res,
+        # book_ev_retrieved (not the filtered book_ev) so the evidence panel
+        # still shows everything that was actually retrieved, off-topic or
+        # not — only what the professor was allowed to build on changed.
+        "evidence": book_ev_retrieved, "web": web_res, "tool": tool_res,
         "topics": [{"id": t.id, "title": t.title, "level": t.level} for t in topics],
         # Milestone 4: kept distinct from "topics" on purpose — these weren't
         # judged directly relevant by match_topics(), they're prerequisites
