@@ -64,6 +64,41 @@ def _read_text(path: Path) -> str:
     return ""
 
 
+def _file_metadata(path: Path) -> dict:
+    """Author/title straight from the file's own embedded metadata — never a
+    guess. Any field the format doesn't carry, or that fails to parse, comes
+    back None rather than a fabricated value, matching the same anti-
+    fabrication principle the AI Brain honesty-badge fix already applies to
+    citations: a chunk should claim only what it actually knows.
+
+    Re-parses the file (pypdf.PdfReader / epub.read_epub) separately from
+    _read_text()'s own parse of the same file — a real but small cost,
+    acceptable for an offline ingest job; step 4 folds page-boundary
+    extraction into the same walk and can absorb this into one parse then.
+    """
+    ext = path.suffix.lower()
+    author = title = None
+    try:
+        if ext == ".pdf":
+            import pypdf
+            meta = pypdf.PdfReader(str(path)).metadata
+            if meta:
+                author = (meta.author or "").strip() or None
+                title = (meta.title or "").strip() or None
+        elif ext == ".epub":
+            from ebooklib import epub
+            book = epub.read_epub(str(path))
+            creators = book.get_metadata("DC", "creator")
+            titles = book.get_metadata("DC", "title")
+            if creators and creators[0][0]:
+                author = creators[0][0].strip() or None
+            if titles and titles[0][0]:
+                title = titles[0][0].strip() or None
+    except Exception:
+        pass
+    return {"author": author, "title": title}
+
+
 def _split_oversized(para: str, size: int) -> list[str]:
     """Break a paragraph that is already larger than `size` on sentence
     boundaries, hard-splitting any single sentence that still doesn't fit.
@@ -152,11 +187,14 @@ def ingest(source_dir: str, exts: tuple[str, ...] = (".md", ".txt"),
         text = _read_text(f)
         if not text.strip():
             continue
+        meta = _file_metadata(f)
         for i, chunk in enumerate(_chunk(text, size=chunk_size)):
             records.append({
                 "source": str(f.relative_to(src)),
                 "chunk_id": i,
                 "text": chunk,
+                "author": meta["author"],
+                "title": meta["title"],
             })
 
     out_path.parent.mkdir(parents=True, exist_ok=True)
