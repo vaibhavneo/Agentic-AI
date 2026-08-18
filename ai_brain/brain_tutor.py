@@ -203,6 +203,15 @@ def retrieve_evidence(question: str) -> dict:
         "source": Path(str(h.get("source", "?"))).name,
         "shelf": _shelf((h.get("corpus") or ["?"])[0]),
         "raw_score": h.get("raw_score", 0.0),
+        # Nullable, additive (Milestone 2): only shelves re-ingested since the
+        # metadata schema landed carry real values here — fts.search() itself
+        # already returns None for any shelf still on the old schema, so this
+        # is a pure passthrough, no new filtering or ranking behavior.
+        "author": h.get("author"),
+        "title": h.get("title"),
+        "chapter": h.get("chapter"),
+        "page_start": h.get("page_start"),
+        "page_end": h.get("page_end"),
     } for h in hits]
     scored.sort(key=lambda c: -c["raw_score"])
 
