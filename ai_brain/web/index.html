@@ -339,6 +339,12 @@ function tex(s, display){
 function offeredTags(d){
   const kept=new Set(((d&&d.evidence&&d.evidence.kept)||[]).map(c=>c.tag));
   ((d&&d.topics)||[]).forEach(t=>kept.add("C:"+t.id));
+  // Milestone 4: prereq_topics are citable too (professor_engine's
+  // PREREQUISITE BACKGROUND block offers the same [C:id] tags) — omitting
+  // them here would render a legitimate prerequisite citation as a red
+  // "miss" chip, the same false-positive validation() itself was fixed to
+  // avoid on the backend.
+  ((d&&d.prereq_topics)||[]).forEach(t=>kept.add("C:"+t.id));
   const hits=(d&&d.web&&d.web.hits)||[];
   for (let i=1;i<=hits.length;i++) kept.add("W"+i);
   if (d&&d.tool&&d.tool.ok) kept.add("T1");
@@ -471,13 +477,24 @@ function renderWeb(d){
 // exactly like a retrieved one. Same .ev-item pattern renderEvidence() uses
 // for book sources, with the new .prov-curriculum badge (not .prov-adapted,
 // which already means something else — depth level — in this same UI).
-function renderCurriculumUsed(d){
-  const topics=(d&&d.topics)||[];
-  if(!topics.length) return "";
-  return topics.map(t=>'<div class="ev-item" id="cite-C:'+esc(t.id)+'"><div class="ev-head">'+
-    '<span class="cite">C:'+esc(t.id)+'</span><span class="prov prov-curriculum">curriculum</span>'+
+function _curriculumItem(t, label, note){
+  return '<div class="ev-item" id="cite-C:'+esc(t.id)+'"><div class="ev-head">'+
+    '<span class="cite">C:'+esc(t.id)+'</span><span class="prov prov-curriculum">'+esc(label)+'</span>'+
     '<span class="ev-src">'+esc(t.title)+'</span><span class="ev-shelf">'+esc(t.level)+'</span></div>'+
-    '<div class="ev-text">Author-written reference topic, not retrieved book text.</div></div>').join("");
+    '<div class="ev-text">'+esc(note)+'</div></div>';
+}
+function renderCurriculumUsed(d){
+  const topics=(d&&d.topics)||[], prereqs=(d&&d.prereq_topics)||[];
+  if(!topics.length && !prereqs.length) return "";
+  let h=topics.map(t=>_curriculumItem(t, "curriculum",
+    "Author-written reference topic, not retrieved book text.")).join("");
+  // Milestone 4: surfaced separately from directly-matched topics, with its
+  // own label and note — a prerequisite wasn't judged relevant to the
+  // question itself, it's background the matched topics depend on. Blurring
+  // the two into one "curriculum" list would misstate why it's here.
+  h+=prereqs.map(t=>_curriculumItem(t, "prerequisite",
+    "Background for a topic above — not matched to the question itself.")).join("");
+  return h;
 }
 function renderChecks(d){
   const a=d.assessment||{}, v=d.validation||{};

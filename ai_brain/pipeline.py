@@ -453,6 +453,19 @@ one — joining two things the library treats separately is exactly the work \
 expected here. Going beyond the sources is welcome; just never imply a source \
 backs a claim it does not.
 
+When EVIDENCE NOTES lists a conflict between sources, address it directly — \
+name which side you follow and why, or present the disagreement itself as \
+the interesting content when it is genuinely unsettled. Once a conflict has \
+been flagged, silently picking one source's view without saying so is not \
+acceptable. When it lists agreements, use them to state a claim with more \
+confidence, not merely as one more citation to list.
+
+If the question invites a common misconception, name the mistaken belief \
+and correct it directly — "it is tempting to think X, but actually Y" — \
+rather than only presenting the correct account and leaving the wrong one \
+unaddressed. Do this only when a real misconception is in play, not as a \
+rhetorical device on every answer.
+
 When something genuinely falls outside everything supplied, note it in one \
 short clause at the point where it arises — "the retrieved passages do not \
 cover this, so the following is general knowledge" — and carry on. Never open \
@@ -462,10 +475,22 @@ LaTeX for mathematics."""
 
 def professor_engine(question, understanding, book_ev, web_res, tool_res,
                      assessment, reasoning, mode, depth, client, budget,
-                     topics=(), feedback: str = "", stage: str = "professor"):
+                     topics=(), feedback: str = "", stage: str = "professor",
+                     prereq_topics=()):
     # Curriculum first. On a host with no book indexes these are the only
     # sources there are, and they are real material — not a fallback apology.
     src_parts = ([CUR.curriculum_block(list(topics))] if topics else [])
+    # Milestone 4: prerequisite topics get their own labeled block, not
+    # folded into the main curriculum block — they weren't judged directly
+    # relevant by match_topics(), they're background the matched topics
+    # themselves depend on. Still fully citable (their [C:id] tags reach
+    # validation()'s offered set the same as any other topic), just framed
+    # differently so the model treats them as brief scaffolding, not the
+    # main content to build the answer around.
+    if prereq_topics:
+        src_parts.append("PREREQUISITE BACKGROUND — cite if you draw on these, but mention "
+                         "briefly only if the reader may not already know them; do not lecture "
+                         "on them at length:\n" + CUR.curriculum_block(list(prereq_topics)))
     src_parts += [f"[{c['tag']}] ({c['source']} — {c['shelf']} shelf)\n{c['text'][:1100]}"
                   for c in book_ev.get("kept", [])]
     src_parts += [f"[W{i}] ({h['title']})\n{h['snippet']}"
@@ -476,7 +501,12 @@ def professor_engine(question, understanding, book_ev, web_res, tool_res,
 
     extra = ""
     if not assessment.get("skipped"):
+        # agreements used to be computed by evidence_engine and silently
+        # dropped here — never reached the model at all, so a cross-book
+        # corroboration was worth exactly as much prompt-weight as if it
+        # had never been detected.
         extra = (f"\nEVIDENCE NOTES: off-topic={assessment.get('off_topic')} · "
+                 f"agreements={assessment.get('agreements')} · "
                  f"conflicts={assessment.get('conflicts')} · gaps={assessment.get('gaps')} · "
                  f"confidence={assessment.get('confidence')}")
     if reasoning.get("text"):
@@ -635,6 +665,12 @@ def run(question: str, mode: str = "explain",
     # Matched from the question plus the terms the understanding stage pulled
     # out, so a question that names a concept obliquely still lands.
     topics = CUR.match_topics(question + " " + " ".join(u["topics"][:6]), k=4)
+    # Milestone 4: the prerequisite graph on each Topic has existed since
+    # curriculum.py was written but nothing ever read it — surface the
+    # matched topics' direct prerequisites as background context so an
+    # answer can scaffold ("this builds on X") instead of assuming the
+    # reader already has it.
+    prereq_topics = CUR.prerequisite_gaps(topics) if topics else []
 
     # 3 ── route
     r = route(u, depth)
@@ -703,7 +739,8 @@ def run(question: str, mode: str = "explain",
                 box["prose"] = professor_engine(question, u, book_ev, web_res, tool_res,
                                                 assessment, reasoning, mode, depth,
                                                 client, budget, topics,
-                                                feedback=feedback, stage=stage)
+                                                feedback=feedback, stage=stage,
+                                                prereq_topics=prereq_topics)
             except Exception as exc:
                 box["error"] = f"{type(exc).__name__}: {exc}"
 
@@ -732,8 +769,12 @@ def run(question: str, mode: str = "explain",
 
     # 8 ── validation
     yield "validation", {"msg": "Checking the answer against its sources…"}
+    # prereq_topics are citable too (professor_engine's PREREQUISITE
+    # BACKGROUND block offers them the same [C:id] tags) — they have to be
+    # in the offered set here or a real prerequisite citation reads as
+    # fabricated.
     checks = validation(question, prose, book_ev, web_res, tool_res, depth, client,
-                        budget, topics)
+                        budget, list(topics) + list(prereq_topics))
     checks["retried"] = False
 
     # Milestone 3: a "fail" verdict used to be purely advisory — computed,
@@ -756,7 +797,7 @@ def run(question: str, mode: str = "explain",
                 yield "validation", {"msg": "Re-checking the rewritten answer…"}
                 verdict_before_retry = checks["verdict"]
                 checks = validation(question, prose, book_ev, web_res, tool_res, depth,
-                                    client, budget, topics)
+                                    client, budget, list(topics) + list(prereq_topics))
                 checks["verdict_before_retry"] = verdict_before_retry
                 checks["retried"] = True
             # A retry that errors or comes back empty is silently dropped —
@@ -780,6 +821,11 @@ def run(question: str, mode: str = "explain",
         "prose": prose, "understanding": u, "routing": r,
         "evidence": book_ev, "web": web_res, "tool": tool_res,
         "topics": [{"id": t.id, "title": t.title, "level": t.level} for t in topics],
+        # Milestone 4: kept distinct from "topics" on purpose — these weren't
+        # judged directly relevant by match_topics(), they're prerequisites
+        # of what was. covered_by_curriculum below stays keyed to direct
+        # matches only, so this doesn't change what that field means.
+        "prereq_topics": [{"id": t.id, "title": t.title, "level": t.level} for t in prereq_topics],
         "assessment": assessment, "reasoning": reasoning, "validation": checks,
         "budget": budget.summary(),
         "elapsed_s": int(time.monotonic() - t_start),

@@ -1084,6 +1084,28 @@ def topics_at_level(level: str) -> List[Topic]:
     return [t for t in TOPICS.values() if t.level == level]
 
 
+def prerequisite_gaps(topics: List[Topic]) -> List[Topic]:
+    """Direct prerequisites of the given topics that aren't already covered.
+
+    Milestone 4: the prerequisite graph on Topic.prerequisites has existed
+    since this module was written but was never read by anything — every
+    topic's dependencies were real data with no consumer. One level, not the
+    full transitive closure via learning_path() below: a reader missing a
+    topic's direct prerequisite needs a pointer to that one thing, not an
+    entire multi-step curriculum unrolled into their answer. Deduplicated,
+    in the order first encountered."""
+    covered = {t.id for t in topics}
+    seen: set = set()
+    gaps: List[Topic] = []
+    for t in topics:
+        for pid in t.prerequisites:
+            if pid in covered or pid in seen or pid not in TOPICS:
+                continue
+            seen.add(pid)
+            gaps.append(TOPICS[pid])
+    return gaps
+
+
 def learning_path(topic_id: str) -> List[str]:
     """Prerequisites first, depth-first, each topic once."""
     seen, order = set(), []
