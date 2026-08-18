@@ -337,7 +337,18 @@ function tex(s, display){
 // only ever looked at book tags, so curriculum/web/tool citations rendered
 // as inert bracket text instead of clickable, sourced chips.
 function offeredTags(d){
-  const kept=new Set(((d&&d.evidence&&d.evidence.kept)||[]).map(c=>c.tag));
+  // Milestone 6: d.evidence.kept is the FULL unfiltered retrieval result
+  // (kept for panel transparency — see renderEvidence) but off_topic-
+  // flagged items were never actually shown to the professor as SOURCES,
+  // so they must not count as "offered" here either — the backend's own
+  // validation() excludes them from its offered set the same way (it
+  // receives the filtered book_ev, not the unfiltered one). Without this,
+  // a citation the model was never even shown would render as a normal
+  // chip instead of a "miss," the exact false-positive class this whole
+  // function exists to prevent for other tag types.
+  const off=new Set((d&&d.assessment&&d.assessment.off_topic)||[]);
+  const kept=new Set(((d&&d.evidence&&d.evidence.kept)||[])
+    .filter(c=>!off.has(c.tag)).map(c=>c.tag));
   ((d&&d.topics)||[]).forEach(t=>kept.add("C:"+t.id));
   // Milestone 4: prereq_topics are citable too (professor_engine's
   // PREREQUISITE BACKGROUND block offers the same [C:id] tags) — omitting
@@ -397,20 +408,34 @@ function citationDetail(c){
                                                              : "pp. "+c.page_start+"–"+c.page_end));
   return bits.length ? '<div class="ev-detail">'+bits.join(" · ")+"</div>" : "";
 }
-function renderEvidence(ev){
+function renderEvidence(ev, offTopicTags){
   if(!ev) return "";
   if(!ev.available)
     return '<div class="ev-why">Library unavailable — '+esc(ev.reason||"")+"</div>";
-  const k=ev.kept||[], rj=ev.rejected||[];
+  // Milestone 6: ev.kept is the full, unfiltered retrieval result (kept for
+  // transparency) — off_topic-flagged items are still in it, just excluded
+  // from what the professor was actually shown. Split here so the panel can
+  // say so, instead of silently mixing "genuinely used" and "retrieved but
+  // screened out" under one identical "retrieved" badge.
+  const off=new Set(offTopicTags||[]);
+  const k=(ev.kept||[]).filter(c=>!off.has(c.tag));
+  const offItems=(ev.kept||[]).filter(c=>off.has(c.tag));
+  const rj=ev.rejected||[];
   let h='<div class="ev-head"><span class="strength s-'+esc(ev.evidence_strength||"none")+'">evidence: '+
     esc(ev.evidence_strength||"none")+'</span><span class="ev-score">'+(ev.searched||[]).length+
-    ' shelves searched · '+k.length+' used · '+rj.length+' rejected</span></div>';
+    ' shelves searched · '+k.length+' used · '+offItems.length+' off-topic · '+rj.length+' rejected</span></div>';
   h+=k.map(c=>'<div class="ev-item" id="cite-'+esc(c.tag)+'"><div class="ev-head">'+
      '<span class="cite">'+esc(c.tag)+'</span><span class="prov prov-retrieved">retrieved</span>'+
      '<span class="ev-src">'+esc(c.source)+'</span><span class="ev-shelf">'+esc(c.shelf)+'</span>'+
      '<span class="ev-score">BM25 '+c.raw_score+'</span></div>'+
      citationDetail(c)+
      '<div class="ev-text">'+esc(c.text)+'</div></div>').join("");
+  if(offItems.length) h+='<details class="fold"><summary>'+offItems.length+
+     ' retrieved but judged off-topic — not shown to the professor</summary>'+
+     offItems.map(c=>'<div class="ev-item rej"><div class="ev-head"><span class="cite">'+esc(c.tag)+
+       '</span><span class="ev-src">'+esc(c.source)+'</span><span class="ev-score">BM25 '+c.raw_score+
+       '</span><span class="ev-why">shares vocabulary, not actually relevant</span></div>'+
+       '<div class="ev-text">'+esc((c.text||"").slice(0,180))+'</div></div>').join("")+'</details>';
   if(rj.length) h+='<details class="fold"><summary>'+rj.length+' retrieved but rejected</summary>'+
      rj.map(c=>'<div class="ev-item rej"><div class="ev-head"><span class="ev-src">'+esc(c.source)+
        '</span><span class="ev-score">BM25 '+c.raw_score+'</span><span class="ev-why">'+esc(c.why||"")+
@@ -586,7 +611,7 @@ function ask(){
     bubble.innerHTML=
       renderHeader(d)+
       renderProse(d.prose,d)+
-      '<details class="fold" open><summary>Sources &amp; provenance</summary>'+renderEvidence(d.evidence)+renderCurriculumUsed(d)+renderWeb(d)+'</details>'+
+      '<details class="fold" open><summary>Sources &amp; provenance</summary>'+renderEvidence(d.evidence,(d.assessment&&d.assessment.off_topic))+renderCurriculumUsed(d)+renderWeb(d)+'</details>'+
       '<details class="fold"'+((d.validation&&d.validation.verdict&&d.validation.verdict!=="pass")?" open":"")+'><summary>Evidence engine &amp; validation</summary>'+renderChecks(d)+'</details>'+
       '<details class="fold"><summary>Pipeline trace &amp; token budget</summary>'+
         '<div class="trace">'+trace.innerHTML+'</div>'+renderBudget(d)+'</details>';
