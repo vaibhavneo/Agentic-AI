@@ -192,6 +192,32 @@ def route(understanding, depth):
     return {"books": books, "web": web, "tools": tools, "why": why}
 
 
+def _should_escalate_web(routing: dict, book_ev: dict, depth: str) -> bool:
+    """route() decides whether to query the web before retrieval ever runs,
+    from an LLM's guess about whether the *question* sounds time-sensitive --
+    it cannot know whether the *library* actually had anything. When books
+    come back completely empty (including when retrieve_evidence() itself
+    failed -- missing index, import error -- which never sets
+    evidence_strength at all, hence checking `kept` directly rather than
+    evidence_strength == "none"), a keyless Wikipedia lookup is a strictly
+    better fallback than answering from bare parametric knowledge. Confined to
+    the "books came back empty" branch and skipped at intro depth to match
+    route()'s own web-skip convention, so this never adds latency to the
+    common case where books already have evidence."""
+    return not routing["web"] and not book_ev.get("kept") and depth != "intro"
+
+
+def _mark_web_escalated(routing: dict) -> dict:
+    """Rewrite the routing trace after an escalation fires, so the 'why' the
+    user sees matches what actually happened -- the original web:false
+    reasoning ('not needed', 'skipped — intro depth') is no longer true."""
+    routing["web"] = True
+    routing["why"] = [w if not w.startswith("web:") else
+                      "web: escalated — book search returned nothing"
+                      for w in routing["why"]]
+    return routing
+
+
 # ── stage 4c: tools (safe arithmetic, no eval) ────────────────────────────
 
 _OPS = {ast.Add: operator.add, ast.Sub: operator.sub, ast.Mult: operator.mul,
@@ -594,6 +620,15 @@ def run(question: str, mode: str = "explain",
             book_ev = f_books.result()
         if f_web:
             web_res = f_web.result()
+
+    # Retrieval-informed escalation: route() couldn't know whether the
+    # library would actually have anything — now that retrieval has run, we
+    # do, and can fall back to a keyless web reference rather than leaving
+    # the answer with nothing but the model's own parametric knowledge.
+    if _should_escalate_web(r, book_ev, depth):
+        web_res = web_search(question)
+        _mark_web_escalated(r)
+
     gathered = (f"{len(topics)} curriculum topic(s), "
                 f"{len(book_ev.get('kept', []))} book passage(s)"
                 + (f", {len(web_res.get('hits', []))} web result(s)" if r["web"] else "")
