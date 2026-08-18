@@ -64,6 +64,99 @@ def _read_text(path: Path) -> str:
     return ""
 
 
+def _read_pdf_with_pages(path: Path) -> tuple[str, list[int]]:
+    """Same extraction as _read_text()'s PDF branch — pypdf, pages joined with
+    '\\n', then sanitized — but also returns page_boundaries, where
+    boundaries[i] is the character offset in the returned text at which page
+    i+1's content begins. Sanitizing per-page before joining (rather than
+    sanitizing the whole joined string, as _read_text() does) keeps the
+    boundary offsets exact even if a malformed page's surrogates get dropped;
+    since _sanitize() only ever removes characters, never reorders or adds
+    them, sanitizing each page then joining is equivalent to joining then
+    sanitizing the whole for any well-formed neighbouring pages."""
+    import pypdf
+    reader = pypdf.PdfReader(str(path))
+    page_texts = [_sanitize(pg.extract_text() or "") for pg in reader.pages]
+    boundaries: list[int] = []
+    offset = 0
+    for t in page_texts:
+        boundaries.append(offset)
+        offset += len(t) + 1                      # +1 for the "\n" join() inserts
+    return "\n".join(page_texts), boundaries
+
+
+def _page_for_offset(boundaries: list[int], offset: int) -> int | None:
+    """1-indexed page number containing character `offset` in the joined PDF
+    text described by `boundaries` (see _read_pdf_with_pages)."""
+    if not boundaries:
+        return None
+    page = 1
+    for i, b in enumerate(boundaries):
+        if offset >= b:
+            page = i + 1
+        else:
+            break
+    return page
+
+
+def _chunk_with_pages(text: str, page_boundaries: list[int],
+                       size: int = CHUNK_SIZE, min_size: int = MIN_CHUNK_SIZE
+                       ) -> list[tuple[str, dict]]:
+    """Same packing algorithm as _chunk() below — paragraph split, oversized-
+    paragraph subdivision, size-limited packing, runt merge — deliberately
+    duplicated line-for-line rather than sharing code with _chunk(), so
+    _chunk()'s existing behavior (and second_brain/tests/test_pipeline.py's
+    assertions, which import and call it directly) can never be disturbed by
+    this change. tests/test_ingest_metadata.py asserts the *text* this
+    produces is byte-identical to _chunk()'s own output for the same input —
+    the real regression check, not just a claim in a docstring.
+
+    Page attribution comes from character offsets recovered via
+    text.split("\\n\\n"): split and "\\n\\n".join are exact inverses, so
+    accumulating each piece's length (+2 for the separator) as we iterate
+    gives every paragraph's true starting offset in the original text with no
+    fragile substring search — the offset is computed on the *un-stripped*
+    piece, before _split_oversized/.strip() run, so it stays exact.
+    """
+    raw_pieces = text.split("\n\n")
+    units: list[tuple[str, int | None]] = []      # (paragraph piece, page)
+    offset = 0
+    for raw in raw_pieces:
+        p = raw.strip()
+        if p:
+            page = _page_for_offset(page_boundaries, offset)
+            for piece in _split_oversized(p, size):
+                units.append((piece, page))
+        offset += len(raw) + 2                    # +2 for the "\n\n" split() consumed
+
+    chunks: list[tuple[str, list]] = []
+    buf, buf_pages = "", []
+    for u, page in units:
+        if buf and len(buf) + len(u) + 2 > size:
+            chunks.append((buf, buf_pages))
+            buf, buf_pages = u, [page]
+        else:
+            buf = f"{buf}\n\n{u}" if buf else u
+            buf_pages.append(page)
+    if buf:
+        chunks.append((buf, buf_pages))
+
+    merged: list[tuple[str, list]] = []
+    for c, pages in chunks:
+        if merged and (len(c) < min_size or len(merged[-1][0]) < min_size) \
+                and len(merged[-1][0]) + len(c) + 2 <= int(size * 1.5):
+            merged[-1] = (f"{merged[-1][0]}\n\n{c}", merged[-1][1] + pages)
+        else:
+            merged.append((c, pages))
+
+    out: list[tuple[str, dict]] = []
+    for chunk_text, pages in merged:
+        real_pages = [p for p in pages if p is not None]
+        meta = {"page_start": min(real_pages), "page_end": max(real_pages)} if real_pages else {}
+        out.append((chunk_text, meta))
+    return out
+
+
 def _file_metadata(path: Path) -> dict:
     """Author/title straight from the file's own embedded metadata — never a
     guess. Any field the format doesn't carry, or that fails to parse, comes
@@ -184,17 +277,34 @@ def ingest(source_dir: str, exts: tuple[str, ...] = (".md", ".txt"),
     records = []
     files = sorted(f for f in src.rglob("*") if f.suffix.lower() in exts)
     for f in files:
-        text = _read_text(f)
-        if not text.strip():
-            continue
         meta = _file_metadata(f)
-        for i, chunk in enumerate(_chunk(text, size=chunk_size)):
+        # PDFs go through the page-tracking path so citations can say where
+        # in the book a passage lives; _chunk_with_pages is proven byte-
+        # identical in its text output to plain _chunk() (see its own
+        # docstring and tests/test_ingest_metadata.py), so this changes only
+        # what metadata a chunk carries, never chunk boundaries themselves.
+        if f.suffix.lower() == ".pdf":
+            try:
+                text, boundaries = _read_pdf_with_pages(f)
+            except Exception:
+                text, boundaries = "", []
+            if not text.strip():
+                continue
+            chunk_list = _chunk_with_pages(text, boundaries, size=chunk_size)
+        else:
+            text = _read_text(f)
+            if not text.strip():
+                continue
+            chunk_list = [(c, {}) for c in _chunk(text, size=chunk_size)]
+        for i, (chunk, page_meta) in enumerate(chunk_list):
             records.append({
                 "source": str(f.relative_to(src)),
                 "chunk_id": i,
                 "text": chunk,
                 "author": meta["author"],
                 "title": meta["title"],
+                "page_start": page_meta.get("page_start"),
+                "page_end": page_meta.get("page_end"),
             })
 
     out_path.parent.mkdir(parents=True, exist_ok=True)

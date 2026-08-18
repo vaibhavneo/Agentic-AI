@@ -1,5 +1,5 @@
-"""Offline regression test for Milestone 2 Step 3: file-level author/title
-metadata in ingest().
+"""Offline regression test for Milestone 2 Steps 3-4: file-level author/title
+metadata and PDF page boundaries in ingest().
 
     python3 second_brain/tests/test_ingest_metadata.py
 
@@ -17,7 +17,10 @@ from pathlib import Path
 ROOT = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(ROOT))
 
-from second_brain.ingest import _file_metadata, ingest
+from second_brain.ingest import (
+    _chunk, _chunk_with_pages, _file_metadata, _page_for_offset,
+    _read_pdf_with_pages, _read_text, ingest,
+)
 
 fails = []
 
@@ -85,6 +88,65 @@ with _tf.TemporaryDirectory() as tmp:
     meta = _file_metadata(broken)
     check("malformed PDF doesn't raise, returns nulls",
           meta == {"author": None, "title": None}, str(meta))
+
+print("\n[_page_for_offset basic sanity]")
+b = [0, 100, 250]                      # page 1 starts at 0, page 2 at 100, page 3 at 250
+check("offset 0 is page 1", _page_for_offset(b, 0) == 1)
+check("offset 99 is still page 1", _page_for_offset(b, 99) == 1)
+check("offset 100 is page 2", _page_for_offset(b, 100) == 2)
+check("offset 250 is page 3", _page_for_offset(b, 250) == 3)
+check("offset past the last boundary is still the last page", _page_for_offset(b, 9999) == 3)
+check("empty boundaries returns None", _page_for_offset([], 50) is None)
+
+print("\n[_chunk_with_pages on a synthetic 3-page document — hand-verifiable]")
+page1 = "Page one intro paragraph.\n\n" + ("word " * 100).strip()
+page2 = "Page two continues.\n\n" + ("term " * 100).strip()
+page3 = "Page three concludes.\n\n" + ("end " * 100).strip()
+joined = "\n".join([page1, page2, page3])
+boundaries = [0, len(page1) + 1, len(page1) + 1 + len(page2) + 1]
+chunked = _chunk_with_pages(joined, boundaries, size=200, min_size=50)
+check("every chunk got a page_start/page_end",
+      all("page_start" in m and "page_end" in m for _, m in chunked), str(chunked[-1] if chunked else None))
+check("page numbers stay within 1..3",
+      all(1 <= m["page_start"] <= 3 and 1 <= m["page_end"] <= 3 for _, m in chunked))
+check("page_start never exceeds page_end",
+      all(m["page_start"] <= m["page_end"] for _, m in chunked))
+check("the first chunk is attributed to page 1", chunked[0][1]["page_start"] == 1)
+check("the last chunk is attributed to page 3 (or spans into it)",
+      chunked[-1][1]["page_end"] == 3)
+
+print("\n[_chunk_with_pages produces byte-identical TEXT to plain _chunk() — the real regression check]")
+plain_chunks = _chunk(joined, size=200, min_size=50)
+paged_texts = [t for t, _ in chunked]
+check("same number of chunks", len(plain_chunks) == len(paged_texts),
+      f"{len(plain_chunks)} vs {len(paged_texts)}")
+check("chunk text is byte-for-byte identical, chunk by chunk",
+      plain_chunks == paged_texts,
+      "" if plain_chunks == paged_texts else
+      f"first diff at index {next(i for i in range(min(len(plain_chunks), len(paged_texts))) if plain_chunks[i] != paged_texts[i])}")
+
+print(f"\n[real pilot PDFs — old _read_text+_chunk vs new _read_pdf_with_pages+_chunk_with_pages: {PILOT_SRC}]")
+pdf_files = sorted(PILOT_SRC.glob("*.pdf"))
+checked_any = False
+for f in pdf_files[:5]:                # a handful is enough; full corpus covered by the ingest() run above
+    old_text = _read_text(f)
+    if not old_text.strip():
+        continue
+    old_chunks = _chunk(old_text, size=1200)
+    new_text, new_boundaries = _read_pdf_with_pages(f)
+    new_chunks = _chunk_with_pages(new_text, new_boundaries, size=1200)
+    new_texts = [t for t, _ in new_chunks]
+    checked_any = True
+    check(f"{f.name}: identical text output between old and new path",
+          old_chunks == new_texts,
+          "MATCH" if old_chunks == new_texts else
+          f"{len(old_chunks)} vs {len(new_texts)} chunks — first diverges at "
+          f"{next((i for i in range(min(len(old_chunks), len(new_texts))) if old_chunks[i] != new_texts[i]), 'length mismatch')}")
+    pages_seen = [m.get("page_start") for _, m in new_chunks if m.get("page_start")]
+    if pages_seen:
+        check(f"{f.name}: page numbers are monotonically non-decreasing across chunks",
+              pages_seen == sorted(pages_seen), str(pages_seen[:10]))
+check("checked at least one real PDF from the pilot corpus", checked_any)
 
 print(f"\n{'ALL CHECKS PASSED' if not fails else str(len(fails)) + ' FAILED: ' + str(fails)}")
 sys.exit(1 if fails else 0)
