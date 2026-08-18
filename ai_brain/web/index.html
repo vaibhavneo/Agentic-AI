@@ -95,6 +95,7 @@ details.fold[open]>summary::before{content:"▾ "}
 .ev-src{font-weight:600}
 .ev-shelf{font-family:var(--mono);font-size:.68rem;background:var(--surface2);padding:1px 6px;border-radius:4px;color:var(--muted)}
 .ev-score{font-family:var(--mono);font-size:.7rem;color:var(--muted)}
+.ev-detail{font-size:.72rem;color:var(--muted);margin-bottom:4px;font-style:italic}
 .ev-text{font-size:.81rem;color:var(--muted);line-height:1.5;max-height:5.4em;overflow:hidden}
 .ev-item.open .ev-text{max-height:none}
 .ev-why{font-family:var(--mono);font-size:.7rem;color:var(--magenta)}
@@ -374,6 +375,22 @@ function renderProse(md, d){
   return '<div class="prose">'+s+"</div>";
 }
 
+// Author/title/chapter/page (Milestone 2) only exist for shelves re-ingested
+// since the metadata schema landed — every field here is nullable, so a
+// chunk from a not-yet-migrated shelf renders with an empty string, exactly
+// today's display (bare source + shelf), not a placeholder or a guess. Real
+// PDF /Author metadata can be a single string listing every co-author (one
+// paper's ran past 4,000 characters) — truncated for display, never for the
+// underlying data.
+function citationDetail(c){
+  const bits=[];
+  if(c.title) bits.push(esc(c.title));
+  if(c.author) bits.push('by '+esc(c.author.length>80 ? c.author.slice(0,80)+"…" : c.author));
+  if(c.chapter) bits.push(esc(c.chapter));
+  if(c.page_start) bits.push(esc(c.page_start===c.page_end ? "p. "+c.page_start
+                                                             : "pp. "+c.page_start+"–"+c.page_end));
+  return bits.length ? '<div class="ev-detail">'+bits.join(" · ")+"</div>" : "";
+}
 function renderEvidence(ev){
   if(!ev) return "";
   if(!ev.available)
@@ -386,6 +403,7 @@ function renderEvidence(ev){
      '<span class="cite">'+esc(c.tag)+'</span><span class="prov prov-retrieved">retrieved</span>'+
      '<span class="ev-src">'+esc(c.source)+'</span><span class="ev-shelf">'+esc(c.shelf)+'</span>'+
      '<span class="ev-score">BM25 '+c.raw_score+'</span></div>'+
+     citationDetail(c)+
      '<div class="ev-text">'+esc(c.text)+'</div></div>').join("");
   if(rj.length) h+='<details class="fold"><summary>'+rj.length+' retrieved but rejected</summary>'+
      rj.map(c=>'<div class="ev-item rej"><div class="ev-head"><span class="ev-src">'+esc(c.source)+
