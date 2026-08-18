@@ -84,16 +84,31 @@ def build(corpus_id: str, chunks_path: Path | None = None) -> dict:
 
     con = _connect(tmp, write=True)
     # `source` is UNINDEXED: filenames would otherwise match query words and
-    # rank a book by its title rather than by what its text says.
+    # rank a book by its title rather than by what its text says. author/
+    # title/chapter/page_start/page_end are the same — display metadata, not
+    # searchable text (Milestone 2) — and all of them are optional: a corpus
+    # ingested before this milestone has none of these keys in its
+    # chunks.json, so every value here is a plain .get(...), landing as SQL
+    # NULL. That NULL-safety is why this table must be rebuilt for EVERY
+    # corpus, not just the ones actually carrying real metadata — search()'s
+    # SELECT below reads all five columns unconditionally, and a db built
+    # with the old 3-column schema would raise sqlite3.OperationalError on
+    # every query against it, which search() silently turns into "zero
+    # hits" — a shelf would go dark forever, not loudly fail.
     con.execute(
         "CREATE VIRTUAL TABLE chunks USING fts5("
         "  text, source UNINDEXED, chunk_id UNINDEXED,"
+        "  author UNINDEXED, title UNINDEXED, chapter UNINDEXED,"
+        "  page_start UNINDEXED, page_end UNINDEXED,"
         "  tokenize = 'porter unicode61'"
         ")"
     )
     con.executemany(
-        "INSERT INTO chunks(text, source, chunk_id) VALUES (?, ?, ?)",
-        ((r.get("text", ""), str(r.get("source", "")), r.get("chunk_id", i))
+        "INSERT INTO chunks(text, source, chunk_id, author, title, chapter, "
+        "page_start, page_end) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+        ((r.get("text", ""), str(r.get("source", "")), r.get("chunk_id", i),
+          r.get("author"), r.get("title"), r.get("chapter"),
+          r.get("page_start"), r.get("page_end"))
          for i, r in enumerate(records)),
     )
     con.commit()
@@ -134,8 +149,8 @@ def search(corpus_id: str, question: str, top_k: int = 6) -> list[dict]:
     con = _connect(path)
     try:
         rows = con.execute(
-            "SELECT text, source, bm25(chunks) AS s FROM chunks "
-            "WHERE chunks MATCH ? ORDER BY s LIMIT ?",
+            "SELECT text, source, author, title, chapter, page_start, page_end, "
+            "bm25(chunks) AS s FROM chunks WHERE chunks MATCH ? ORDER BY s LIMIT ?",
             (match, top_k),
         ).fetchall()
     except sqlite3.OperationalError:
@@ -146,8 +161,10 @@ def search(corpus_id: str, question: str, top_k: int = 6) -> list[dict]:
     # bm25() is negative and better-is-lower. Flip it so callers can treat the
     # score the way they treat every other relevance number here.
     return [{"text": t, "source": s, "corpus": [corpus_id],
-             "raw_score": round(-score, 4), "chunk_id": None}
-            for t, s, score in rows]
+             "raw_score": round(-score, 4), "chunk_id": None,
+             "author": author, "title": title, "chapter": chapter,
+             "page_start": page_start, "page_end": page_end}
+            for t, s, author, title, chapter, page_start, page_end, score in rows]
 
 
 def status() -> list[dict]:
