@@ -45,6 +45,128 @@ def _read_epub(path: Path) -> str:
     return _sanitize(re.sub(r"[ \t]+\n", "\n", "\n\n".join(parts)))
 
 
+def _flatten_toc(toc) -> dict[str, str]:
+    """Map each real table-of-contents entry's spine filename (fragment
+    stripped) to its title. book.toc is a nested structure of ebooklib Link
+    objects and (Section, [children]) tuples — walk it recursively so an
+    entry nested under a top-level "Part" heading is still found. When a
+    file is referenced by more than one TOC entry (a chapter file plus its
+    own sub-heading anchors, e.g. "1 Introduction" -> ch1.xhtml and
+    "1.2 Related Work" -> ch1.xhtml#sec2), the FIRST entry for that file
+    wins — TOC traversal order puts the chapter-level entry (no fragment)
+    ahead of its own sub-section entries, so this reliably keeps the
+    chapter title, not a sub-heading."""
+    mapping: dict[str, str] = {}
+
+    def walk(node):
+        if isinstance(node, (list, tuple)):
+            for n in node:
+                walk(n)
+        elif getattr(node, "href", None) and getattr(node, "title", None):
+            href = node.href.split("#")[0]
+            if href and href not in mapping:
+                mapping[href] = node.title
+
+    walk(toc)
+    return mapping
+
+
+def _chapter_for_offset(boundaries: list[tuple[int, str | None]], offset: int) -> str | None:
+    """The chapter title whose spine item covers character `offset` in the
+    joined EPUB text described by `boundaries` (see _read_epub_with_chapters)."""
+    if not boundaries:
+        return None
+    chapter = boundaries[0][1]
+    for b_offset, title in boundaries:
+        if offset >= b_offset:
+            chapter = title
+        else:
+            break
+    return chapter
+
+
+def _read_epub_with_chapters(path: Path) -> tuple[str, list[tuple[int, str | None]]]:
+    """Same extraction as _read_epub() below — ebooklib spine walk, tag-
+    strip, entity-decode, then the same final whitespace-collapse + sanitize
+    pass on the whole joined string (preserved exactly, not applied per-item
+    — _read_epub()'s trailing-whitespace regex behaves differently right at a
+    part boundary depending on whether it runs before or after the join) —
+    but also returns chapter_boundaries: (approximate char offset in the
+    pre-final-pass joined string, chapter title or None) for each spine
+    document, resolved from the book's own real table of contents, not a
+    heuristic guess."""
+    import ebooklib
+    from ebooklib import epub
+    book = epub.read_epub(str(path))
+    toc_map = _flatten_toc(book.toc)
+
+    parts: list[str] = []
+    boundaries: list[tuple[int, str | None]] = []
+    offset = 0
+    for item in book.get_items_of_type(ebooklib.ITEM_DOCUMENT):
+        html = item.get_content().decode("utf-8", "ignore")
+        html = re.sub(r"(?is)<(script|style)[^>]*>.*?</\1>", " ", html)
+        text = re.sub(r"(?s)<[^>]+>", " ", html)
+        text = re.sub(r"&nbsp;", " ", text)
+        text = re.sub(r"&amp;", "&", text).replace("&lt;", "<").replace("&gt;", ">")
+        boundaries.append((offset, toc_map.get(item.get_name())))
+        parts.append(text)
+        offset += len(text) + 2            # +2 for the "\n\n" join separator below
+
+    joined = _sanitize(re.sub(r"[ \t]+\n", "\n", "\n\n".join(parts)))
+    return joined, boundaries
+
+
+def _chunk_with_chapters(text: str, chapter_boundaries: list[tuple[int, str | None]],
+                          size: int = CHUNK_SIZE, min_size: int = MIN_CHUNK_SIZE
+                          ) -> list[tuple[str, dict]]:
+    """Same packing algorithm as _chunk() (see _chunk_with_pages()'s
+    docstring for why this is deliberately duplicated rather than shared).
+    A chunk whose paragraphs span two different chapters — rare, since spine
+    items are usually chapter-sized, but packing can still straddle a
+    boundary right at the edge — gets chapter: None rather than guessing
+    which one, matching the same anti-fabrication principle as the rest of
+    this milestone: a chunk should claim only what it actually,
+    unambiguously knows."""
+    raw_pieces = text.split("\n\n")
+    units: list[tuple[str, str | None]] = []
+    offset = 0
+    for raw in raw_pieces:
+        p = raw.strip()
+        if p:
+            chapter = _chapter_for_offset(chapter_boundaries, offset)
+            for piece in _split_oversized(p, size):
+                units.append((piece, chapter))
+        offset += len(raw) + 2
+
+    chunks: list[tuple[str, list]] = []
+    buf, buf_chapters = "", []
+    for u, chapter in units:
+        if buf and len(buf) + len(u) + 2 > size:
+            chunks.append((buf, buf_chapters))
+            buf, buf_chapters = u, [chapter]
+        else:
+            buf = f"{buf}\n\n{u}" if buf else u
+            buf_chapters.append(chapter)
+    if buf:
+        chunks.append((buf, buf_chapters))
+
+    merged: list[tuple[str, list]] = []
+    for c, chs in chunks:
+        if merged and (len(c) < min_size or len(merged[-1][0]) < min_size) \
+                and len(merged[-1][0]) + len(c) + 2 <= int(size * 1.5):
+            merged[-1] = (f"{merged[-1][0]}\n\n{c}", merged[-1][1] + chs)
+        else:
+            merged.append((c, chs))
+
+    out: list[tuple[str, dict]] = []
+    for chunk_text, chs in merged:
+        distinct = {c for c in chs if c is not None}
+        meta = {"chapter": next(iter(distinct))} if len(distinct) == 1 else {}
+        out.append((chunk_text, meta))
+    return out
+
+
 def _read_text(path: Path) -> str:
     ext = path.suffix.lower()
     if ext in (".md", ".txt"):
@@ -283,7 +405,8 @@ def ingest(source_dir: str, exts: tuple[str, ...] = (".md", ".txt"),
         # identical in its text output to plain _chunk() (see its own
         # docstring and tests/test_ingest_metadata.py), so this changes only
         # what metadata a chunk carries, never chunk boundaries themselves.
-        if f.suffix.lower() == ".pdf":
+        ext = f.suffix.lower()
+        if ext == ".pdf":
             try:
                 text, boundaries = _read_pdf_with_pages(f)
             except Exception:
@@ -291,20 +414,33 @@ def ingest(source_dir: str, exts: tuple[str, ...] = (".md", ".txt"),
             if not text.strip():
                 continue
             chunk_list = _chunk_with_pages(text, boundaries, size=chunk_size)
+        elif ext == ".epub":
+            # Same reasoning as the PDF branch: _chunk_with_chapters is
+            # proven byte-identical in its text output to plain _chunk()
+            # (see its docstring and tests/test_ingest_metadata.py) — this
+            # only adds chapter metadata, real TOC-resolved, never a guess.
+            try:
+                text, boundaries = _read_epub_with_chapters(f)
+            except Exception:
+                text, boundaries = "", []
+            if not text.strip():
+                continue
+            chunk_list = _chunk_with_chapters(text, boundaries, size=chunk_size)
         else:
             text = _read_text(f)
             if not text.strip():
                 continue
             chunk_list = [(c, {}) for c in _chunk(text, size=chunk_size)]
-        for i, (chunk, page_meta) in enumerate(chunk_list):
+        for i, (chunk, extra_meta) in enumerate(chunk_list):
             records.append({
                 "source": str(f.relative_to(src)),
                 "chunk_id": i,
                 "text": chunk,
                 "author": meta["author"],
                 "title": meta["title"],
-                "page_start": page_meta.get("page_start"),
-                "page_end": page_meta.get("page_end"),
+                "page_start": extra_meta.get("page_start"),
+                "page_end": extra_meta.get("page_end"),
+                "chapter": extra_meta.get("chapter"),
             })
 
     out_path.parent.mkdir(parents=True, exist_ok=True)

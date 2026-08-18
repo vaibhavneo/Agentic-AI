@@ -18,8 +18,9 @@ ROOT = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(ROOT))
 
 from second_brain.ingest import (
-    _chunk, _chunk_with_pages, _file_metadata, _page_for_offset,
-    _read_pdf_with_pages, _read_text, ingest,
+    _chapter_for_offset, _chunk, _chunk_with_chapters, _chunk_with_pages,
+    _file_metadata, _flatten_toc, _page_for_offset, _read_epub,
+    _read_epub_with_chapters, _read_pdf_with_pages, _read_text, ingest,
 )
 
 fails = []
@@ -147,6 +148,80 @@ for f in pdf_files[:5]:                # a handful is enough; full corpus covere
         check(f"{f.name}: page numbers are monotonically non-decreasing across chunks",
               pages_seen == sorted(pages_seen), str(pages_seen[:10]))
 check("checked at least one real PDF from the pilot corpus", checked_any)
+
+print("\n[_chapter_for_offset basic sanity]")
+cb = [(0, "Intro"), (100, "Chapter 1"), (250, None), (400, "Chapter 2")]
+check("offset 0 is Intro", _chapter_for_offset(cb, 0) == "Intro")
+check("offset 99 is still Intro", _chapter_for_offset(cb, 99) == "Intro")
+check("offset 100 is Chapter 1", _chapter_for_offset(cb, 100) == "Chapter 1")
+check("offset 250 (untitled spine item) is None", _chapter_for_offset(cb, 250) is None)
+check("offset 400 is Chapter 2", _chapter_for_offset(cb, 400) == "Chapter 2")
+check("empty boundaries returns None", _chapter_for_offset([], 10) is None)
+
+print("\n[_flatten_toc resolves the real book's chapter titles from its TOC, not a guess]")
+ROBOTICS_EPUB = None
+robotics_dir = Path("~/Desktop/Robotics").expanduser()
+if robotics_dir.exists():
+    epubs = sorted(robotics_dir.glob("*.epub"))
+    if epubs:
+        ROBOTICS_EPUB = epubs[0]
+
+if ROBOTICS_EPUB is None:
+    print(f"SKIP: no EPUB found under {robotics_dir} — chapter-resolution checks need a real EPUB")
+else:
+    import ebooklib
+    from ebooklib import epub as _epub
+    book = _epub.read_epub(str(ROBOTICS_EPUB))
+    toc_map = _flatten_toc(book.toc)
+    check("toc_map is non-empty for a real book with a real TOC", len(toc_map) > 0, f"{len(toc_map)} entries")
+    spine_names = {it.get_name() for it in book.get_items_of_type(ebooklib.ITEM_DOCUMENT)}
+    check("every resolved chapter title maps to an actual spine file",
+          all(href in spine_names for href in toc_map), str(set(toc_map) - spine_names))
+    # A chapter-level TOC entry has no #fragment; its own sub-headings do and
+    # share the same file — the chapter-level (first, no-fragment) title must
+    # be the one that wins, not a sub-heading buried further down the TOC.
+    frag_titles = set()
+    def _walk_fragments(node):
+        if isinstance(node, (list, tuple)):
+            for n in node:
+                _walk_fragments(n)
+        elif getattr(node, "href", None) and "#" in node.href:
+            frag_titles.add(node.title)
+    _walk_fragments(book.toc)
+    check("no sub-heading (fragment) title leaked into the chapter map",
+          not (set(toc_map.values()) & frag_titles),
+          str(set(toc_map.values()) & frag_titles))
+
+    print(f"\n[_read_epub_with_chapters / _chunk_with_chapters on {ROBOTICS_EPUB.name}]")
+    old_text = _read_epub(ROBOTICS_EPUB)
+    old_chunks = _chunk(old_text, size=1200)
+    new_text, boundaries = _read_epub_with_chapters(ROBOTICS_EPUB)
+    check("joined text is identical between _read_epub and _read_epub_with_chapters",
+          old_text == new_text, f"{len(old_text)} vs {len(new_text)} chars")
+    new_chunked = _chunk_with_chapters(new_text, boundaries, size=1200)
+    new_chunk_texts = [t for t, _ in new_chunked]
+    check("chunk TEXT is byte-for-byte identical between old and new path",
+          old_chunks == new_chunk_texts,
+          "MATCH" if old_chunks == new_chunk_texts else
+          f"{len(old_chunks)} vs {len(new_chunk_texts)} chunks — first diverges at "
+          f"{next((i for i in range(min(len(old_chunks), len(new_chunk_texts))) if old_chunks[i] != new_chunk_texts[i]), 'length mismatch')}")
+    with_chapter = [m for _, m in new_chunked if m.get("chapter")]
+    check("most real chunks resolve a real chapter title (structural, not a guess)",
+          len(with_chapter) > len(new_chunked) / 2,
+          f"{len(with_chapter)}/{len(new_chunked)}")
+    sample_titles = sorted({m["chapter"] for m in with_chapter})[:5]
+    print(f"    sample chapter titles resolved: {sample_titles}")
+
+print("\n[a chunk whose paragraphs span two chapters gets chapter: None, never a guess]")
+part_a = "End of chapter one.\n\n" + ("alpha " * 80).strip()
+part_b = "Start of chapter two.\n\n" + ("beta " * 80).strip()
+joined = "\n\n".join([part_a, part_b])
+cb2 = [(0, "Chapter One"), (len(part_a) + 2, "Chapter Two")]
+# force a tiny size so a single output chunk is likely to straddle the boundary
+straddled = _chunk_with_chapters(joined, cb2, size=len(joined) + 100, min_size=10)
+check("a chunk spanning both chapters is not attributed to either one",
+      any(m.get("chapter") is None for _, m in straddled) or len(straddled) > 1,
+      str(straddled))
 
 print(f"\n{'ALL CHECKS PASSED' if not fails else str(len(fails)) + ' FAILED: ' + str(fails)}")
 sys.exit(1 if fails else 0)
