@@ -434,12 +434,23 @@ function groundingBadge(d){
     return {cls:"s-weak", text:"no book or curriculum match — web reference only"};
   return {cls:"s-none", text:"no book, curriculum or web match — general knowledge only"};
 }
+// Milestone 3: validation's verdict is now load-bearing on the backend (a
+// "fail" buys one corrective rewrite) — this makes it visible where a
+// reader will actually see it, not just inside a collapsed panel. Silent
+// for "pass" (the common case) so the header stays uncluttered.
+function validationBadge(d){
+  const v=d.validation||{};
+  if(!v.verdict || v.verdict==="pass") return "";
+  const cls = v.verdict==="fail" ? "s-none" : "s-weak";
+  const text = "validation: "+esc(v.verdict)+(v.retried?" (after one rewrite)":"");
+  return ' · <b class="'+cls+'">'+text+'</b>';
+}
 function renderHeader(d){
   const r=d.routing||{}, used=["books","web","tools"].filter(k=>r[k]);
   const b=d.budget||{}, g=groundingBadge(d);
   return '<div class="adapt-bar"><span class="prov prov-adapted">'+esc(d.depth)+'</span>'+
     '<span>mode <b>'+esc(d.mode)+'</b> · queried <b>'+(used.join(" + ")||"books")+'</b>'+
-    ' · <b class="'+g.cls+'">'+esc(g.text)+'</b>'+
+    ' · <b class="'+g.cls+'">'+esc(g.text)+'</b>'+validationBadge(d)+
     ' · '+(b.llm_calls||0)+' LLM calls · '+((b.total_tokens||0).toLocaleString())+' tokens · '+d.elapsed_s+'s</span></div>';
 }
 function renderWeb(d){
@@ -478,7 +489,8 @@ function renderChecks(d){
     list("agreements",a.agreements)+list("conflicts",a.conflicts,"s-weak")+
     list("gaps",a.gaps,"s-weak")+list("off-topic",a.off_topic)+
     '<div class="ev-score" style="margin-top:8px">validation: <b class="'+vc+'">'+esc(v.verdict||"n/a")+'</b>'+
-      ' · '+(v.uncited_sentences||0)+'/'+(v.sentences||0)+' sentences uncited</div>'+
+      ' · '+(v.uncited_sentences||0)+'/'+(v.sentences||0)+' sentences uncited'+
+      (v.retried?' · rewritten once after a "'+esc(v.verdict_before_retry||"fail")+'" verdict':'')+'</div>'+
     list("unsupported claims",v.unsupported_claims,"s-weak")+
     list("contradicts sources",v.contradicts_sources,"s-none")+
     list("fabricated tags",v.fabricated_tags,"s-none")+
@@ -558,7 +570,7 @@ function ask(){
       renderHeader(d)+
       renderProse(d.prose,d)+
       '<details class="fold" open><summary>Sources &amp; provenance</summary>'+renderEvidence(d.evidence)+renderCurriculumUsed(d)+renderWeb(d)+'</details>'+
-      '<details class="fold"><summary>Evidence engine &amp; validation</summary>'+renderChecks(d)+'</details>'+
+      '<details class="fold"'+((d.validation&&d.validation.verdict&&d.validation.verdict!=="pass")?" open":"")+'><summary>Evidence engine &amp; validation</summary>'+renderChecks(d)+'</details>'+
       '<details class="fold"><summary>Pipeline trace &amp; token budget</summary>'+
         '<div class="trace">'+trace.innerHTML+'</div>'+renderBudget(d)+'</details>';
     bubble.querySelectorAll("[data-cite]").forEach(c=>c.addEventListener("click",()=>{

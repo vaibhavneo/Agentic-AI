@@ -57,6 +57,13 @@ STAGE_PLAN = {
                    "advanced": (MODEL_DEEP, 16000)},
     "validation": {"intro": None,               "intermediate": (MODEL_FAST, 1200),
                    "advanced": (MODEL_FAST, 1800)},
+    # Milestone 3: same budget as "professor" per depth, kept as a separate
+    # stage name (not just a second call under "professor") purely so the
+    # retry shows up as its own line in budget.by_stage — the whole point of
+    # making validation load-bearing is that a corrective rewrite must be
+    # visible in the trace, not a silent do-over.
+    "professor_retry": {"intro": (MODEL_FAST, 5000), "intermediate": (MODEL_FAST, 10000),
+                        "advanced": (MODEL_DEEP, 16000)},
 }
 
 
@@ -455,7 +462,7 @@ LaTeX for mathematics."""
 
 def professor_engine(question, understanding, book_ev, web_res, tool_res,
                      assessment, reasoning, mode, depth, client, budget,
-                     topics=()):
+                     topics=(), feedback: str = "", stage: str = "professor"):
     # Curriculum first. On a host with no book indexes these are the only
     # sources there are, and they are real material — not a fallback apology.
     src_parts = ([CUR.curriculum_block(list(topics))] if topics else [])
@@ -474,8 +481,14 @@ def professor_engine(question, understanding, book_ev, web_res, tool_res,
                  f"confidence={assessment.get('confidence')}")
     if reasoning.get("text"):
         extra += f"\n\nREASONING SKELETON (expand this, do not repeat it verbatim):\n{reasoning['text']}"
+    # Milestone 3: a validator "fail" verdict now buys one corrected rewrite
+    # instead of being purely advisory. feedback names the exact problems
+    # (fabricated tags, unsupported claims, source contradictions) so the
+    # retry is a targeted fix, not a re-roll hoping for a better answer.
+    if feedback:
+        extra += f"\n\nYOUR PREVIOUS ANSWER FAILED VALIDATION — FIX THESE SPECIFIC PROBLEMS:\n{feedback}"
 
-    return _call(client, "professor", depth, _PROF_SYS,
+    return _call(client, stage, depth, _PROF_SYS,
                  f"QUESTION: {question}\n\n"
                  f"HOW TO ANSWER: {MODE_DIRECTIVE.get(mode, MODE_DIRECTIVE['explain'])}\n"
                  f"WHO YOU ARE ANSWERING: {DEPTH_DIRECTIVE.get(depth, DEPTH_DIRECTIVE['intermediate'])}"
@@ -567,6 +580,28 @@ def validation(question, prose, book_ev, web_res, tool_res, depth, client, budge
     return structural
 
 
+def _validation_feedback(checks: dict) -> str:
+    """Turn a "fail" verdict into concrete correction instructions for a
+    professor_engine retry — named problems, not a vague "try again".
+
+    A "fail" verdict (see validation() above) only ever comes from the
+    semantic pass's own unsupported_claims/contradicts_sources — fabricated
+    tags alone cap out at "caution", so this function doesn't need to handle
+    them; Milestone 1's citation-chip "miss" styling already flags those
+    visually without needing a rewrite. Empty string means there's nothing
+    concrete enough to act on, and the caller must not retry on nothing.
+    """
+    lines = []
+    if checks.get("unsupported_claims"):
+        lines.append("Claims presented as fact with no source backing them — either cite a real "
+                     "source for each or clearly mark it as your own synthesis: " +
+                     "; ".join(checks["unsupported_claims"]))
+    if checks.get("contradicts_sources"):
+        lines.append("Claims that conflict with a cited source — correct them to match what the "
+                     "source actually says: " + "; ".join(checks["contradicts_sources"]))
+    return "\n".join(f"- {line}" for line in lines)
+
+
 # ── the pipeline ──────────────────────────────────────────────────────────
 
 def run(question: str, mode: str = "explain",
@@ -655,26 +690,37 @@ def run(question: str, mode: str = "explain",
                                 else f"{len(reasoning['text'].split())} words of skeleton"),
                         "reasoning": reasoning}
 
-    # 7 ── professor, with heartbeats so the stream never goes silent
-    box: dict = {}
+    # 7 ── professor, with heartbeats so the stream never goes silent.
+    # Nested generator, not a plain function, so it's reusable for Milestone
+    # 3's validation-triggered retry below without duplicating the threading/
+    # heartbeat machinery — `yield from` both runs it and forwards its SSE
+    # events to the real stream.
+    def _teach(feedback: str = "", stage: str = "professor"):
+        box: dict = {}
 
-    def _teach():
-        try:
-            box["prose"] = professor_engine(question, u, book_ev, web_res, tool_res,
-                                            assessment, reasoning, mode, depth,
-                                            client, budget, topics)
-        except Exception as exc:
-            box["error"] = f"{type(exc).__name__}: {exc}"
+        def _work():
+            try:
+                box["prose"] = professor_engine(question, u, book_ev, web_res, tool_res,
+                                                assessment, reasoning, mode, depth,
+                                                client, budget, topics,
+                                                feedback=feedback, stage=stage)
+            except Exception as exc:
+                box["error"] = f"{type(exc).__name__}: {exc}"
 
-    worker = threading.Thread(target=_teach, daemon=True)
-    t_prof = time.monotonic()
-    yield "professor", {"msg": "Teaching…", "elapsed_s": 0}
-    worker.start()
-    while worker.is_alive():
-        worker.join(timeout=5.0)
-        if worker.is_alive():
-            yield "professor", {"msg": f"Teaching… {int(time.monotonic()-t_prof)}s",
-                                "elapsed_s": int(time.monotonic() - t_prof)}
+        worker = threading.Thread(target=_work, daemon=True)
+        t0 = time.monotonic()
+        label = "Rewriting with corrections…" if feedback else "Teaching…"
+        yield "professor", {"msg": label, "elapsed_s": 0}
+        worker.start()
+        while worker.is_alive():
+            worker.join(timeout=5.0)
+            if worker.is_alive():
+                yield "professor", {"msg": f"{label} {int(time.monotonic()-t0)}s",
+                                    "elapsed_s": int(time.monotonic() - t0)}
+        box["elapsed"] = int(time.monotonic() - t0)
+        return box
+
+    box = yield from _teach()
     if box.get("error"):
         yield "error", {"message": box["error"]}
         return
@@ -682,13 +728,41 @@ def run(question: str, mode: str = "explain",
     if not prose:
         yield "error", {"message": "the teaching stage returned nothing"}
         return
-    yield "professor", {"msg": f"Taught in {int(time.monotonic()-t_prof)}s",
-                        "elapsed_s": int(time.monotonic() - t_prof)}
+    yield "professor", {"msg": f"Taught in {box['elapsed']}s", "elapsed_s": box["elapsed"]}
 
     # 8 ── validation
     yield "validation", {"msg": "Checking the answer against its sources…"}
     checks = validation(question, prose, book_ev, web_res, tool_res, depth, client,
                         budget, topics)
+    checks["retried"] = False
+
+    # Milestone 3: a "fail" verdict used to be purely advisory — computed,
+    # shown in a collapsed panel, changed nothing. It now buys one corrective
+    # rewrite: the validator already names exactly what's wrong (fabricated
+    # tags, unsupported claims, contradictions), so that feedback goes
+    # straight back into professor_engine instead of being displayed and
+    # discarded. Bounded to a single retry — same one-shot ceiling as
+    # _call()'s own internal retry-on-empty — so a genuinely stubborn model
+    # can't turn one question into an unbounded loop.
+    if checks["verdict"] == "fail":
+        feedback = _validation_feedback(checks)
+        if feedback:
+            retry_box = yield from _teach(feedback=feedback, stage="professor_retry")
+            retried_prose = (retry_box.get("prose") or "").strip() if not retry_box.get("error") else ""
+            if retried_prose:
+                prose = retried_prose
+                yield "professor", {"msg": f"Rewrote after validation feedback in {retry_box['elapsed']}s",
+                                    "elapsed_s": retry_box["elapsed"]}
+                yield "validation", {"msg": "Re-checking the rewritten answer…"}
+                verdict_before_retry = checks["verdict"]
+                checks = validation(question, prose, book_ev, web_res, tool_res, depth,
+                                    client, budget, topics)
+                checks["verdict_before_retry"] = verdict_before_retry
+                checks["retried"] = True
+            # A retry that errors or comes back empty is silently dropped —
+            # the original, already-validated (if imperfect) prose survives.
+            # A failed retry must never turn into "nothing to show."
+
     # Report what was cited, not how many sentences went untagged. A ratio like
     # "43/55 uncited" sitting next to the verdict reads as an accusation, when a
     # long explanation resting on a handful of sources is what good teaching
@@ -696,7 +770,8 @@ def run(question: str, mode: str = "explain",
     yield "validation", {"msg": (f"{checks['verdict']} · {len(checks['cited'])} "
                                  f"source{'' if len(checks['cited']) == 1 else 's'} cited"
                                  + (f" · {len(checks['fabricated_tags'])} fabricated tag(s)"
-                                    if checks["fabricated_tags"] else "")),
+                                    if checks["fabricated_tags"] else "")
+                                 + (" · rewritten after a failed check" if checks["retried"] else "")),
                          "validation": checks}
 
     # 9 ── answer
