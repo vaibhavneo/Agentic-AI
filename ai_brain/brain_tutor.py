@@ -112,6 +112,66 @@ def _shelf(corpus_id: str) -> str:
     return corpus_id.replace("desk-", "").replace("-", " ")
 
 
+# Ported from second_brain/gateway.py's _shingles/_near_dup — that module is
+# wired to the unused in-memory TF-IDF Retriever, not the BM25/FTS5 path this
+# app actually queries, so the module itself isn't importable here. The
+# algorithm has no dependency on which retriever produced the hits (it only
+# looks at text), so it travels on its own.
+def _shingles(text: str, n: int = 8) -> set[str]:
+    words = text.lower().split()
+    return {" ".join(words[i:i + n]) for i in range(max(1, len(words) - n + 1))}
+
+
+def _near_dup(a: str, b: str, threshold: float = 0.8) -> bool:
+    sa, sb = _shingles(a), _shingles(b)
+    if not sa or not sb:
+        return False
+    return len(sa & sb) / min(len(sa), len(sb)) >= threshold
+
+
+def _filter_and_dedup(scored: list[dict]) -> tuple[list[dict], list[dict], list[dict]]:
+    """Score/length/frontmatter filter, then near-duplicate collapse.
+
+    Dedup runs *inside* the KEEP_K loop, not after — a near-duplicate must not
+    consume a citation slot that a genuinely distinct, lower-ranked passage
+    could take instead. `scored` is already sorted best-first, so the first
+    copy of a duplicated passage a shelf offers is always the survivor.
+    """
+    kept: list[dict] = []
+    rejected: list[dict] = []
+    deduped: list[dict] = []
+    for item in scored:
+        if len(kept) >= KEEP_K:
+            break
+        if item["raw_score"] < MIN_RAW_SCORE:
+            item["why"] = f"BM25 {item['raw_score']} below floor {MIN_RAW_SCORE}"
+            rejected.append(item)
+            continue
+        if len(item["text"]) < MIN_CHUNK_CHARS:
+            item["why"] = "too short to ground on"
+            rejected.append(item)
+            continue
+        if (reason := looks_like_frontmatter(item["text"])):
+            item["why"] = reason
+            rejected.append(item)
+            continue
+        dup = next((k for k in kept if _near_dup(item["text"], k["text"])), None)
+        if dup:
+            dup.setdefault("shelves", [dup["shelf"]])
+            dup.setdefault("sources", [dup["source"]])
+            if item["shelf"] not in dup["shelves"]:
+                dup["shelves"].append(item["shelf"])
+            if item["source"] not in dup["sources"]:
+                dup["sources"].append(item["source"])
+            item["why"] = f"near-duplicate of {dup['tag']}"
+            item["merged_into"] = dup["tag"]
+            deduped.append(item)
+            continue
+        item["tag"] = f"S{len(kept) + 1}"
+        kept.append(item)
+    return kept, rejected, deduped
+
+
 def retrieve_evidence(question: str) -> dict:
     """BM25 across every shelf, then keep the globally best few."""
     if str(BRAIN_ROOT) not in sys.path:
@@ -146,25 +206,11 @@ def retrieve_evidence(question: str) -> dict:
     } for h in hits]
     scored.sort(key=lambda c: -c["raw_score"])
 
-    kept, rejected = [], []
-    for item in scored:
-        if len(kept) >= KEEP_K:
-            break
-        if item["raw_score"] < MIN_RAW_SCORE:
-            item["why"] = f"BM25 {item['raw_score']} below floor {MIN_RAW_SCORE}"
-            rejected.append(item)
-        elif len(item["text"]) < MIN_CHUNK_CHARS:
-            item["why"] = "too short to ground on"
-            rejected.append(item)
-        elif (reason := looks_like_frontmatter(item["text"])):
-            item["why"] = reason
-            rejected.append(item)
-        else:
-            item["tag"] = f"S{len(kept) + 1}"
-            kept.append(item)
+    kept, rejected, deduped = _filter_and_dedup(scored)
 
     top = kept[0]["raw_score"] if kept else 0.0
     return {"available": True, "kept": kept, "rejected": rejected[:6],
+            "deduped": deduped[:6],
             "searched": searched, "missing": missing,
             "shelves_hit": sorted({c["shelf"] for c in kept}),
             "top_score": top,
@@ -172,7 +218,8 @@ def retrieve_evidence(question: str) -> dict:
                                   else "weak" if top < WEAK_EVIDENCE else "usable"),
             "scoring_note": ("BM25 over on-disk FTS5, higher is better. Each shelf "
                              f"offers its best {PER_CORPUS_K}; the globally top "
-                             f"{KEEP_K} survive filtering.")}
+                             f"{KEEP_K} survive filtering, near-duplicates "
+                             "collapsed into one citation.")}
 
 
 # ── pedagogy ──────────────────────────────────────────────────────────────
