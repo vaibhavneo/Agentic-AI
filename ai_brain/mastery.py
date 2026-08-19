@@ -30,7 +30,19 @@ import sqlite3
 from datetime import datetime, timezone
 from pathlib import Path
 
-_DB_PATH = Path(__file__).parent.parent / "memory" / "mastery.db"
+# ai_brain/memory/ — one level, not two. ai_brain/ already has its own
+# memory/ subdirectory (research_notebook.json lives there), and the
+# Dockerfile explicitly prepares /app/memory (writable by the non-root
+# `brain` user) for exactly this purpose — its own comment says "the app
+# writes nothing outside memory/". A first cut of this path used
+# .parent.parent, which happens to land in the *monorepo's* top-level
+# memory/ when run locally from inside this checkout (silently "worked"
+# there) but resolves to unwritable "/" inside the container, where the
+# Docker build context is ai_brain/ alone and there is no monorepo
+# structure above it at all. Caught by smoke_deployment.py against the
+# real deployed instance — /api/ask crashed right after "understand", the
+# exact stage 2b first calls mastery.known_topic_ids().
+_DB_PATH = Path(__file__).parent / "memory" / "mastery.db"
 
 _SCHEMA = """
 PRAGMA journal_mode=WAL;
