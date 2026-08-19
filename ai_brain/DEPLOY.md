@@ -44,6 +44,20 @@ call ran on empty evidence anyway).
 To restore book grounding, run locally against the indexes or point
 `SECOND_BRAIN_ROOT` at a slim subset.
 
+## Topic mastery (Milestone 5) is ephemeral on the hosted instance
+
+`mastery.py` persists to `memory/mastery.db` (stdlib SQLite). The `ai-brain`
+Railway service has no attached volume (checked via `railway volume list` —
+only the sibling `Agentic-AI` service has one, mounted at `/data`), so that
+file lives on the container's local disk and resets on every redeploy or
+reschedule. Locally it's genuinely persistent across restarts. Same shape
+as the bookless-hosting limitation above: the hosted instance is a lighter,
+non-persistent version of the real thing, not a bug. If this ever needs to
+survive Railway redeploys, mount a volume for `ai-brain` (see `railway
+volume list`/`railway volume create` — the sibling service's setup is the
+template) and point `mastery._DB_PATH` at it via an env var; not done here
+since nobody asked for it yet.
+
 **The header badge is honest about which of these happened, not just that a
 book search was attempted.** "routed to books" (the query attempted) used to
 be the only signal shown, even when retrieval came back empty. It now also
