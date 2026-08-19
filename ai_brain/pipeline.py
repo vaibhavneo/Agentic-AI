@@ -42,6 +42,7 @@ from concurrent.futures import ThreadPoolExecutor
 from typing import Iterator
 
 import curriculum as CUR
+import mastery
 from brain_tutor import (BRAIN_CORPORA, MODEL_DEEP, MODEL_FAST, _api_key,
                          looks_like_frontmatter, retrieve_evidence)
 
@@ -720,6 +721,16 @@ def run(question: str, mode: str = "explain",
     # answer can scaffold ("this builds on X") instead of assuming the
     # reader already has it.
     prereq_topics = CUR.prerequisite_gaps(topics) if topics else []
+    # Milestone 5: a prerequisite the reader has already engaged with
+    # directly and often, or has explicitly marked as known, doesn't need
+    # to keep showing up as "background you might not know" — that's
+    # patronizing, not helpful, once the app actually has memory of past
+    # sessions. mastery.py's own docstring covers why this isn't a general
+    # multi-user system: one reader, no login, nothing else in this app
+    # has that concept either.
+    if prereq_topics:
+        known = mastery.known_topic_ids()
+        prereq_topics = [t for t in prereq_topics if t.id not in known]
 
     # 3 ── route
     r = route(u, depth)
@@ -874,6 +885,17 @@ def run(question: str, mode: str = "explain",
                                     if checks["fabricated_tags"] else "")
                                  + (" · rewritten after a failed check" if checks["retried"] else "")),
                          "validation": checks}
+
+    # Milestone 5: record what this answer touched, before the final yield —
+    # "done" is the last event this generator ever produces, and an SSE
+    # client typically disconnects the moment it arrives, so any code placed
+    # *after* the yield is not guaranteed to run at all. A write that must
+    # actually happen goes before the suspension point that might be the
+    # last one the caller ever resumes.
+    mastery.record_exposure([t.id for t in topics], "direct", depth=depth,
+                            verdict=checks.get("verdict", ""))
+    mastery.record_exposure([t.id for t in prereq_topics], "prereq", depth=depth,
+                            verdict=checks.get("verdict", ""))
 
     # 9 ── answer
     yield "done", {

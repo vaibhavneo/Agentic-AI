@@ -940,13 +940,48 @@ function linePlot(series, label){
 
 /* ── curriculum browser ── */
 let CUR_CACHE = null;
+let MASTERY_CACHE = {};   // topic_id -> {exposure_count, manual_status, ...}
+async function loadMastery(){
+  // Milestone 5: best-effort — a stale or unreachable mastery endpoint must
+  // never block the curriculum browser itself from working, since exposure
+  // history is enrichment, not the primary content of this tab.
+  try {
+    const j = await (await fetch("/api/mastery")).json();
+    MASTERY_CACHE = {};
+    (j.topics || []).forEach(r => { MASTERY_CACHE[r.topic_id] = r; });
+  } catch(_){ MASTERY_CACHE = {}; }
+}
 async function loadCurriculum(){
   if (!CUR_CACHE){
     try { CUR_CACHE = await (await fetch("/api/curriculum")).json(); }
     catch(_){ $("c-list").innerHTML = '<span class="err">Couldn\'t load the curriculum.</span>'; return; }
     $("cur-n").textContent = CUR_CACHE.total;
   }
+  await loadMastery();
   renderCurriculum(CUR_CACHE.topics, CUR_CACHE.total + " topics");
+}
+async function markTopic(topicId, status){
+  try {
+    await fetch("/api/mastery/mark", {method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({topic_id: topicId, status: status})});
+  } catch(_){ return; }
+  await loadMastery();
+  renderCurriculum(CUR_CACHE.topics, CUR_CACHE.total + " topics");
+}
+function _masteryLine(t){
+  const m = MASTERY_CACHE[t.id];
+  const seen = m && m.exposure_count ? m.exposure_count + " question" +
+    (m.exposure_count === 1 ? "" : "s") + " touched this" : "not asked about yet";
+  const status = m && m.manual_status;
+  const mk = (label, val) => '<span class="chip" style="padding:2px 9px;font-size:.68rem" '+
+    'onclick="markTopic(\''+t.id+'\',' + (val===null?'null':"'"+val+"'") + ')">'+label+'</span>';
+  return '<div class="cur-con" style="display:flex;gap:7px;align-items:center;margin-top:6px">'+
+    '<span>'+esc(seen)+(status?' · marked '+esc(status):'')+'</span>'+
+    (status!=="known" ? mk("Mark known", "known") : "")+
+    (status!=="review" ? mk("Mark for review", "review") : "")+
+    (status ? mk("Clear", null) : "")+
+    '</div>';
 }
 function renderCurriculum(topics, caption){
   $("c-count").textContent = caption;
@@ -956,6 +991,7 @@ function renderCurriculum(topics, caption){
     '<p class="cur-con">' + esc(t.key_concepts.join(" · ")) + "</p>" +
     ((t.key_equations || []).length
       ? '<div class="cur-eq">' + t.key_equations.slice(0, 2).map(e => tex(e, true)).join("") + "</div>" : "") +
+    _masteryLine(t) +
     "</div>").join("");
 }
 $("c-q").addEventListener("input", async e => {

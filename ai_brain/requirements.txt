@@ -1,3 +1,9 @@
+# Milestone 5: the server was pure stdlib http.server until persistence
+# (per-reader topic mastery) needed a real POST body. Same version stock_agent
+# (a sibling app in this repo) already pins, whose SSE pattern server.py's
+# /api/ask route reuses.
+flask>=3.1
+
 # The DeepSeek client speaks the OpenAI wire protocol.
 openai>=1.0.0
 

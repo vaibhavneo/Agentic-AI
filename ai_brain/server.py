@@ -1,18 +1,34 @@
-"""HTTP server for the AI Brain.
+"""HTTP server for the AI Brain, on Flask (Milestone 5).
 
-Serves the single-page UI and one streaming endpoint. Deliberately stdlib-only
-(no Flask) so the deployed image stays small and the only real dependency is
-the OpenAI client.
+Migrated off pure stdlib http.server for one reason only: Milestone 5 needs
+real persistence (per-reader topic mastery, memory/mastery.db) for the
+first time in this app's life, and that means a POST endpoint with a real
+JSON body. Hand-rolling that on BaseHTTPRequestHandler was the other option
+on the table; the user picked a real framework instead. Every route below
+is a deliberate byte-for-byte port of the previous handler's behavior, not
+a redesign — same paths, same query-param names and defaults, same error
+shapes, same static-file guard. The one genuinely new behavior is
+/api/mastery and /api/mastery/mark (Milestone 5's actual feature); see
+mastery.py.
+
+SSE pattern (/api/ask) is copied from stock_agent/web/app.py, a sibling
+Flask app in this same repo that already has this working in production:
+Response(stream_with_context(generator), mimetype="text/event-stream",
+headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"}) — the
+exact two headers this app's own handler already set by hand. Unlike
+stock_agent's SSE route, no thread/queue polling is needed here:
+pipeline.run() is already a generator, and it already manages its own
+heartbeats during long model calls (see pipeline.py's _teach()), so the
+Flask route can just iterate it directly.
 """
 from __future__ import annotations
 
-import argparse
 import json
 import os
 import sys
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from urllib.parse import parse_qs, urlparse
+
+from flask import Flask, Response, jsonify, request, stream_with_context
 
 HERE = Path(__file__).resolve().parent
 if str(HERE) not in sys.path:
@@ -20,6 +36,7 @@ if str(HERE) not in sys.path:
 
 from brain_tutor import BRAIN_CORPORA, BRAIN_ROOT  # noqa: E402
 from pipeline import run as answer_stream           # noqa: E402  (9-stage flow)
+import mastery                                       # noqa: E402  (Milestone 5)
 
 WEB_ROOT = HERE / "web"
 CONTENT_TYPES = {
@@ -31,119 +48,133 @@ CONTENT_TYPES = {
     ".svg": "image/svg+xml",
 }
 
+app = Flask(__name__)
 
-class BrainHandler(BaseHTTPRequestHandler):
-    server_version = "AIBrain/1.0"
 
-    def log_message(self, fmt: str, *args: object) -> None:
-        return
+@app.before_request
+def _handle_options():
+    # The old handler answered OPTIONS on any path the same way (204, no
+    # body) — do the same here rather than listing methods=["OPTIONS"] on
+    # every single route.
+    if request.method == "OPTIONS":
+        return "", 204
 
-    def do_OPTIONS(self) -> None:
-        self.send_response(204)
-        self._cors()
-        self.end_headers()
 
-    def do_GET(self) -> None:
-        parsed = urlparse(self.path)
-        if parsed.path == "/api/ask":
-            self._ask(parsed.query)
-        elif parsed.path == "/api/shelves":
-            self._shelves()
-        elif parsed.path == "/api/lab":
-            self._lab_info()
-        elif parsed.path == "/api/symbolic":
-            self._symbolic(parsed.query)
-        elif parsed.path == "/api/matrix":
-            self._matrix(parsed.query)
-        elif parsed.path == "/api/descent":
-            self._descent(parsed.query)
-        elif parsed.path == "/api/curriculum":
-            self._curriculum(parsed.query)
-        elif parsed.path == "/api/status":
-            self._json({"ok": True, "corpora": len(BRAIN_CORPORA),
-                        "key_set": bool(os.getenv("DEEPSEEK_API_KEY"))})
-        else:
-            self._static(parsed.path)
+@app.after_request
+def _cors(resp):
+    resp.headers["Access-Control-Allow-Origin"] = "*"
+    resp.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
+    return resp
 
-    # ── Brain Lab: everything below is computed, never generated ─────────
 
-    def _lab(self):
-        import brainlab
-        return brainlab
+def _lab():
+    import brainlab
+    return brainlab
 
-    def _lab_info(self) -> None:
-        """What the lab can do — the UI builds its controls from this."""
-        lab = self._lab()
-        self._json({"operations": lab.OPERATIONS,
+
+# ── /api/ask — the streaming answer ────────────────────────────────────────
+
+@app.route("/api/ask")
+def api_ask():
+    question = (request.args.get("q") or "").strip()
+    if not question:
+        return jsonify({"error": "q parameter required"}), 400
+    mode = request.args.get("mode", "explain")
+    depth = request.args.get("depth", "intermediate")
+
+    def generate():
+        try:
+            for stage, payload in answer_stream(question, mode=mode, depth=depth):
+                yield f"event: {stage}\ndata: {json.dumps(payload, default=str)}\n\n"
+        except (BrokenPipeError, ConnectionResetError):
+            return                      # reader navigated away mid-answer
+        except Exception as exc:
+            try:
+                yield f"event: error\ndata: {json.dumps({'message': f'{type(exc).__name__}: {exc}'})}\n\n"
+            except Exception:
+                pass
+
+    return Response(stream_with_context(generate()), mimetype="text/event-stream",
+                    headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
+
+
+# ── Brain Lab: everything below is computed, never generated ───────────────
+
+@app.route("/api/lab")
+def api_lab_info():
+    lab = _lab()
+    return jsonify({"operations": lab.OPERATIONS,
                     "matrix_operations": lab.MATRIX_OPS,
                     "surfaces": lab.PRESET_SURFACES})
 
-    def _symbolic(self, query: str) -> None:
-        p = parse_qs(query)
-        expr = p.get("expr", [""])[0].strip()
-        if not expr:
-            self._json({"ok": False, "error": "expr parameter required",
-                        "operations": self._lab().OPERATIONS}, status=400)
-            return
-        subs = {}
-        for pair in p.get("subs", [""])[0].split(","):
-            if "=" in pair:
-                k, _, v = pair.partition("=")
-                subs[k.strip()] = v.strip()
-        self._json(self._lab().evaluate(
-            expr,
-            operation=p.get("op", ["simplify"])[0],
-            variable=p.get("var", ["x"])[0],
-            at=p.get("at", [None])[0],
-            order=int(p.get("order", ["6"])[0] or 6),
-            subs=subs or None,
-            variables=p.get("vars", [""])[0]))
 
-    def _matrix(self, query: str) -> None:
-        p = parse_qs(query)
-        m = p.get("m", [""])[0].strip()
-        if not m:
-            self._json({"ok": False, "error": "m parameter required (the matrix)",
-                        "operations": self._lab().MATRIX_OPS}, status=400)
-            return
-        try:
-            n_iter = int(p.get("iter", ["50"])[0])
-        except ValueError:
-            n_iter = 50
-        self._json(self._lab().matrix_lab(
-            m, operation=p.get("op", ["summary"])[0],
-            rhs=p.get("b", [""])[0], n_iter=n_iter))
+@app.route("/api/symbolic")
+def api_symbolic():
+    expr = (request.args.get("expr") or "").strip()
+    if not expr:
+        return jsonify({"ok": False, "error": "expr parameter required",
+                        "operations": _lab().OPERATIONS}), 400
+    subs = {}
+    for pair in (request.args.get("subs") or "").split(","):
+        if "=" in pair:
+            k, _, v = pair.partition("=")
+            subs[k.strip()] = v.strip()
+    return jsonify(_lab().evaluate(
+        expr,
+        operation=request.args.get("op", "simplify"),
+        variable=request.args.get("var", "x"),
+        at=request.args.get("at"),
+        order=int(request.args.get("order", "6") or 6),
+        subs=subs or None,
+        variables=request.args.get("vars", "")))
 
-    def _descent(self, query: str) -> None:
-        p = parse_qs(query)
-        f = p.get("f", [""])[0].strip()
-        if not f:
-            self._json({"ok": False, "error": "f parameter required",
-                        "surfaces": list(self._lab().PRESET_SURFACES)}, status=400)
-            return
-        try:
-            self._json(self._lab().gradient_descent(
-                f, start=p.get("start", ["1, 1"])[0],
-                lr=float(p.get("lr", ["0.1"])[0]),
-                steps=int(p.get("steps", ["60"])[0]),
-                variables=p.get("vars", [""])[0],
-                momentum=float(p.get("momentum", ["0"])[0])))
-        except ValueError as exc:
-            self._json({"ok": False, "error": f"bad parameter: {exc}"}, status=400)
 
-    def _curriculum(self, query: str) -> None:
-        """The curriculum, and which topics a question would match."""
-        import curriculum as CUR
-        p = parse_qs(query)
-        q = p.get("q", [""])[0].strip()
-        if q:
-            self._json({"question": q, "matched": [
-                {"id": t.id, "title": t.title, "level": t.level,
-                 "key_concepts": t.key_concepts, "key_equations": t.key_equations,
-                 "intuition": t.intuition}
-                for t in CUR.match_topics(q, int(p.get("k", ["4"])[0] or 4))]})
-            return
-        self._json({"total": len(CUR.TOPICS), "levels": CUR.LEVELS,
+@app.route("/api/matrix")
+def api_matrix():
+    m = (request.args.get("m") or "").strip()
+    if not m:
+        return jsonify({"ok": False, "error": "m parameter required (the matrix)",
+                        "operations": _lab().MATRIX_OPS}), 400
+    try:
+        n_iter = int(request.args.get("iter", "50"))
+    except ValueError:
+        n_iter = 50
+    return jsonify(_lab().matrix_lab(
+        m, operation=request.args.get("op", "summary"),
+        rhs=request.args.get("b", ""), n_iter=n_iter))
+
+
+@app.route("/api/descent")
+def api_descent():
+    f = (request.args.get("f") or "").strip()
+    if not f:
+        return jsonify({"ok": False, "error": "f parameter required",
+                        "surfaces": list(_lab().PRESET_SURFACES)}), 400
+    try:
+        return jsonify(_lab().gradient_descent(
+            f, start=request.args.get("start", "1, 1"),
+            lr=float(request.args.get("lr", "0.1")),
+            steps=int(request.args.get("steps", "60")),
+            variables=request.args.get("vars", ""),
+            momentum=float(request.args.get("momentum", "0"))))
+    except ValueError as exc:
+        return jsonify({"ok": False, "error": f"bad parameter: {exc}"}), 400
+
+
+# ── curriculum ───────────────────────────────────────────────────────────
+
+@app.route("/api/curriculum")
+def api_curriculum():
+    """The curriculum, and which topics a question would match."""
+    import curriculum as CUR
+    q = (request.args.get("q") or "").strip()
+    if q:
+        return jsonify({"question": q, "matched": [
+            {"id": t.id, "title": t.title, "level": t.level,
+             "key_concepts": t.key_concepts, "key_equations": t.key_equations,
+             "intuition": t.intuition}
+            for t in CUR.match_topics(q, int(request.args.get("k", "4") or 4))]})
+    return jsonify({"total": len(CUR.TOPICS), "levels": CUR.LEVELS,
                     "topics": [{"id": t.id, "title": t.title, "level": t.level,
                                 "prerequisites": t.prerequisites,
                                 "key_concepts": t.key_concepts,
@@ -151,108 +182,101 @@ class BrainHandler(BaseHTTPRequestHandler):
                                 "intuition": t.intuition, "shelves": t.shelves}
                                for t in CUR.TOPICS.values()]})
 
-    # ── endpoints ────────────────────────────────────────────────────────
 
-    def _shelves(self) -> None:
-        """What the brain can actually see right now.
+# ── mastery (Milestone 5) ───────────────────────────────────────────────
 
-        The deployed instance has no book indexes (they live on the machine
-        with the books), so this reports the real state rather than implying a
-        library that isn't there.
-        """
-        try:
-            sys.path.insert(0, str(BRAIN_ROOT))
-            from second_brain import fts
-            rows = [r for r in fts.status() if r["corpus"] in BRAIN_CORPORA]
-            ready = [r for r in rows if r["has_index"]]
-            self._json({
-                "available": bool(ready),
-                "total": len(BRAIN_CORPORA),
-                "indexed": len(ready),
-                "total_mb": round(sum(r["db_mb"] for r in ready), 1),
-                "shelves": sorted(rows, key=lambda r: -r["db_mb"]),
-            })
-        except Exception as exc:
-            self._json({"available": False, "total": len(BRAIN_CORPORA),
+@app.route("/api/mastery")
+def api_mastery():
+    import curriculum as CUR
+    rows = mastery.mastery_summary()
+    for r in rows:
+        t = CUR.TOPICS.get(r["topic_id"])
+        r["title"] = t.title if t else r["topic_id"]
+        r["level"] = t.level if t else None
+    return jsonify({"topics": rows})
+
+
+@app.route("/api/mastery/mark", methods=["POST"])
+def api_mastery_mark():
+    import curriculum as CUR
+    body = request.get_json(silent=True) or {}
+    topic_id = (body.get("topic_id") or "").strip()
+    status = body.get("status")
+    if topic_id not in CUR.TOPICS:
+        return jsonify({"ok": False, "error": f"unknown topic_id: {topic_id!r}"}), 400
+    if status not in ("known", "review", None):
+        return jsonify({"ok": False, "error": f"status must be 'known', 'review', or null: {status!r}"}), 400
+    record = mastery.mark_topic(topic_id, status)
+    return jsonify({"ok": True, "topic_id": topic_id, "record": record})
+
+
+# ── shelves / status ─────────────────────────────────────────────────────
+
+@app.route("/api/shelves")
+def api_shelves():
+    """What the brain can actually see right now.
+
+    The deployed instance has no book indexes (they live on the machine
+    with the books), so this reports the real state rather than implying a
+    library that isn't there.
+    """
+    try:
+        sys.path.insert(0, str(BRAIN_ROOT))
+        from second_brain import fts
+        rows = [r for r in fts.status() if r["corpus"] in BRAIN_CORPORA]
+        ready = [r for r in rows if r["has_index"]]
+        return jsonify({
+            "available": bool(ready),
+            "total": len(BRAIN_CORPORA),
+            "indexed": len(ready),
+            "total_mb": round(sum(r["db_mb"] for r in ready), 1),
+            "shelves": sorted(rows, key=lambda r: -r["db_mb"]),
+        })
+    except Exception as exc:
+        return jsonify({"available": False, "total": len(BRAIN_CORPORA),
                         "indexed": 0, "reason": f"{type(exc).__name__}: {exc}",
                         "shelves": []})
 
-    def _ask(self, query: str) -> None:
-        params = parse_qs(query)
-        question = params.get("q", [""])[0].strip()
-        if not question:
-            self._json({"error": "q parameter required"}, status=400)
-            return
-        mode = params.get("mode", ["explain"])[0]
-        depth = params.get("depth", ["intermediate"])[0]
 
-        self.send_response(200)
-        self.send_header("Content-Type", "text/event-stream; charset=utf-8")
-        self.send_header("Cache-Control", "no-cache")
-        self.send_header("X-Accel-Buffering", "no")
-        self._cors()
-        self.end_headers()
+@app.route("/api/status")
+def api_status():
+    return jsonify({"ok": True, "corpora": len(BRAIN_CORPORA),
+                    "key_set": bool(os.getenv("DEEPSEEK_API_KEY"))})
 
-        def emit(event: str, data: dict) -> None:
-            self.wfile.write(
-                f"event: {event}\ndata: {json.dumps(data, default=str)}\n\n".encode())
-            self.wfile.flush()
 
-        try:
-            for stage, payload in answer_stream(question, mode=mode, depth=depth):
-                emit(stage, payload)
-        except (BrokenPipeError, ConnectionResetError):
-            return                      # reader navigated away mid-answer
-        except Exception as exc:
-            try:
-                emit("error", {"message": f"{type(exc).__name__}: {exc}"})
-            except Exception:
-                pass
+# ── static files (must be registered last — it's the catch-all) ───────────
 
-    # ── plumbing ─────────────────────────────────────────────────────────
-
-    def _static(self, path: str) -> None:
-        target = WEB_ROOT / "index.html" if path == "/" else (WEB_ROOT / path.lstrip("/")).resolve()
-        root = WEB_ROOT.resolve()
-        if not str(target).startswith(str(root)) or not target.exists() or target.is_dir():
-            self.send_error(404)
-            return
-        body = target.read_bytes()
-        self.send_response(200)
-        self.send_header("Content-Type",
-                         CONTENT_TYPES.get(target.suffix, "application/octet-stream"))
-        self.send_header("Cache-Control",
-                         "public, max-age=86400" if "vendor" in str(target) else "no-store")
-        self._cors()
-        self.send_header("Content-Length", str(len(body)))
-        self.end_headers()
-        self.wfile.write(body)
-
-    def _json(self, payload: dict, status: int = 200) -> None:
-        body = json.dumps(payload, indent=2, default=str).encode()
-        self.send_response(status)
-        self.send_header("Content-Type", "application/json; charset=utf-8")
-        self.send_header("Cache-Control", "no-store")
-        self._cors()
-        self.send_header("Content-Length", str(len(body)))
-        self.end_headers()
-        self.wfile.write(body)
-
-    def _cors(self) -> None:
-        self.send_header("Access-Control-Allow-Origin", "*")
-        self.send_header("Access-Control-Allow-Methods", "GET, OPTIONS")
+@app.route("/", defaults={"path": ""})
+@app.route("/<path:path>")
+def static_files(path):
+    target = WEB_ROOT / "index.html" if not path else (WEB_ROOT / path).resolve()
+    root = WEB_ROOT.resolve()
+    if not str(target).startswith(str(root)) or not target.exists() or target.is_dir():
+        return "", 404
+    body = target.read_bytes()
+    # content_type=, not mimetype= — CONTENT_TYPES values already include
+    # "; charset=utf-8" for text types (matching the old handler's exact
+    # header string), and Werkzeug's mimetype= param auto-appends its own
+    # charset on top of that if given a value that isn't a bare mime type,
+    # doubling it in the actual response header.
+    resp = Response(body, content_type=CONTENT_TYPES.get(target.suffix, "application/octet-stream"))
+    resp.headers["Cache-Control"] = ("public, max-age=86400" if "vendor" in str(target)
+                                     else "no-store")
+    return resp
 
 
 def main() -> int:
-    ap = argparse.ArgumentParser(description="Serve the AI Brain")
-    ap.add_argument("--host", default="0.0.0.0")
-    ap.add_argument("--port", type=int, default=int(os.getenv("PORT", "5054")))
-    args = ap.parse_args()
-    print(f"  AI Brain  →  http://{args.host}:{args.port}", flush=True)
+    port = int(os.getenv("PORT", "5054"))
+    print(f"  AI Brain  →  http://0.0.0.0:{port}", flush=True)
     print(f"  shelves configured: {len(BRAIN_CORPORA)}", flush=True)
     print(f"  DEEPSEEK_API_KEY: {'SET' if os.getenv('DEEPSEEK_API_KEY') else 'from .env'}",
           flush=True)
-    ThreadingHTTPServer((args.host, args.port), BrainHandler).serve_forever()
+    # debug=False is not optional: Flask's reloader would double-spawn the
+    # process, which breaks Railway's health-check timing. threaded=True
+    # matches ThreadingHTTPServer's old concurrency model — one thread per
+    # request, needed since /api/ask holds a connection open for the whole
+    # streamed answer.
+    app.run(host="0.0.0.0", port=port, debug=False, threaded=True)
     return 0
 
 
