@@ -1122,6 +1122,119 @@ def learning_path(topic_id: str) -> List[str]:
     return order
 
 
+def concept_progression(topics: List[Topic], cap: int = 10) -> List[Topic]:
+    """The mental progression a "teach me X" question should walk through,
+    foundations first — e.g. for attention-mechanism: vectors-and-matrices,
+    neural-networks-mlp, embeddings, numerical-stability, attention-mechanism.
+
+    learning_path() already does the depth-first prerequisite walk for ONE
+    topic; this merges that walk across every matched topic (a question can
+    touch more than one), dedupes, and caps the length so a deep topic like
+    alignment-and-rlhf (six-plus levels down) doesn't hand the teaching stage
+    a 15-step wall nobody asked for — the cap keeps the LAST `cap` steps
+    (closest to what was actually asked), not the first, since dropping the
+    beginning of a long chain loses less than dropping the end the reader
+    actually asked about.
+
+    Returns plain Topics with no notion of what the reader already knows —
+    that's mastery.known_topic_ids(), a separate concern this module stays
+    free of (see recommend_next()'s docstring for why). The caller marks
+    already-known steps itself; pipeline.professor_engine does this by
+    checking each returned topic's id against known_ids it was passed
+    separately, rather than this function trying to bake that in."""
+    seen: set = set()
+    order: List[Topic] = []
+    for t in topics:
+        for tid in learning_path(t.id):
+            if tid in seen or tid not in TOPICS:
+                continue
+            seen.add(tid)
+            order.append(TOPICS[tid])
+    if len(order) > cap:
+        order = order[-cap:]
+    return order
+
+
+def recommend_next(known_ids: "set[str]", exposed_ids: "set[str]",
+                   recent_ids: "list[str]" = (), n: int = 5) -> List[Topic]:
+    """What to study next, from real prerequisite gaps — not a generic
+    "here are some popular topics" list.
+
+    Takes plain id sets rather than importing mastery.py directly (same
+    reason concept_progression() takes `known` as a parameter instead of
+    importing it): this module stays free of the sqlite/mastery dependency,
+    and is trivially testable with hand-built sets instead of a real
+    database.
+
+    known_ids   — mastery.known_topic_ids(): manually marked known, or
+                  engaged with directly often enough to count as known.
+    exposed_ids — every topic_id that has ever appeared in a real answer
+                  (mastery_summary()'s topic_id column), known or not —
+                  used to avoid re-recommending something already surfaced,
+                  even if the reader hasn't engaged with it enough to be
+                  "known" yet.
+    recent_ids  — most-recently-studied topic_ids, most recent first
+                  (mastery.recently_studied()) — used to prefer a topic that
+                  actually connects to what was just learned over an
+                  unrelated one that also happens to be ready.
+
+    A topic is "ready" when every one of its prerequisites is in known_ids —
+    the reader has the foundation for it, whether or not they've seen it yet.
+    Among ready, unexposed topics, ones sharing key_concepts with a recently
+    studied topic rank first (the concrete next step from where the reader
+    actually is), then earlier curriculum levels, then title for a stable
+    order. If nothing is fully ready (early in the curriculum, most
+    prerequisite chains still open), falls back to the topics with the
+    fewest missing prerequisites — the closest thing to "ready" available —
+    so this never returns an empty list just because the reader is new."""
+    candidates = [t for t in TOPICS.values() if t.id not in exposed_ids]
+    if not candidates:
+        return []
+
+    def missing_prereqs(t: Topic) -> int:
+        return sum(1 for p in t.prerequisites if p not in known_ids)
+
+    ready = [t for t in candidates if missing_prereqs(t) == 0]
+    pool = ready if ready else candidates
+    level_rank = {lv: i for i, lv in enumerate(LEVELS)}
+
+    recent_concepts: set = set()
+    for rid in list(recent_ids)[:3]:
+        rt = TOPICS.get(rid)
+        if rt:
+            recent_concepts |= {c.lower() for c in rt.key_concepts}
+
+    def sort_key(t: Topic):
+        overlap = len(recent_concepts & {c.lower() for c in t.key_concepts})
+        return (missing_prereqs(t), -overlap, level_rank.get(t.level, 9), t.title)
+
+    pool.sort(key=sort_key)
+    return pool[:n]
+
+
+def related_topics(topic: Topic, k: int = 4) -> List[Topic]:
+    """Other topics that share the most key_concepts with this one — a cheap,
+    always-current stand-in for a hand-authored "related/contrasts/
+    applications" graph edge, which would mean manually curating relationships
+    for 40+ topics and keeping them in sync by hand every time a topic is
+    added. Concept overlap is a reasonable proxy: topics sharing several
+    named concepts are topics a reader moving through one would plausibly
+    want pointed at next, whether that's a contrast, an application, or an
+    extension — the professor prompt is what decides which relationship it
+    actually is when it uses these, not this function."""
+    mine = {c.lower() for c in topic.key_concepts}
+    scored = []
+    for other in TOPICS.values():
+        if other.id == topic.id:
+            continue
+        theirs = {c.lower() for c in other.key_concepts}
+        overlap = len(mine & theirs)
+        if overlap:
+            scored.append((overlap, other))
+    scored.sort(key=lambda p: (-p[0], p[1].title))
+    return [t for _n, t in scored[:k]]
+
+
 if __name__ == "__main__":
     import json
     import sys

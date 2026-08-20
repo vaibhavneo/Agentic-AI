@@ -2,3 +2,6 @@ __pycache__/
 *.pyc
 .env
 memory/research_notebook.json
+memory/mastery.db
+memory/mastery.db-shm
+memory/mastery.db-wal

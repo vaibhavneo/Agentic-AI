@@ -206,10 +206,16 @@ button.go:disabled{opacity:.45;cursor:not-allowed}
     <div class="crow">
       <textarea id="q" rows="2" placeholder="Ask your library…"></textarea>
       <select id="mode" title="How to answer">
+        <option value="auto" selected>Auto</option>
         <option value="explain">Explain</option>
+        <option value="deep_dive">Deep dive</option>
         <option value="socratic">Socratic</option>
         <option value="exercise">Exercise</option>
+        <option value="derivation">Derivation</option>
         <option value="compare">Compare</option>
+        <option value="quiz">Quiz me</option>
+        <option value="teach_back">Teach it back</option>
+        <option value="whats_next">What's next?</option>
       </select>
       <select id="depth" title="Assumed background">
         <option value="intro">Intro</option>
@@ -311,6 +317,7 @@ button.go:disabled{opacity:.45;cursor:not-allowed}
     <p class="hint" style="margin-top:14px">The spine the answers stand on. These topics are
     citable sources in their own right — when the book shelves are unavailable, as they are on
     the hosted instance, they are what the answer is grounded in.</p>
+    <div id="c-recommend"></div>
     <div class="field"><label for="c-q">Which topics would a question match?</label>
       <input id="c-q" placeholder="e.g. why does attention divide by sqrt(d_k)"></div>
     <p class="cur-count" id="c-count"></p>
@@ -959,6 +966,28 @@ async function loadCurriculum(){
   }
   await loadMastery();
   renderCurriculum(CUR_CACHE.topics, CUR_CACHE.total + " topics");
+  loadRecommend();
+}
+// Real gap-based recommendations (curriculum.recommend_next(), no LLM call —
+// see /api/recommend's own docstring), not a generic "popular topics" list.
+// Renders nothing rather than an empty-state message when there's simply no
+// mastery data yet — a brand-new reader shouldn't see a callout about their
+// own inexperience on the very first tab load.
+async function loadRecommend(){
+  const box = $("c-recommend");
+  let j;
+  try { j = await (await fetch("/api/recommend")).json(); }
+  catch(_){ box.innerHTML = ""; return; }
+  const recs = j.recommended || [];
+  if (!recs.length || !j.based_on || !j.based_on.exposed_count){ box.innerHTML = ""; return; }
+  box.innerHTML = '<div class="cur-item" style="border-color:var(--accent,#7c8cff)">' +
+    '<div class="cur-head"><b>Recommended next</b></div>' +
+    '<p class="cur-con">' + recs.map(t =>
+      '<span class="chip" style="cursor:pointer" title="' + esc(t.intuition) + '" ' +
+      'onclick="document.getElementById(\'c-q\').value=' + JSON.stringify(t.title) + ';' +
+      "document.getElementById('c-q').dispatchEvent(new Event('input'))" + '">' +
+      esc(t.title) + '</span>').join(" ") +
+    '</p></div>';
 }
 async function markTopic(topicId, status){
   try {

@@ -65,6 +65,11 @@ STAGE_PLAN = {
     # visible in the trace, not a silent do-over.
     "professor_retry": {"intro": (MODEL_FAST, 5000), "intermediate": (MODEL_FAST, 10000),
                         "advanced": (MODEL_DEEP, 16000)},
+    # Only runs for question_type=teach_back — same shape as "evidence"
+    # (a short structured judgment, not prose), same reason: intro depth
+    # skips it and lets the teaching stage's own instincts carry the load.
+    "teachback_eval": {"intro": None,               "intermediate": (MODEL_FAST, 1200),
+                       "advanced": (MODEL_FAST, 1800)},
 }
 
 
@@ -150,8 +155,8 @@ def _json_from(text: str, fallback: dict) -> dict:
 
 # ── stage 2: question understanding ───────────────────────────────────────
 
-_UNDERSTAND_SYS = """You classify a question for a retrieval pipeline. Reply \
-with ONLY a JSON object, no prose:
+_UNDERSTAND_SYS = """You classify a question for a retrieval and teaching \
+pipeline. Reply with ONLY a JSON object, no prose:
 
 {"intent":"explain|compare|how_to|evaluate|compute|current_events",
  "topics":["3-6 key technical terms to search on"],
@@ -160,7 +165,29 @@ with ONLY a JSON object, no prose:
  "needs_compute":true|false,   // true only if a concrete numeric calculation
                                // is required to answer
  "compute_expression":"a single arithmetic expression, or empty",
- "restate":"one sentence restating what is actually being asked"}"""
+ "restate":"one sentence restating what is actually being asked",
+ "question_type":"definition|teach_me|deep_dive|compare|derivation|
+   worked_example|quiz_me|teach_back|whats_next|why_chain|research|general",
+   // definition: a plain "what is X". teach_me/deep_dive: wants the concept
+   // built up, not just stated — "teach me X", "how does X really work".
+   // compare: two or more things set against each other, including "are X
+   // and Y the same thing". derivation: wants the mechanism derived from
+   // first principles, not just described. worked_example: wants a concrete
+   // worked case. quiz_me: explicitly asks to be tested ("quiz me", "test my
+   // understanding of X"). teach_back: the reader is EXPLAINING a concept
+   // TO YOU and wants it checked ("here's my understanding of X, is this
+   // right", "let me explain X back to you"). whats_next: asks what to
+   // study next. why_chain: a bare or near-bare "why?" / "why is that?"
+   // follow-up. research: asks about open problems, competing methods, or
+   // state of the art rather than settled material. general: none of the
+   // above fit well.
+ "premise_check":"none|misconception|ambiguous",
+   // misconception: the question's own phrasing embeds something false or
+   // backwards ("since X always causes Y..." when it doesn't). ambiguous:
+   // the question conflates two genuinely distinct things as if they were
+   // one (e.g. treating two related-but-different concepts as synonyms).
+   // none: the premise is fine, most questions are.
+ "premise_note":"one short clause naming the specific issue, or empty"}"""
 
 
 def understand(question, depth, client, budget):
@@ -175,7 +202,47 @@ def understand(question, depth, client, budget):
         "needs_compute": bool(u.get("needs_compute")),
         "compute_expression": (u.get("compute_expression") or "").strip(),
         "restate": u.get("restate") or question,
+        "question_type": u.get("question_type") or "general",
+        "premise_check": u.get("premise_check") or "none",
+        "premise_note": (u.get("premise_note") or "").strip(),
     }
+
+
+# question_type -> teaching strategy. Deterministic on purpose, same reason
+# route() is deterministic: understand() already spent a model call
+# classifying the question, so mapping that classification to a mode is a
+# lookup, not something worth a second call to re-derive.
+_TYPE_TO_MODE = {
+    # A bare "what is X" still gets the progressive treatment, not a plain
+    # one-liner — this is the exact spec example ("What is attention?"
+    # should build embeddings -> ... -> attention, not just define the
+    # term). deep_dive's own directive already says to skip stages that
+    # don't earn their keep, so a genuinely simple topic still comes out
+    # short; this only changes behavior for topics substantial enough to
+    # have a real prerequisite chain.
+    "definition": "deep_dive",
+    "teach_me": "deep_dive",
+    "deep_dive": "deep_dive",
+    "compare": "compare",
+    "derivation": "derivation",
+    "worked_example": "exercise",
+    "quiz_me": "quiz",
+    "teach_back": "teach_back",
+    "whats_next": "whats_next",
+    "why_chain": "why_chain",
+    "research": "research",
+    "general": "explain",
+}
+
+
+def resolve_mode(question_type: str, requested_mode: str) -> str:
+    """"auto" (the UI's default) defers to the question's own classification;
+    an explicit mode from the dropdown always wins — a reader who picked
+    Socratic on purpose should get Socratic even if the classifier would
+    have guessed differently."""
+    if requested_mode and requested_mode != "auto":
+        return requested_mode
+    return _TYPE_TO_MODE.get(question_type, "explain")
 
 
 # ── stage 3: intelligent router ───────────────────────────────────────────
@@ -391,6 +458,36 @@ def _filter_off_topic(book_ev: dict, off_topic_tags) -> dict:
     return filtered
 
 
+# ── stage 5b: teach-back evaluation (only runs for question_type=teach_back) ─
+
+_TEACHBACK_SYS = """The user is explaining a concept back to you, attempting \
+to demonstrate understanding — not asking a question. Judge their explanation \
+against the SOURCES and reply with ONLY JSON:
+
+{"correctness":"correct|partial|incorrect",
+ "confirmed":["specific things they got right, quoting their own words briefly"],
+ "misconceptions":["specific wrong claims, quoting the part of their explanation
+   it comes from — empty if none"]}
+
+Judge the substance of their explanation, not its polish or completeness — a
+short but accurate explanation is "correct", a fluent one with a real error in
+the mechanism is not. "partial" means the core idea is right but something
+material is missing or slightly off, not that it merely could be longer."""
+
+
+def evaluate_teachback(question, book_ev, topics, depth, client, budget):
+    src = "\n\n".join(
+        ([CUR.curriculum_block(list(topics))] if topics else []) +
+        [f"[{c['tag']}] {c['text'][:900]}" for c in book_ev.get("kept", [])])
+    raw = _call(client, "teachback_eval", depth, _TEACHBACK_SYS,
+                f"THEIR EXPLANATION: {question}\n\nSOURCES:\n{src or '(none)'}", budget)
+    out = _json_from(raw, {})
+    out.setdefault("correctness", "partial")
+    out.setdefault("confirmed", [])
+    out.setdefault("misconceptions", [])
+    return out
+
+
 # ── stage 6: reasoning engine ─────────────────────────────────────────────
 
 _REASON_SYS = """You are the reasoning stage. Do NOT write the final answer and \
@@ -447,6 +544,54 @@ MODE_DIRECTIVE = {
                 "the reasoning, then state the principle it illustrates.",
     "compare": "Structure the whole answer as a comparison across shared "
                "dimensions, closing with when each option applies.",
+    "deep_dive": "Teach this progressively: intuition in plain language first, "
+                 "then a mental model — a picture or analogy that captures the "
+                 "mechanism — then the technical/formal statement, then the "
+                 "mathematics if the topic has real equations behind it, then "
+                 "how it looks in code or algorithmic form if that clarifies it, "
+                 "then where it's actually used. Not every topic needs every "
+                 "stage — skip a stage outright rather than padding it with "
+                 "filler. If a TEACHING PROGRESSION is supplied below, move "
+                 "through it in order: spend real words only on steps NOT "
+                 "marked already known, and treat an already-known step as a "
+                 "one-clause anchor ('building on the X you already have...') "
+                 "rather than re-teaching it.",
+    "derivation": "Derive the result rather than stating it. Start from the "
+                  "definitions or assumptions it rests on, show each algebraic "
+                  "or logical step, and name the move being made at each step "
+                  "(substitution, a stated identity, an approximation). State "
+                  "the result again at the end so the destination is clear.",
+    "quiz": "Do not teach or explain. Ask exactly ONE question that tests real "
+            "understanding of the target topic — not trivia, not a definition "
+            "lookup, a question answerable only by someone who understands the "
+            "mechanism. State the question and stop; do not answer it, do not "
+            "follow it with a second question, do not add commentary.",
+    "teach_back": "The reader is explaining a concept back to you, not asking a "
+                  "question. Evaluate their explanation against the sources: "
+                  "state plainly whether it's correct, partially correct, or "
+                  "contains a real misconception — name the specific "
+                  "misconception if there is one, quoting the part of their "
+                  "explanation it comes from. Respond to what they actually "
+                  "said rather than re-teaching the topic from scratch.",
+    "whats_next": "Recommend what to study next using the RECOMMENDED TOPICS "
+                  "supplied below — these were chosen because their "
+                  "prerequisites are already known and they connect to what "
+                  "was recently studied, not chosen generically. For each, one "
+                  "sentence on why it's the natural next step from where the "
+                  "reader actually is. Do not recommend anything not in that list.",
+    "why_chain": "Answer by building a causal chain, not by repeating a "
+                 "definition: state the immediate cause or mechanism, then what "
+                 "THAT rests on, one level further down, stopping at a genuine "
+                 "foundational fact rather than trailing off. Each step should "
+                 "read as a real 'and that's because...', not a rephrasing of "
+                 "the step before it.",
+    "research": "Write as a research mentor, not a textbook. Explicitly "
+                "separate what is established and well-evidenced, what is a "
+                "competing explanation or open methodological choice (name the "
+                "alternatives), what is still a genuine open question or "
+                "hypothesis in the field, and where the retrieved material "
+                "itself is silent. Do not flatten this into one confident "
+                "voice — the uncertainty is real content, not a hedge.",
 }
 DEPTH_DIRECTIVE = {
     "intro": "Assume a capable engineer new to this topic. Minimal notation, "
@@ -454,7 +599,9 @@ DEPTH_DIRECTIVE = {
     "intermediate": "Assume a working practitioner comfortable with Python, "
                     "linear algebra and probability.",
     "advanced": "Assume research-level fluency. Full notation, derive rather "
-                "than sketch, engage with failure modes.",
+                "than sketch, engage with failure modes. When the topic has "
+                "open questions or genuinely competing approaches, say so "
+                "explicitly rather than presenting one account as settled.",
 }
 
 _PROF_SYS = """You are the reader's own tutor across machine learning, \
@@ -500,13 +647,17 @@ When something genuinely falls outside everything supplied, note it in one \
 short clause at the point where it arises — "the retrieved passages do not \
 cover this, so the following is general knowledge" — and carry on. Never open \
 with it, never dwell on it, and never let it displace the explanation. Use \
-LaTeX for mathematics."""
+LaTeX for mathematics.
+
+Do not pad length for its own sake. A short, exact answer beats a long one — \
+decide how much explanation the question actually needs and stop there."""
 
 
 def professor_engine(question, understanding, book_ev, web_res, tool_res,
                      assessment, reasoning, mode, depth, client, budget,
                      topics=(), feedback: str = "", stage: str = "professor",
-                     prereq_topics=()):
+                     prereq_topics=(), progression=(), known_ids=frozenset(),
+                     recent_topics=(), recommended_topics=(), teachback_eval=None):
     # Curriculum first. On a host with no book indexes these are the only
     # sources there are, and they are real material — not a fallback apology.
     src_parts = ([CUR.curriculum_block(list(topics))] if topics else [])
@@ -521,6 +672,32 @@ def professor_engine(question, understanding, book_ev, web_res, tool_res,
         src_parts.append("PREREQUISITE BACKGROUND — cite if you draw on these, but mention "
                          "briefly only if the reader may not already know them; do not lecture "
                          "on them at length:\n" + CUR.curriculum_block(list(prereq_topics)))
+    # The intelligence-upgrade blocks below are additive and mode-specific —
+    # only the mode that actually needs a block pays for it in prompt size.
+    # progression: deep_dive's multi-hop concept chain (curriculum.
+    # concept_progression()), each step marked already-known or not so the
+    # teaching stage can skip what doesn't need re-teaching instead of
+    # guessing from the topic list alone.
+    if progression:
+        lines = []
+        for t in progression:
+            marker = " — ALREADY KNOWN, anchor only" if t.id in known_ids else ""
+            lines.append(f"[C:{t.id}] {t.title}{marker}")
+        src_parts.append("TEACHING PROGRESSION (foundational first, target concept last):\n"
+                         + "\n".join(lines))
+    if recent_topics:
+        src_parts.append("RECENTLY STUDIED (connect new material to these where it genuinely "
+                         "helps, don't force it): " +
+                         ", ".join(t.title for t in recent_topics))
+    if recommended_topics:
+        src_parts.append("RECOMMENDED TOPICS (the only valid answers for a whats_next "
+                         "recommendation):\n" + CUR.curriculum_block(list(recommended_topics)))
+    if teachback_eval:
+        src_parts.append(
+            "TEACH-BACK EVALUATION (already computed — report this, do not re-derive it):\n"
+            f"  correctness: {teachback_eval.get('correctness')}\n"
+            f"  confirmed: {teachback_eval.get('confirmed')}\n"
+            f"  misconceptions: {teachback_eval.get('misconceptions')}")
     src_parts += [f"[{c['tag']}] ({c['source']} — {c['shelf']} shelf)\n{c['text'][:1100]}"
                   for c in book_ev.get("kept", [])]
     src_parts += [f"[W{i}] ({h['title']})\n{h['snippet']}"
@@ -541,6 +718,15 @@ def professor_engine(question, understanding, book_ev, web_res, tool_res,
                  f"confidence={assessment.get('confidence')}")
     if reasoning.get("text"):
         extra += f"\n\nREASONING SKELETON (expand this, do not repeat it verbatim):\n{reasoning['text']}"
+    # understand()'s premise_check runs on every question, not just ones a
+    # human happened to flag — an explicit signal from a stage built to look
+    # for it, rather than hoping the teaching stage notices unprompted amid
+    # everything else it's doing.
+    premise_check = (understanding or {}).get("premise_check", "none")
+    if premise_check != "none" and (understanding or {}).get("premise_note"):
+        extra += (f"\n\nPREMISE CHECK — the question itself may embed a {premise_check}: "
+                 f"{understanding['premise_note']}. If this is real, name and correct it "
+                 f"near the start rather than silently answering around it.")
     # Milestone 3: a validator "fail" verdict now buys one corrected rewrite
     # instead of being purely advisory. feedback names the exact problems
     # (fabricated tags, unsupported claims, source contradictions) so the
@@ -708,13 +894,34 @@ def run(question: str, mode: str = "explain",
     # 2 ── understand
     yield "understand", {"msg": "Reading the question…"}
     u = understand(question, depth, client, budget)
-    yield "understand", {"msg": f"{u['intent']} · {', '.join(u['topics'][:4])}",
-                         "understanding": u}
+    # "auto" (the UI default) resolves the teaching strategy from the
+    # question's own classification; an explicit mode from the dropdown
+    # always wins. Reassigning `mode` here, before _teach()'s closure below
+    # is defined, is what makes the resolved value the one professor_engine
+    # actually receives — Python closures look up enclosing-scope variables
+    # at call time, not definition time.
+    mode = resolve_mode(u["question_type"], mode)
+    yield "understand", {"msg": f"{u['intent']} · {', '.join(u['topics'][:4])} · "
+                                f"teaching as {mode}",
+                         "understanding": u, "resolved_mode": mode}
 
     # 2b ── curriculum: which topics does this question touch?
     # Matched from the question plus the terms the understanding stage pulled
     # out, so a question that names a concept obliquely still lands.
     topics = CUR.match_topics(question + " " + " ".join(u["topics"][:6]), k=4)
+    # A bare "quiz me" names no topic at all, so match_topics() correctly
+    # returns nothing — fall back to what actually needs reinforcing (a weak
+    # topic) or, failing that, what was just studied, rather than asking the
+    # teaching stage to invent a quiz question about nothing.
+    if mode == "quiz" and not topics:
+        fallback_id = (mastery.weak_topics(limit=1) or mastery.recently_studied(limit=1) or [None])[0]
+        if fallback_id and fallback_id in CUR.TOPICS:
+            topics = [CUR.TOPICS[fallback_id]]
+    # Computed once, up front — feeds prereq filtering below, the teaching
+    # progression's already-known markers, and recommend_next(), all of
+    # which used to either recompute this or (for the two new consumers)
+    # not exist at all.
+    known = mastery.known_topic_ids()
     # Milestone 4: the prerequisite graph on each Topic has existed since
     # curriculum.py was written but nothing ever read it — surface the
     # matched topics' direct prerequisites as background context so an
@@ -729,8 +936,29 @@ def run(question: str, mode: str = "explain",
     # multi-user system: one reader, no login, nothing else in this app
     # has that concept either.
     if prereq_topics:
-        known = mastery.known_topic_ids()
         prereq_topics = [t for t in prereq_topics if t.id not in known]
+
+    # Reader-model context, shared across modes: what was studied recently
+    # (to connect new material to it) and, for deep_dive specifically, the
+    # full foundations-to-target concept chain the teaching stage should
+    # walk through rather than assuming the topic starts from nothing.
+    recent_ids = mastery.recently_studied(limit=3)
+    recent_topics = [CUR.TOPICS[tid] for tid in recent_ids if tid in CUR.TOPICS]
+    progression = CUR.concept_progression(topics) if (topics and mode == "deep_dive") else []
+
+    # whats_next doesn't answer from retrieval at all — it answers from the
+    # reader's own mastery data, which is real, checkable and specific to
+    # them in a way no retrieved passage could be.
+    recommended_topics = []
+    if mode == "whats_next":
+        recommended_topics = CUR.recommend_next(
+            known, mastery.exposed_topic_ids(), recent_ids, n=5)
+
+    # teach_back's structured judgment runs before the teaching call so the
+    # professor stage reports a verdict already reached, rather than
+    # re-deriving it inside a free-text answer where it could drift from
+    # what the mastery record ends up storing.
+    teachback_eval = None
 
     # 3 ── route
     r = route(u, depth)
@@ -789,6 +1017,11 @@ def run(question: str, mode: str = "explain",
     book_ev_retrieved = book_ev
     book_ev = _filter_off_topic(book_ev, assessment.get("off_topic"))
 
+    # 5b ── teach-back evaluation (only for question_type=teach_back)
+    if mode == "teach_back":
+        yield "evidence", {"msg": "Checking your explanation against the sources…"}
+        teachback_eval = evaluate_teachback(question, book_ev, topics, depth, client, budget)
+
     # 6 ── reasoning
     yield "reasoning", {"msg": "Building the argument…"}
     reasoning = reasoning_engine(question, u, book_ev, web_res, tool_res,
@@ -811,7 +1044,11 @@ def run(question: str, mode: str = "explain",
                                                 assessment, reasoning, mode, depth,
                                                 client, budget, topics,
                                                 feedback=feedback, stage=stage,
-                                                prereq_topics=prereq_topics)
+                                                prereq_topics=prereq_topics,
+                                                progression=progression, known_ids=known,
+                                                recent_topics=recent_topics,
+                                                recommended_topics=recommended_topics,
+                                                teachback_eval=teachback_eval)
             except Exception as exc:
                 box["error"] = f"{type(exc).__name__}: {exc}"
 
@@ -840,12 +1077,16 @@ def run(question: str, mode: str = "explain",
 
     # 8 ── validation
     yield "validation", {"msg": "Checking the answer against its sources…"}
-    # prereq_topics are citable too (professor_engine's PREREQUISITE
-    # BACKGROUND block offers them the same [C:id] tags) — they have to be
-    # in the offered set here or a real prerequisite citation reads as
-    # fabricated.
+    # prereq_topics, progression steps and (for whats_next) recommended
+    # topics are all citable — professor_engine offers every one of them a
+    # [C:id] tag in its own labeled block — so they all have to be in the
+    # offered set here or a real citation to any of them reads as fabricated.
+    # A set, not a list: progression and topics overlap heavily (progression
+    # is built FROM topics) and validation() only needs membership, not order.
+    offered_topics = {t.id: t for t in
+                      list(topics) + list(prereq_topics) + list(progression) + list(recommended_topics)}
     checks = validation(question, prose, book_ev, web_res, tool_res, depth, client,
-                        budget, list(topics) + list(prereq_topics))
+                        budget, list(offered_topics.values()))
     checks["retried"] = False
 
     # Milestone 3: a "fail" verdict used to be purely advisory — computed,
@@ -868,7 +1109,7 @@ def run(question: str, mode: str = "explain",
                 yield "validation", {"msg": "Re-checking the rewritten answer…"}
                 verdict_before_retry = checks["verdict"]
                 checks = validation(question, prose, book_ev, web_res, tool_res, depth,
-                                    client, budget, list(topics) + list(prereq_topics))
+                                    client, budget, list(offered_topics.values()))
                 checks["verdict_before_retry"] = verdict_before_retry
                 checks["retried"] = True
             # A retry that errors or comes back empty is silently dropped —
@@ -896,6 +1137,16 @@ def run(question: str, mode: str = "explain",
                             verdict=checks.get("verdict", ""))
     mastery.record_exposure([t.id for t in prereq_topics], "prereq", depth=depth,
                             verdict=checks.get("verdict", ""))
+    # A teach-back attempt is real evidence of whether the reader has this
+    # topic down — record it as a quiz result (not just a direct exposure)
+    # so weak_topics() can pick it up the same way a graded quiz answer
+    # would. Only the first matched topic gets the verdict: teach_back's own
+    # instruction is to explain ONE concept, so treating every loosely
+    # co-matched topic as equally tested would overstate what was actually
+    # checked.
+    if mode == "teach_back" and teachback_eval and topics:
+        mastery.record_quiz_result(topics[0].id,
+                                   correct=teachback_eval.get("correctness") == "correct")
 
     # 9 ── answer
     yield "done", {
@@ -912,6 +1163,15 @@ def run(question: str, mode: str = "explain",
         # matches only, so this doesn't change what that field means.
         "prereq_topics": [{"id": t.id, "title": t.title, "level": t.level} for t in prereq_topics],
         "assessment": assessment, "reasoning": reasoning, "validation": checks,
+        # The intelligence-upgrade fields: the trace is the product here too
+        # — a reader can see WHY the teaching strategy was chosen and what
+        # the reader-model actually contains, not just the prose it produced.
+        "progression": [{"id": t.id, "title": t.title, "already_known": t.id in known}
+                        for t in progression],
+        "recent_topics": [{"id": t.id, "title": t.title} for t in recent_topics],
+        "recommended_topics": [{"id": t.id, "title": t.title, "level": t.level,
+                                "intuition": t.intuition} for t in recommended_topics],
+        "teachback_eval": teachback_eval,
         "budget": budget.summary(),
         "elapsed_s": int(time.monotonic() - t_start),
         "honesty": {

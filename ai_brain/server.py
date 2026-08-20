@@ -196,6 +196,28 @@ def api_mastery():
     return jsonify({"topics": rows})
 
 
+@app.route("/api/recommend")
+def api_recommend():
+    """What to study next, from real prerequisite gaps and mastery data —
+    no LLM call needed, curriculum.recommend_next() is pure computation over
+    the reader's own mastery state, so this is instant and free. The same
+    logic /api/ask reaches for a literal "what should I learn next" question
+    (question_type=whats_next), exposed directly so the Curriculum tab can
+    show it without the reader having to ask in words."""
+    import curriculum as CUR
+    known = mastery.known_topic_ids()
+    exposed = mastery.exposed_topic_ids()
+    recent = mastery.recently_studied(limit=3)
+    n = int(request.args.get("n", "5") or 5)
+    recs = CUR.recommend_next(known, exposed, recent, n=n)
+    return jsonify({"recommended": [
+        {"id": t.id, "title": t.title, "level": t.level, "intuition": t.intuition,
+         "prerequisites": t.prerequisites}
+        for t in recs],
+        "based_on": {"known_count": len(known), "exposed_count": len(exposed),
+                     "recent": recent}})
+
+
 @app.route("/api/mastery/mark", methods=["POST"])
 def api_mastery_mark():
     import curriculum as CUR

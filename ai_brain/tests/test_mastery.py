@@ -125,6 +125,51 @@ check("filtering only removes known topics, doesn't add or reorder others",
       filtered_ids == gap_ids_before - {"embeddings", "numerical-stability"},
       f"{filtered_ids} vs expected {gap_ids_before - {'embeddings', 'numerical-stability'}}")
 
+print("\n[the intelligence upgrade: recently_studied, weak_topics, exposed_topic_ids, quiz]")
+_tmp2 = tempfile.TemporaryDirectory()
+mastery._DB_PATH = Path(_tmp2.name) / "mastery2.db"
+
+mastery.record_exposure(["embeddings"], "direct", verdict="pass")
+mastery.record_exposure(["attention-mechanism"], "direct", verdict="pass")
+check("recently_studied returns direct exposures, most recent first",
+      mastery.recently_studied() == ["attention-mechanism", "embeddings"],
+      str(mastery.recently_studied()))
+mastery.record_exposure(["numerical-stability"], "prereq", verdict="pass")
+check("recently_studied excludes prereq-only exposures (never the actual subject of an answer)",
+      "numerical-stability" not in mastery.recently_studied(), str(mastery.recently_studied()))
+
+check("exposed_topic_ids includes both direct and prereq exposures",
+      mastery.exposed_topic_ids() == {"embeddings", "attention-mechanism", "numerical-stability"},
+      str(mastery.exposed_topic_ids()))
+
+mastery.record_exposure(["backpropagation"], "direct", verdict="pass")
+mastery.record_exposure(["backpropagation"], "direct", verdict="fail")
+mastery.record_exposure(["backpropagation"], "direct", verdict="fail")
+check("weak_topics surfaces a topic asked about repeatedly with more non-pass than pass verdicts",
+      "backpropagation" in mastery.weak_topics(), str(mastery.weak_topics()))
+check("weak_topics does not flag a topic seen only once (not enough of a pattern)",
+      "attention-mechanism" not in mastery.weak_topics(), str(mastery.weak_topics()))
+
+mastery.mark_topic("optimizers", "review")
+check("a manually-marked 'review' topic leads weak_topics even with no exposure history",
+      mastery.weak_topics()[0] == "optimizers", str(mastery.weak_topics()))
+
+check("quiz_stats on an untouched topic reports zero attempts, no accuracy",
+      mastery.quiz_stats("embeddings") == {"topic_id": "embeddings", "attempts": 0,
+                                           "correct": 0, "accuracy": None},
+      str(mastery.quiz_stats("embeddings")))
+mastery.record_quiz_result("embeddings", True)
+mastery.record_quiz_result("embeddings", False)
+qs = mastery.quiz_stats("embeddings")
+check("record_quiz_result + quiz_stats: 2 attempts, 1 correct, accuracy 0.5",
+      qs == {"topic_id": "embeddings", "attempts": 2, "correct": 1, "accuracy": 0.5}, str(qs))
+check("quiz exposures do not count toward direct_count (a quiz attempt isn't being taught)",
+      mastery.mastery_summary()[0].get("direct_count", 0) is not None and
+      all(r["topic_id"] != "embeddings" or r["direct_count"] == 1
+          for r in mastery.mastery_summary()),
+      "embeddings had exactly one real direct exposure before the quiz calls")
+
 print(f"\n{'ALL CHECKS PASSED' if not fails else str(len(fails)) + ' FAILED: ' + str(fails)}")
 _tmp.cleanup()
+_tmp2.cleanup()
 sys.exit(1 if fails else 0)

@@ -140,6 +140,101 @@ def mark_topic(topic_id: str, status: str | None) -> dict:
         conn.close()
 
 
+def recently_studied(limit: int = 5) -> list[str]:
+    """Most-recently-touched topic_ids, direct exposures only (a topic that
+    only ever showed up as prerequisite background was never actually the
+    subject of an answer), most recent first — used to connect a new
+    question to what the reader was just looking at, and to bias
+    recommend_next() toward the concrete next step from here rather than an
+    unrelated-but-also-ready topic.
+
+    Ordered by MAX(id), not MAX(ts): ts has one-second resolution
+    (timespec="seconds"), and record_exposure() writes several topics from
+    the same pipeline run close enough together to land in the same second
+    routinely — ordering by ts alone leaves ties in an undefined order.
+    id is the autoincrement primary key, strictly monotonic with insertion
+    order, so it resolves those ties correctly with no precision loss."""
+    conn = _connect()
+    try:
+        rows = conn.execute(
+            "SELECT topic_id, MAX(id) AS last_id FROM exposure "
+            "WHERE exposure_type = 'direct' GROUP BY topic_id "
+            "ORDER BY last_id DESC LIMIT ?", (limit,)).fetchall()
+        return [r["topic_id"] for r in rows]
+    finally:
+        conn.close()
+
+
+def weak_topics(limit: int = 5) -> list[str]:
+    """Topics that look shaky: manually marked 'review', or directly asked
+    about at least twice with more non-pass verdicts than pass ones (a
+    single caution isn't a pattern; repeated trouble is). Ordered worst-first
+    by non-pass ratio, so quiz-picking and recommend-next reach for the
+    topic that most needs reinforcing, not just whatever was asked about
+    last."""
+    conn = _connect()
+    try:
+        reviewed = {r["topic_id"] for r in conn.execute(
+            "SELECT topic_id FROM manual_status WHERE status = 'review'").fetchall()}
+        rows = conn.execute(
+            "SELECT topic_id, "
+            "  COUNT(*) AS n, "
+            "  SUM(CASE WHEN verdict = 'pass' THEN 1 ELSE 0 END) AS n_pass "
+            "FROM exposure WHERE exposure_type = 'direct' "
+            "GROUP BY topic_id HAVING COUNT(*) >= 2").fetchall()
+        shaky = [(r["topic_id"], 1 - (r["n_pass"] or 0) / r["n"]) for r in rows
+                if (r["n_pass"] or 0) < r["n"]]
+        shaky.sort(key=lambda p: -p[1])
+        ordered = [tid for tid, _ in shaky if tid not in reviewed]
+        # Manually-marked review topics are the strongest signal there is —
+        # a reader saying "I need to revisit this" outranks any inferred
+        # verdict pattern — so they lead the list.
+        return list(reviewed) + ordered[:max(0, limit - len(reviewed))]
+    finally:
+        conn.close()
+
+
+def record_quiz_result(topic_id: str, correct: bool) -> None:
+    """One quiz attempt. Reuses the exposure table (exposure_type='quiz')
+    rather than a new table — a quiz attempt is exposure to a topic exactly
+    like a direct question is, just with a different verdict source (the
+    evaluator judging the reader's own answer, not the validator judging the
+    model's). Kept out of mastery_summary()'s direct_count/prereq_count
+    columns on purpose: those describe how often a topic was *taught*, quiz
+    accuracy is a different question, read via quiz_stats() below."""
+    record_exposure([topic_id], "quiz", verdict="pass" if correct else "fail")
+
+
+def quiz_stats(topic_id: str) -> dict:
+    """Attempts and accuracy for one topic's quiz history."""
+    conn = _connect()
+    try:
+        row = conn.execute(
+            "SELECT COUNT(*) AS n, "
+            "  SUM(CASE WHEN verdict = 'pass' THEN 1 ELSE 0 END) AS n_correct "
+            "FROM exposure WHERE topic_id = ? AND exposure_type = 'quiz'",
+            (topic_id,)).fetchone()
+        n = row["n"] or 0
+        n_correct = row["n_correct"] or 0
+        return {"topic_id": topic_id, "attempts": n, "correct": n_correct,
+                "accuracy": round(n_correct / n, 2) if n else None}
+    finally:
+        conn.close()
+
+
+def exposed_topic_ids() -> set[str]:
+    """Every topic_id that has ever appeared in a real answer, direct or
+    prereq — recommend_next()'s exposed_ids, so it doesn't recommend
+    something already surfaced even if the reader hasn't engaged with it
+    enough to count as known() yet."""
+    conn = _connect()
+    try:
+        return {r["topic_id"] for r in
+                conn.execute("SELECT DISTINCT topic_id FROM exposure").fetchall()}
+    finally:
+        conn.close()
+
+
 def known_topic_ids(min_direct_count: int = KNOWN_AFTER_DIRECT_COUNT) -> set[str]:
     """Topics prerequisite_gaps() should stop surfacing as background: either
     manually marked known, or directly engaged with often enough that
