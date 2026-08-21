@@ -39,6 +39,7 @@ import re
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
 from typing import Iterator
 
 import curriculum as CUR
@@ -190,9 +191,36 @@ pipeline. Reply with ONLY a JSON object, no prose:
  "premise_note":"one short clause naming the specific issue, or empty"}"""
 
 
-def understand(question, depth, client, budget):
+def _format_history(history, max_turns: int = 2, max_answer_chars: int = 250) -> str:
+    """Short "PRIOR TURN(S)" block from conversation.py's stored message
+    list — kept deliberately small (default: last 2 exchanges, answers
+    truncated) rather than dumping the full history, since _call()'s own
+    retry logic above documents a real DeepSeek failure mode where the
+    reasoning budget can be entirely consumed by an oversized prompt.
+    `history` is a flat [user, assistant, user, assistant, ...] list, the
+    same shape conversation.append_turn() returns and persists."""
+    if not history:
+        return ""
+    pairs = []
+    for i in range(0, len(history) - 1, 2):
+        if history[i].get("role") == "user" and history[i + 1].get("role") == "assistant":
+            pairs.append((history[i]["content"], history[i + 1]["content"]))
+    if not pairs:
+        return ""
+    lines = []
+    for q, a in pairs[-max_turns:]:
+        a_short = a if len(a) <= max_answer_chars else a[:max_answer_chars] + "…"
+        lines.append(f"Reader asked: {q}\nYou answered: {a_short}")
+    return "\n\n".join(lines)
+
+
+def understand(question, depth, client, budget, history=()):
+    hist_block = _format_history(history, max_turns=1)
+    user_prompt = f"QUESTION: {question}"
+    if hist_block:
+        user_prompt = f"PRIOR TURN (for resolving 'it'/'that'/follow-ups only):\n{hist_block}\n\n{user_prompt}"
     raw = _call(client, "understand", depth, _UNDERSTAND_SYS,
-                f"QUESTION: {question}", budget)
+                user_prompt, budget)
     u = _json_from(raw, {})
     words = re.findall(r"[a-z0-9][a-z0-9\-]{2,}", question.lower())
     return {
@@ -535,74 +563,31 @@ def reasoning_engine(question, understanding, book_ev, web_res, tool_res,
 
 # ── stage 7: professor engine ─────────────────────────────────────────────
 
-MODE_DIRECTIVE = {
-    "explain": "Give a ground-up explanation: intuition first, then the formal "
-               "statement. Lead with the idea, not the notation.",
-    "socratic": "Teach by guided questioning — 3-5 questions in sequence, each "
-                "answerable from the last, without stating the conclusion up front.",
-    "exercise": "Pose one concrete worked problem, solve it step by step showing "
-                "the reasoning, then state the principle it illustrates.",
-    "compare": "Structure the whole answer as a comparison across shared "
-               "dimensions, closing with when each option applies.",
-    "deep_dive": "Teach this progressively: intuition in plain language first, "
-                 "then a mental model — a picture or analogy that captures the "
-                 "mechanism — then the technical/formal statement, then the "
-                 "mathematics if the topic has real equations behind it, then "
-                 "how it looks in code or algorithmic form if that clarifies it, "
-                 "then where it's actually used. Not every topic needs every "
-                 "stage — skip a stage outright rather than padding it with "
-                 "filler. If a TEACHING PROGRESSION is supplied below, move "
-                 "through it in order: spend real words only on steps NOT "
-                 "marked already known, and treat an already-known step as a "
-                 "one-clause anchor ('building on the X you already have...') "
-                 "rather than re-teaching it.",
-    "derivation": "Derive the result rather than stating it. Start from the "
-                  "definitions or assumptions it rests on, show each algebraic "
-                  "or logical step, and name the move being made at each step "
-                  "(substitution, a stated identity, an approximation). State "
-                  "the result again at the end so the destination is clear.",
-    "quiz": "Do not teach or explain. Ask exactly ONE question that tests real "
-            "understanding of the target topic — not trivia, not a definition "
-            "lookup, a question answerable only by someone who understands the "
-            "mechanism. State the question and stop; do not answer it, do not "
-            "follow it with a second question, do not add commentary.",
-    "teach_back": "The reader is explaining a concept back to you, not asking a "
-                  "question. Evaluate their explanation against the sources: "
-                  "state plainly whether it's correct, partially correct, or "
-                  "contains a real misconception — name the specific "
-                  "misconception if there is one, quoting the part of their "
-                  "explanation it comes from. Respond to what they actually "
-                  "said rather than re-teaching the topic from scratch.",
-    "whats_next": "Recommend what to study next using the RECOMMENDED TOPICS "
-                  "supplied below — these were chosen because their "
-                  "prerequisites are already known and they connect to what "
-                  "was recently studied, not chosen generically. For each, one "
-                  "sentence on why it's the natural next step from where the "
-                  "reader actually is. Do not recommend anything not in that list.",
-    "why_chain": "Answer by building a causal chain, not by repeating a "
-                 "definition: state the immediate cause or mechanism, then what "
-                 "THAT rests on, one level further down, stopping at a genuine "
-                 "foundational fact rather than trailing off. Each step should "
-                 "read as a real 'and that's because...', not a rephrasing of "
-                 "the step before it.",
-    "research": "Write as a research mentor, not a textbook. Explicitly "
-                "separate what is established and well-evidenced, what is a "
-                "competing explanation or open methodological choice (name the "
-                "alternatives), what is still a genuine open question or "
-                "hypothesis in the field, and where the retrieved material "
-                "itself is silent. Do not flatten this into one confident "
-                "voice — the uncertainty is real content, not a hedge.",
-}
-DEPTH_DIRECTIVE = {
-    "intro": "Assume a capable engineer new to this topic. Minimal notation, "
-             "concrete examples.",
-    "intermediate": "Assume a working practitioner comfortable with Python, "
-                    "linear algebra and probability.",
-    "advanced": "Assume research-level fluency. Full notation, derive rather "
-                "than sketch, engage with failure modes. When the topic has "
-                "open questions or genuinely competing approaches, say so "
-                "explicitly rather than presenting one account as settled.",
-}
+# Teaching-strategy instructions live as external markdown files
+# (skills/modes/*.md, skills/depth/*.md) rather than hardcoded here — a new
+# mode or an edited directive is now a markdown change, not a pipeline.py
+# edit, mirroring TrueForge's Git-backed SKILL.md instruction-pack pattern
+# (and Claude's own SKILL.md convention). Loaded once at import time, same
+# as when these were literal dict constants — no per-request disk I/O, and
+# every existing MODE_DIRECTIVE[mode]/DEPTH_DIRECTIVE[depth] call site below
+# is unchanged.
+_SKILLS_DIR = Path(__file__).parent / "skills"
+
+
+def _load_skill(relative_path: str) -> str:
+    text = (_SKILLS_DIR / relative_path).read_text()
+    if text.startswith("---"):
+        end = text.find("\n---", 3)
+        if end != -1:
+            text = text[end + 4:]
+    return text.strip()
+
+
+MODE_DIRECTIVE = {name: _load_skill(f"modes/{name}.md") for name in (
+    "explain", "socratic", "exercise", "compare", "deep_dive", "derivation",
+    "quiz", "teach_back", "whats_next", "why_chain", "research")}
+DEPTH_DIRECTIVE = {name: _load_skill(f"depth/{name}.md") for name in (
+    "intro", "intermediate", "advanced")}
 
 _PROF_SYS = """You are the reader's own tutor across machine learning, \
 mathematics, robotics, vision, electronics and software. Build the intuition \
@@ -657,7 +642,8 @@ def professor_engine(question, understanding, book_ev, web_res, tool_res,
                      assessment, reasoning, mode, depth, client, budget,
                      topics=(), feedback: str = "", stage: str = "professor",
                      prereq_topics=(), progression=(), known_ids=frozenset(),
-                     recent_topics=(), recommended_topics=(), teachback_eval=None):
+                     recent_topics=(), recommended_topics=(), teachback_eval=None,
+                     history=()):
     # Curriculum first. On a host with no book indexes these are the only
     # sources there are, and they are real material — not a fallback apology.
     src_parts = ([CUR.curriculum_block(list(topics))] if topics else [])
@@ -733,6 +719,15 @@ def professor_engine(question, understanding, book_ev, web_res, tool_res,
     # retry is a targeted fix, not a re-roll hoping for a better answer.
     if feedback:
         extra += f"\n\nYOUR PREVIOUS ANSWER FAILED VALIDATION — FIX THESE SPECIFIC PROBLEMS:\n{feedback}"
+    # Session persistence (conversation.py): a short recent-exchange block so
+    # a follow-up ("why?", "tell me more", "what about X instead") reads as
+    # a continuation, not an answer written in a vacuum. Kept to the last 2
+    # turns with truncated answers — this is continuity context, not a
+    # source, so it is deliberately excluded from the SOURCES block below
+    # and from validation()'s citable-tag set.
+    hist_block = _format_history(history, max_turns=2)
+    if hist_block:
+        extra += f"\n\nRECENT CONVERSATION (for continuity — not a source, do not cite):\n{hist_block}"
 
     return _call(client, stage, depth, _PROF_SYS,
                  f"QUESTION: {question}\n\n"
@@ -871,7 +866,7 @@ def _validation_feedback(checks: dict) -> str:
 # ── the pipeline ──────────────────────────────────────────────────────────
 
 def run(question: str, mode: str = "explain",
-        depth: str = "intermediate") -> Iterator[tuple[str, dict]]:
+        depth: str = "intermediate", history=()) -> Iterator[tuple[str, dict]]:
     question = (question or "").strip()
     if not question:
         yield "error", {"message": "empty question"}
@@ -893,7 +888,7 @@ def run(question: str, mode: str = "explain",
 
     # 2 ── understand
     yield "understand", {"msg": "Reading the question…"}
-    u = understand(question, depth, client, budget)
+    u = understand(question, depth, client, budget, history=history)
     # "auto" (the UI default) resolves the teaching strategy from the
     # question's own classification; an explicit mode from the dropdown
     # always wins. Reassigning `mode` here, before _teach()'s closure below
@@ -1048,7 +1043,8 @@ def run(question: str, mode: str = "explain",
                                                 progression=progression, known_ids=known,
                                                 recent_topics=recent_topics,
                                                 recommended_topics=recommended_topics,
-                                                teachback_eval=teachback_eval)
+                                                teachback_eval=teachback_eval,
+                                                history=history)
             except Exception as exc:
                 box["error"] = f"{type(exc).__name__}: {exc}"
 

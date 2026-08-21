@@ -176,6 +176,36 @@ professor_engine(
     {"skipped": True}, {"text": ""}, "explain", "intermediate", client7, _Budget(), topics=(attention,))
 for label in ("TEACHING PROGRESSION", "RECENTLY STUDIED", "RECOMMENDED TOPICS", "TEACH-BACK EVALUATION"):
     check(f"no stray {label} block when its data wasn't supplied", label not in client7.last_user_prompt)
+check("no stray RECENT CONVERSATION block when history wasn't supplied",
+      "RECENT CONVERSATION" not in client7.last_user_prompt)
+
+print("\n[session persistence: _format_history]")
+from pipeline import _format_history
+_hist = [
+    {"role": "user", "content": "What is a gradient?"},
+    {"role": "assistant", "content": "x" * 400},
+    {"role": "user", "content": "Why does it point uphill?"},
+    {"role": "assistant", "content": "By definition of the directional derivative."},
+]
+check("empty history -> empty block", _format_history(()) == "")
+check("malformed pairs (no assistant reply) -> empty block",
+      _format_history([{"role": "user", "content": "q"}]) == "")
+one_turn = _format_history(_hist, max_turns=1)
+check("max_turns=1 keeps only the most recent exchange",
+      "Why does it point uphill" in one_turn and "What is a gradient" not in one_turn)
+check("long answers are truncated", "x" * 400 not in _format_history(_hist, max_turns=2))
+two_turns = _format_history(_hist, max_turns=2)
+check("max_turns=2 keeps both exchanges",
+      "What is a gradient" in two_turns and "Why does it point uphill" in two_turns)
+
+print("\n[professor_engine: RECENT CONVERSATION reaches the prompt when history is supplied]")
+client8 = _CapturingClient()
+professor_engine(
+    "Why does it point uphill?", {"restate": "q", "premise_check": "none"},
+    {"kept": []}, {"hits": []}, None, {"skipped": True}, {"text": ""}, "explain", "intermediate",
+    client8, _Budget(), topics=(attention,), history=_hist)
+check("RECENT CONVERSATION block is present", "RECENT CONVERSATION" in client8.last_user_prompt)
+check("the prior question reaches the prompt", "What is a gradient?" in client8.last_user_prompt)
 
 print(f"\n{'ALL CHECKS PASSED' if not fails else str(len(fails)) + ' FAILED: ' + str(fails)}")
 sys.exit(1 if fails else 0)

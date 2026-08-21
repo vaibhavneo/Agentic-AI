@@ -37,6 +37,7 @@ if str(HERE) not in sys.path:
 from brain_tutor import BRAIN_CORPORA, BRAIN_ROOT  # noqa: E402
 from pipeline import run as answer_stream           # noqa: E402  (9-stage flow)
 import mastery                                       # noqa: E402  (Milestone 5)
+import conversation                                  # noqa: E402  (session persistence)
 
 WEB_ROOT = HERE / "web"
 CONTENT_TYPES = {
@@ -81,11 +82,20 @@ def api_ask():
         return jsonify({"error": "q parameter required"}), 400
     mode = request.args.get("mode", "explain")
     depth = request.args.get("depth", "intermediate")
+    # Session persistence: the server owns conversation state (one ongoing
+    # transcript — AI Brain is single-reader, see conversation.py's
+    # docstring), not the client. The frontend sends nothing but the bare
+    # question, same as before; prior turns are loaded here and threaded
+    # into the pipeline so a follow-up like "why?" has something to resolve
+    # against.
+    history = conversation.load_conversation().get("messages", [])
 
     def generate():
         try:
-            for stage, payload in answer_stream(question, mode=mode, depth=depth):
+            for stage, payload in answer_stream(question, mode=mode, depth=depth, history=history):
                 yield f"event: {stage}\ndata: {json.dumps(payload, default=str)}\n\n"
+                if stage == "done" and payload.get("prose"):
+                    conversation.append_turn(question, payload["prose"])
         except (BrokenPipeError, ConnectionResetError):
             return                      # reader navigated away mid-answer
         except Exception as exc:
@@ -159,6 +169,19 @@ def api_descent():
             momentum=float(request.args.get("momentum", "0"))))
     except ValueError as exc:
         return jsonify({"ok": False, "error": f"bad parameter: {exc}"}), 400
+
+
+# ── conversation (session persistence) ──────────────────────────────────
+
+@app.route("/api/conversation")
+def api_conversation():
+    return jsonify(conversation.load_conversation())
+
+
+@app.route("/api/conversation/reset", methods=["POST"])
+def api_conversation_reset():
+    conversation.reset_conversation()
+    return jsonify({"ok": True})
 
 
 # ── curriculum ───────────────────────────────────────────────────────────

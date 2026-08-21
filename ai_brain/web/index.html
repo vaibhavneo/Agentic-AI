@@ -223,6 +223,7 @@ button.go:disabled{opacity:.45;cursor:not-allowed}
         <option value="advanced">Advanced</option>
       </select>
       <button class="icon-btn" id="mic" type="button" title="Ask by voice" aria-pressed="false">🎤</button>
+      <button class="icon-btn" id="newconvo" type="button" title="New conversation — forgets prior turns">↺</button>
       <button class="go" id="ask" type="button">Ask</button>
     </div>
     <p class="hint" id="hint">Intro and Intermediate use the fast model; Advanced uses the deeper reasoning model and takes longer.</p>
@@ -685,6 +686,17 @@ function ask(){
     }catch(err){ note.textContent="Voice input couldn't start ("+err.message+")."; listening=false; }
   });
 })();
+
+function newConversation(){
+  if(busy) return;
+  fetch("/api/conversation/reset",{method:"POST"}).catch(()=>{});
+  const log=document.getElementById("log");
+  log.innerHTML='<div class="empty" id="empty">'+
+    'Ask anything across your library. Try <b>“how does LoRA fine-tuning actually work”</b>, '+
+    '<b>“compare PPO and DPO”</b>, or <b>“what is the reparameterisation trick”</b>. '+
+    'Every claim is tagged with the book it came from; anything untagged is the model’s own synthesis.</div>';
+}
+document.getElementById("newconvo").addEventListener("click",newConversation);
 
 document.getElementById("ask").addEventListener("click",ask);
 document.getElementById("q").addEventListener("keydown",e=>{
