@@ -168,7 +168,8 @@ pipeline. Reply with ONLY a JSON object, no prose:
  "compute_expression":"a single arithmetic expression, or empty",
  "restate":"one sentence restating what is actually being asked",
  "question_type":"definition|teach_me|deep_dive|compare|derivation|
-   worked_example|quiz_me|teach_back|whats_next|why_chain|research|general",
+   worked_example|quiz_me|teach_back|whats_next|why_chain|research|
+   challenge_idea|general",
    // definition: a plain "what is X". teach_me/deep_dive: wants the concept
    // built up, not just stated — "teach me X", "how does X really work".
    // compare: two or more things set against each other, including "are X
@@ -180,8 +181,13 @@ pipeline. Reply with ONLY a JSON object, no prose:
    // right", "let me explain X back to you"). whats_next: asks what to
    // study next. why_chain: a bare or near-bare "why?" / "why is that?"
    // follow-up. research: asks about open problems, competing methods, or
-   // state of the art rather than settled material. general: none of the
-   // above fit well.
+   // state of the art rather than settled material. challenge_idea: the
+   // reader is presenting or defending THEIR OWN idea, product concept,
+   // architecture, or plan and wants it stress-tested ("challenge my
+   // architecture", "help me develop this idea", "poke holes in this",
+   // "what am I missing") — this is about testing a reader-authored idea,
+   // not learning an established concept the library already covers.
+   // general: none of the above fit well.
  "premise_check":"none|misconception|ambiguous",
    // misconception: the question's own phrasing embeds something false or
    // backwards ("since X always causes Y..." when it doesn't). ambiguous:
@@ -259,6 +265,7 @@ _TYPE_TO_MODE = {
     "whats_next": "whats_next",
     "why_chain": "why_chain",
     "research": "research",
+    "challenge_idea": "thinking_partner",
     "general": "explain",
 }
 
@@ -422,11 +429,31 @@ the question. Assess the material and reply with ONLY JSON:
 {"usable":["S1","S3"],            // tags that genuinely bear on the question
  "off_topic":["S2"],              // retrieved but not actually relevant
  "agreements":["what two or more sources independently support"],
- "conflicts":["where sources disagree, naming the tags"],
+ "conflicts":[{"sources":["S1","S3"],           // the tags that disagree
+               "disagreement":"what they disagree about",
+               "why_differ":"e.g. different assumptions, different scope, one is dated",
+               "better_supported":"which side, and why - or 'unclear' if genuinely unsettled",
+               "remains_uncertain":"what's still open even after picking a side"}],
  "gaps":["what the question needs that no source provides"],
  "confidence":"high|medium|low"}
 
-Be strict: a source that merely shares vocabulary is off_topic."""
+Be strict: a source that merely shares vocabulary is off_topic. Never silently
+merge a real disagreement into one blended claim - name it as a conflict."""
+
+_CONFLICT_FIELDS = ("sources", "disagreement", "why_differ", "better_supported", "remains_uncertain")
+
+
+def _normalize_conflict(c) -> dict:
+    """Coerce one conflicts[] entry into the full structured shape, filling
+    any field the model omitted (or, if it ignored the schema and returned a
+    bare string like the old flat format, the whole entry) rather than
+    letting a malformed entry crash the renderer downstream."""
+    if not isinstance(c, dict):
+        return {"sources": [], "disagreement": str(c), "why_differ": "",
+                "better_supported": "", "remains_uncertain": ""}
+    out = {k: c.get(k, "") for k in _CONFLICT_FIELDS}
+    out["sources"] = c.get("sources") or []
+    return out
 
 
 def evidence_engine(question, book_ev, web_res, tool_res, depth, client, budget):
@@ -450,8 +477,9 @@ def evidence_engine(question, book_ev, web_res, tool_res, depth, client, budget)
                 f"QUESTION: {question}\n\nMATERIAL:\n" + "\n\n".join(parts), budget)
     out = _json_from(raw, {})
     out.setdefault("usable", [c["tag"] for c in book_ev.get("kept", [])])
-    for k in ("off_topic", "agreements", "conflicts", "gaps"):
+    for k in ("off_topic", "agreements", "gaps"):
         out.setdefault(k, [])
+    out["conflicts"] = [_normalize_conflict(c) for c in (out.get("conflicts") or [])]
     out.setdefault("confidence", "medium")
     out["skipped"] = False
     return out
@@ -585,7 +613,13 @@ def _load_skill(relative_path: str) -> str:
 
 MODE_DIRECTIVE = {name: _load_skill(f"modes/{name}.md") for name in (
     "explain", "socratic", "exercise", "compare", "deep_dive", "derivation",
-    "quiz", "teach_back", "whats_next", "why_chain", "research")}
+    "quiz", "teach_back", "whats_next", "why_chain", "research", "thinking_partner")}
+
+# Modes whose own directive already closes on a question (socratic asks a
+# sequence, quiz asks exactly one, thinking_partner closes with one
+# high-value question) - professor_engine's auto-follow-up instruction
+# skips these so an answer doesn't end with two stacked questions.
+_MODES_THAT_ALREADY_ASK = frozenset({"socratic", "quiz", "thinking_partner"})
 DEPTH_DIRECTIVE = {name: _load_skill(f"depth/{name}.md") for name in (
     "intro", "intermediate", "advanced")}
 
@@ -638,6 +672,40 @@ Do not pad length for its own sake. A short, exact answer beats a long one — \
 decide how much explanation the question actually needs and stop there."""
 
 
+def _format_citation_header(c: dict) -> str:
+    """(source — shelf shelf), enriched with author/page when retrieve_evidence
+    actually has them (Milestone 2 metadata: nullable, only shelves re-ingested
+    since the schema landed carry real values). Never fabricates a missing
+    field - a book without page metadata just gets the plain header it always
+    had."""
+    header = f"{c['source']}"
+    if c.get("author"):
+        header += f" by {c['author']}"
+    header += f" — {c['shelf']} shelf"
+    if c.get("page_start"):
+        header += (f", p. {c['page_start']}" if not c.get("page_end") or c["page_end"] == c["page_start"]
+                   else f", pp. {c['page_start']}-{c['page_end']}")
+    return f"({header})"
+
+
+def _format_conflicts(conflicts: list) -> str:
+    """Render evidence_engine's structured conflicts (already normalized to
+    the 5-field shape by _normalize_conflict) as legible text instead of a
+    raw Python list-of-dicts repr - this is what actually reaches the model,
+    so an unreadable dump here defeats the point of structuring the data at
+    all."""
+    if not conflicts:
+        return ""
+    lines = ["\nCONFLICTS BETWEEN SOURCES:"]
+    for c in conflicts:
+        lines.append(
+            f"  - {', '.join(c['sources'])} disagree: {c['disagreement']}\n"
+            f"    why they differ: {c['why_differ'] or 'unstated'}\n"
+            f"    better supported: {c['better_supported'] or 'unclear'}\n"
+            f"    remains uncertain: {c['remains_uncertain'] or 'nothing noted'}")
+    return "\n".join(lines)
+
+
 def professor_engine(question, understanding, book_ev, web_res, tool_res,
                      assessment, reasoning, mode, depth, client, budget,
                      topics=(), feedback: str = "", stage: str = "professor",
@@ -684,7 +752,7 @@ def professor_engine(question, understanding, book_ev, web_res, tool_res,
             f"  correctness: {teachback_eval.get('correctness')}\n"
             f"  confirmed: {teachback_eval.get('confirmed')}\n"
             f"  misconceptions: {teachback_eval.get('misconceptions')}")
-    src_parts += [f"[{c['tag']}] ({c['source']} — {c['shelf']} shelf)\n{c['text'][:1100]}"
+    src_parts += [f"[{c['tag']}] {_format_citation_header(c)}\n{c['text'][:1100]}"
                   for c in book_ev.get("kept", [])]
     src_parts += [f"[W{i}] ({h['title']})\n{h['snippet']}"
                   for i, h in enumerate(web_res.get("hits", []), 1)]
@@ -700,8 +768,8 @@ def professor_engine(question, understanding, book_ev, web_res, tool_res,
         # had never been detected.
         extra = (f"\nEVIDENCE NOTES: off-topic={assessment.get('off_topic')} · "
                  f"agreements={assessment.get('agreements')} · "
-                 f"conflicts={assessment.get('conflicts')} · gaps={assessment.get('gaps')} · "
-                 f"confidence={assessment.get('confidence')}")
+                 f"gaps={assessment.get('gaps')} · confidence={assessment.get('confidence')}")
+        extra += _format_conflicts(assessment.get("conflicts") or [])
     if reasoning.get("text"):
         extra += f"\n\nREASONING SKELETON (expand this, do not repeat it verbatim):\n{reasoning['text']}"
     # understand()'s premise_check runs on every question, not just ones a
@@ -728,6 +796,15 @@ def professor_engine(question, understanding, book_ev, web_res, tool_res,
     hist_block = _format_history(history, max_turns=2)
     if hist_block:
         extra += f"\n\nRECENT CONVERSATION (for continuity — not a source, do not cite):\n{hist_block}"
+    # socratic/quiz/thinking_partner already close on a question by their own
+    # directive — adding a second one here would stack two questions at the
+    # end of one answer.
+    if mode not in _MODES_THAT_ALREADY_ASK:
+        extra += ("\n\nIf the topic has more worth pursuing, close with exactly one "
+                 "genuinely useful follow-up question — something that deepens or "
+                 "extends this specific answer, not a generic \"want to know more?\". "
+                 "Skip it for a simple factual lookup that doesn't need one — use the "
+                 "same judgment you already use for deciding how much to explain.")
 
     return _call(client, stage, depth, _PROF_SYS,
                  f"QUESTION: {question}\n\n"
@@ -1174,6 +1251,11 @@ def run(question: str, mode: str = "explain",
             "grounded_in_library": bool(book_ev.get("kept")),
             "covered_by_curriculum": bool(topics),
             "shelves_searched": len(book_ev.get("searched", [])),
+            # retrieve_evidence() has always computed this (none/weak/usable,
+            # based on the top BM25 score) but nothing ever read it — surfaced
+            # here so a "usable" grounding claim is backed by a real number,
+            # not just "kept was non-empty".
+            "evidence_strength": book_ev.get("evidence_strength", "unassessed"),
             "used_web": bool(web_res.get("hits")),
             "used_tools": bool(tool_res and tool_res.get("ok")),
             "note": ("Tags: [C:] curriculum, [S] your books, [W] web, "

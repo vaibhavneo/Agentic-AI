@@ -40,6 +40,8 @@ check("teach_back -> teach_back", resolve_mode("teach_back", "auto") == "teach_b
 check("whats_next -> whats_next", resolve_mode("whats_next", "auto") == "whats_next")
 check("why_chain -> why_chain", resolve_mode("why_chain", "auto") == "why_chain")
 check("research -> research", resolve_mode("research", "auto") == "research")
+check("challenge_idea -> thinking_partner",
+      resolve_mode("challenge_idea", "auto") == "thinking_partner")
 check("definition -> deep_dive (the spec's own 'What is attention?' example — "
       "a bare 'what is X' still gets the progressive treatment, not a one-liner)",
       resolve_mode("definition", "auto") == "deep_dive")
@@ -56,7 +58,7 @@ check("explain picked on purpose beats a whats_next classification",
 
 print("\n[every mode resolve_mode can produce has a real MODE_DIRECTIVE entry]")
 _ALL_MODES = {"explain", "socratic", "exercise", "compare", "deep_dive", "derivation",
-             "quiz", "teach_back", "whats_next", "why_chain", "research"}
+             "quiz", "teach_back", "whats_next", "why_chain", "research", "thinking_partner"}
 for m in _ALL_MODES:
     check(f"MODE_DIRECTIVE has an entry for '{m}'", m in MODE_DIRECTIVE and len(MODE_DIRECTIVE[m]) > 20)
 
@@ -206,6 +208,35 @@ professor_engine(
     client8, _Budget(), topics=(attention,), history=_hist)
 check("RECENT CONVERSATION block is present", "RECENT CONVERSATION" in client8.last_user_prompt)
 check("the prior question reaches the prompt", "What is a gradient?" in client8.last_user_prompt)
+
+print("\n[professor_engine: thinking_partner mode's directive actually reaches the prompt]")
+from pipeline import _MODES_THAT_ALREADY_ASK
+client9 = _CapturingClient()
+professor_engine(
+    "Challenge my idea to add a caching layer in front of the vector DB",
+    {"restate": "q", "premise_check": "none"}, {"kept": []}, {"hits": []}, None,
+    {"skipped": True}, {"text": ""}, "thinking_partner", "intermediate", client9, _Budget())
+check("the thinking_partner directive text (not some other mode's) reaches the prompt",
+      "thinking partner" in client9.last_user_prompt.lower()
+      and "strongest objection" in client9.last_user_prompt)
+check("thinking_partner is in the already-asks-a-question set (no stacked follow-up)",
+      "thinking_partner" in _MODES_THAT_ALREADY_ASK)
+
+print("\n[professor_engine: auto follow-up-question instruction, gated by mode]")
+for m in ("explain", "compare", "deep_dive"):
+    c = _CapturingClient()
+    professor_engine("What is a gradient?", {"restate": "q", "premise_check": "none"},
+                     {"kept": []}, {"hits": []}, None, {"skipped": True}, {"text": ""},
+                     m, "intermediate", c, _Budget())
+    check(f"follow-up instruction present for mode='{m}'",
+          "follow-up question" in c.last_user_prompt)
+for m in ("socratic", "quiz", "thinking_partner"):
+    c = _CapturingClient()
+    professor_engine("What is a gradient?", {"restate": "q", "premise_check": "none"},
+                     {"kept": []}, {"hits": []}, None, {"skipped": True}, {"text": ""},
+                     m, "intermediate", c, _Budget())
+    check(f"no follow-up instruction for mode='{m}' (its own directive already asks one)",
+          "follow-up question" not in c.last_user_prompt)
 
 print(f"\n{'ALL CHECKS PASSED' if not fails else str(len(fails)) + ' FAILED: ' + str(fails)}")
 sys.exit(1 if fails else 0)

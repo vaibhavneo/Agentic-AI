@@ -44,6 +44,20 @@ BRAIN_CORPORA = [
     "desk-python", "desk-robotics", "desk-electronics",
 ]
 
+# Per-shelf reliability multiplier for evidence weighting (see _weighted_score
+# below). Honest starting point, not a curated judgment: every shelf starts
+# uniform at 1.0 because differentiating "this shelf's books are more
+# authoritative than that one" requires actually knowing what's on each
+# shelf, which only the reader does - fabricating a confident-looking but
+# arbitrary ranking here would be exactly the kind of invented-without-
+# evidence scoring the evidence-driven upgrade is supposed to avoid. The
+# corroboration multiplier below still provides real differentiation even
+# with reliability held uniform. Recalibrate individual entries once you
+# have a real opinion about a shelf's quality - the mechanism already reads
+# this dict on every request, no code change needed to act on a new number.
+SHELF_RELIABILITY: dict[str, float] = {corpus_id: 1.0 for corpus_id in BRAIN_CORPORA}
+_DEFAULT_SHELF_RELIABILITY = 0.8   # an unrecognized/future shelf id
+
 PER_CORPUS_K = 3        # candidates pulled from each shelf before global ranking
 KEEP_K = 8              # sources actually handed to the model
 MIN_RAW_SCORE = 3.0     # BM25 floor; below this a hit is a coincidence of words
@@ -172,6 +186,19 @@ def _filter_and_dedup(scored: list[dict]) -> tuple[list[dict], list[dict], list[
     return kept, rejected, deduped
 
 
+def _weighted_score(item: dict) -> float:
+    """Deterministic reliability-weighted score for one kept passage:
+    relevance (raw_score) x source quality (shelf_reliability) x a
+    corroboration multiplier for passages the dedup pass found independently
+    on multiple shelves. Capped at 3 corroborating shelves (+30%) so a
+    passage that happens to appear near-identically on many shelves doesn't
+    run away with an implausibly large multiplier."""
+    reliability = item.get("shelf_reliability", _DEFAULT_SHELF_RELIABILITY)
+    corroboration = len(item.get("shelves", [item["shelf"]]))
+    corroboration_multiplier = 1.0 + 0.15 * (min(corroboration, 3) - 1)
+    return round(item["raw_score"] * reliability * corroboration_multiplier, 3)
+
+
 def retrieve_evidence(question: str) -> dict:
     """BM25 across every shelf, then keep the globally best few."""
     if str(BRAIN_ROOT) not in sys.path:
@@ -203,6 +230,12 @@ def retrieve_evidence(question: str) -> dict:
         "source": Path(str(h.get("source", "?"))).name,
         "shelf": _shelf((h.get("corpus") or ["?"])[0]),
         "raw_score": h.get("raw_score", 0.0),
+        # Reliability lookup happens here, once, keyed by the RAW corpus id
+        # (e.g. "desk-deep-learning") — _filter_and_dedup() never sees this
+        # id, only the human-readable "shelf" string above, so the lookup
+        # can't happen later without re-deriving it.
+        "shelf_reliability": SHELF_RELIABILITY.get(
+            (h.get("corpus") or ["?"])[0], _DEFAULT_SHELF_RELIABILITY),
         # Nullable, additive (Milestone 2): only shelves re-ingested since the
         # metadata schema landed carry real values here — fts.search() itself
         # already returns None for any shelf still on the old schema, so this
@@ -217,7 +250,20 @@ def retrieve_evidence(question: str) -> dict:
 
     kept, rejected, deduped = _filter_and_dedup(scored)
 
-    top = kept[0]["raw_score"] if kept else 0.0
+    # Reliability-weighted evidence: raw_score alone is relevance, not trust.
+    # weighted_score additionally factors in the source's reliability and a
+    # corroboration bonus when the near-dup collapse above found the SAME
+    # passage independently on multiple shelves (real corroboration, not
+    # just one book saying something twice). kept is then re-ordered by this
+    # score so the model sees the most trustworthy, best-corroborated
+    # evidence first — tags are NOT reassigned here, each item keeps the tag
+    # it was given during the dedup loop above, so deduped[]'s merged_into
+    # references stay valid regardless of this reordering.
+    for c in kept:
+        c["weighted_score"] = _weighted_score(c)
+    kept.sort(key=lambda c: -c["weighted_score"])
+
+    top = max((c["raw_score"] for c in kept), default=0.0)
     return {"available": True, "kept": kept, "rejected": rejected[:6],
             "deduped": deduped[:6],
             "searched": searched, "missing": missing,
@@ -228,7 +274,9 @@ def retrieve_evidence(question: str) -> dict:
             "scoring_note": ("BM25 over on-disk FTS5, higher is better. Each shelf "
                              f"offers its best {PER_CORPUS_K}; the globally top "
                              f"{KEEP_K} survive filtering, near-duplicates "
-                             "collapsed into one citation.")}
+                             "collapsed into one citation, then re-ordered by "
+                             "weighted_score (relevance x shelf reliability x "
+                             "corroboration across shelves).")}
 
 
 # ── pedagogy ──────────────────────────────────────────────────────────────
