@@ -1,0 +1,741 @@
+{
+ "generated_at": "2026-08-24T06:32:17+00:00",
+ "model": "deepseek-v4-flash",
+ "relation_types": [
+  "related_to",
+  "part_of",
+  "contrasts_with",
+  "extends",
+  "used_by",
+  "example_of",
+  "explained_by",
+  "applied_to"
+ ],
+ "topic_count": 47,
+ "dropped": {
+  "bad_source": 0,
+  "bad_target": 0,
+  "bad_type": 0,
+  "self_loop": 0
+ },
+ "generation_budget": {
+  "llm_calls": 9,
+  "prompt_tokens": 18053,
+  "completion_tokens": 125168,
+  "reasoning_tokens": 122155,
+  "total_tokens": 143221,
+  "by_stage": {
+   "kg_batch": {
+    "model": "deepseek-v4-flash",
+    "prompt": 1948,
+    "completion": 19609,
+    "reasoning": 19224,
+    "secs": 160.4
+   }
+  }
+ },
+ "edges": {
+  "vectors-and-matrices": {
+   "related_to": [
+    "calculus-and-gradients"
+   ],
+   "used_by": [
+    "matrix-decompositions",
+    "linear-and-logistic-regression",
+    "neural-networks-mlp",
+    "embeddings",
+    "robot-kinematics-and-control",
+    "state-estimation-and-slam"
+   ],
+   "applied_to": [
+    "computer-vision-pipeline"
+   ]
+  },
+  "matrix-decompositions": {
+   "related_to": [
+    "numerical-stability"
+   ],
+   "extends": [
+    "vectors-and-matrices"
+   ],
+   "used_by": [
+    "clustering-and-pca",
+    "state-estimation-and-slam",
+    "computer-vision-pipeline"
+   ]
+  },
+  "probability-foundations": {
+   "related_to": [
+    "supervised-learning"
+   ],
+   "used_by": [
+    "bayes-rule",
+    "information-theory",
+    "maximum-likelihood",
+    "generative-models",
+    "markov-decision-processes",
+    "q-learning",
+    "policy-gradient",
+    "state-estimation-and-slam"
+   ]
+  },
+  "bayes-rule": {
+   "contrasts_with": [
+    "maximum-likelihood"
+   ],
+   "extends": [
+    "probability-foundations"
+   ],
+   "used_by": [
+    "state-estimation-and-slam"
+   ],
+   "explained_by": [
+    "probability-foundations"
+   ]
+  },
+  "information-theory": {
+   "related_to": [
+    "maximum-likelihood"
+   ],
+   "extends": [
+    "probability-foundations"
+   ],
+   "used_by": [
+    "trees-and-ensembles",
+    "evaluation-of-llms",
+    "generative-models",
+    "alignment-and-rlhf"
+   ]
+  },
+  "calculus-and-gradients": {
+   "related_to": [
+    "vectors-and-matrices",
+    "convexity-and-optimization"
+   ],
+   "used_by": [
+    "gradient-descent",
+    "backpropagation",
+    "optimizers",
+    "neural-networks-mlp"
+   ],
+   "applied_to": [
+    "robot-kinematics-and-control"
+   ]
+  },
+  "convexity-and-optimization": {
+   "related_to": [
+    "optimizers"
+   ],
+   "extends": [
+    "calculus-and-gradients"
+   ],
+   "used_by": [
+    "gradient-descent"
+   ],
+   "applied_to": [
+    "svm-and-kernels",
+    "linear-and-logistic-regression"
+   ]
+  },
+  "gradient-descent": {
+   "related_to": [
+    "backpropagation"
+   ],
+   "example_of": [
+    "optimizers"
+   ],
+   "extends": [
+    "calculus-and-gradients"
+   ],
+   "used_by": [
+    "neural-networks-mlp",
+    "finetuning-and-peft",
+    "pretraining-and-scaling",
+    "generative-models"
+   ],
+   "explained_by": [
+    "convexity-and-optimization"
+   ],
+   "applied_to": [
+    "linear-and-logistic-regression"
+   ]
+  },
+  "numerical-stability": {
+   "related_to": [
+    "matrix-decompositions",
+    "gradient-descent",
+    "normalization",
+    "pretraining-and-scaling"
+   ],
+   "used_by": [
+    "linear-and-logistic-regression",
+    "transformer-architecture"
+   ]
+  },
+  "supervised-learning": {
+   "related_to": [
+    "regularization",
+    "model-evaluation",
+    "linear-and-logistic-regression",
+    "neural-networks-mlp"
+   ],
+   "contrasts_with": [
+    "q-learning",
+    "policy-gradient"
+   ],
+   "explained_by": [
+    "maximum-likelihood",
+    "bias-variance"
+   ],
+   "applied_to": [
+    "computer-vision-pipeline"
+   ]
+  },
+  "bias-variance": {
+   "related_to": [
+    "supervised-learning",
+    "model-evaluation",
+    "regularization"
+   ]
+  },
+  "regularization": {
+   "related_to": [
+    "supervised-learning"
+   ],
+   "explained_by": [
+    "bias-variance"
+   ],
+   "applied_to": [
+    "linear-and-logistic-regression",
+    "neural-networks-mlp"
+   ]
+  },
+  "linear-and-logistic-regression": {
+   "related_to": [
+    "regularization",
+    "bias-variance",
+    "model-evaluation"
+   ],
+   "contrasts_with": [
+    "svm-and-kernels"
+   ],
+   "example_of": [
+    "supervised-learning"
+   ],
+   "used_by": [
+    "neural-networks-mlp"
+   ],
+   "explained_by": [
+    "maximum-likelihood"
+   ]
+  },
+  "maximum-likelihood": {
+   "related_to": [
+    "supervised-learning"
+   ],
+   "contrasts_with": [
+    "bayes-rule"
+   ],
+   "used_by": [
+    "linear-and-logistic-regression",
+    "neural-networks-mlp"
+   ],
+   "explained_by": [
+    "probability-foundations"
+   ]
+  },
+  "trees-and-ensembles": {
+   "related_to": [
+    "model-evaluation"
+   ],
+   "contrasts_with": [
+    "svm-and-kernels"
+   ],
+   "example_of": [
+    "supervised-learning"
+   ],
+   "explained_by": [
+    "information-theory"
+   ]
+  },
+  "svm-and-kernels": {
+   "related_to": [
+    "model-evaluation"
+   ],
+   "contrasts_with": [
+    "linear-and-logistic-regression",
+    "neural-networks-mlp"
+   ],
+   "example_of": [
+    "supervised-learning"
+   ],
+   "explained_by": [
+    "convexity-and-optimization"
+   ]
+  },
+  "clustering-and-pca": {
+   "related_to": [
+    "embeddings"
+   ],
+   "contrasts_with": [
+    "supervised-learning"
+   ],
+   "explained_by": [
+    "matrix-decompositions"
+   ]
+  },
+  "model-evaluation": {
+   "related_to": [
+    "supervised-learning",
+    "bias-variance",
+    "evaluation-of-llms"
+   ],
+   "used_by": [
+    "mlops-and-production"
+   ]
+  },
+  "neural-networks-mlp": {
+   "related_to": [
+    "activation-functions",
+    "backpropagation",
+    "optimizers"
+   ],
+   "extends": [
+    "linear-and-logistic-regression"
+   ],
+   "example_of": [
+    "supervised-learning"
+   ],
+   "used_by": [
+    "transformer-architecture",
+    "convolutional-networks"
+   ]
+  },
+  "backpropagation": {
+   "related_to": [
+    "optimizers",
+    "numerical-stability"
+   ],
+   "part_of": [
+    "neural-networks-mlp"
+   ],
+   "explained_by": [
+    "calculus-and-gradients"
+   ],
+   "used_by": [
+    "convolutional-networks",
+    "transformer-architecture"
+   ]
+  },
+  "activation-functions": {
+   "used_by": [
+    "neural-networks-mlp",
+    "convolutional-networks",
+    "sequence-models-rnn",
+    "transformer-architecture"
+   ],
+   "explained_by": [
+    "calculus-and-gradients"
+   ]
+  },
+  "optimizers": {
+   "extends": [
+    "gradient-descent"
+   ],
+   "related_to": [
+    "convexity-and-optimization",
+    "numerical-stability"
+   ],
+   "applied_to": [
+    "neural-networks-mlp",
+    "pretraining-and-scaling",
+    "finetuning-and-peft"
+   ]
+  },
+  "normalization": {
+   "related_to": [
+    "numerical-stability",
+    "optimizers"
+   ],
+   "used_by": [
+    "neural-networks-mlp",
+    "convolutional-networks",
+    "sequence-models-rnn",
+    "transformer-architecture"
+   ]
+  },
+  "convolutional-networks": {
+   "extends": [
+    "neural-networks-mlp"
+   ],
+   "contrasts_with": [
+    "transformer-architecture"
+   ],
+   "applied_to": [
+    "computer-vision-pipeline"
+   ],
+   "related_to": [
+    "backpropagation"
+   ]
+  },
+  "sequence-models-rnn": {
+   "extends": [
+    "neural-networks-mlp"
+   ],
+   "contrasts_with": [
+    "transformer-architecture"
+   ],
+   "related_to": [
+    "attention-mechanism",
+    "embeddings"
+   ],
+   "explained_by": [
+    "backpropagation"
+   ]
+  },
+  "embeddings": {
+   "related_to": [
+    "tokenization",
+    "attention-mechanism"
+   ],
+   "used_by": [
+    "transformer-architecture",
+    "sequence-models-rnn",
+    "retrieval-augmented-generation"
+   ]
+  },
+  "attention-mechanism": {
+   "part_of": [
+    "transformer-architecture"
+   ],
+   "related_to": [
+    "embeddings",
+    "sequence-models-rnn"
+   ],
+   "explained_by": [
+    "vectors-and-matrices"
+   ]
+  },
+  "transformer-architecture": {
+   "related_to": [
+    "attention-mechanism",
+    "positional-encoding",
+    "normalization",
+    "embeddings",
+    "tokenization"
+   ],
+   "contrasts_with": [
+    "sequence-models-rnn"
+   ],
+   "used_by": [
+    "pretraining-and-scaling",
+    "finetuning-and-peft",
+    "inference-and-decoding"
+   ]
+  },
+  "positional-encoding": {
+   "part_of": [
+    "transformer-architecture"
+   ],
+   "related_to": [
+    "attention-mechanism",
+    "inference-and-decoding"
+   ]
+  },
+  "tokenization": {
+   "related_to": [
+    "pretraining-and-scaling",
+    "evaluation-of-llms"
+   ],
+   "used_by": [
+    "embeddings",
+    "transformer-architecture",
+    "inference-and-decoding"
+   ]
+  },
+  "pretraining-and-scaling": {
+   "related_to": [
+    "transformer-architecture",
+    "tokenization",
+    "embeddings",
+    "evaluation-of-llms"
+   ],
+   "used_by": [
+    "finetuning-and-peft",
+    "alignment-and-rlhf",
+    "inference-and-decoding",
+    "retrieval-augmented-generation",
+    "agents-and-tool-use"
+   ],
+   "contrasts_with": [
+    "finetuning-and-peft",
+    "alignment-and-rlhf",
+    "inference-and-decoding"
+   ],
+   "explained_by": [
+    "transformer-architecture",
+    "tokenization",
+    "embeddings"
+   ]
+  },
+  "finetuning-and-peft": {
+   "related_to": [
+    "bias-variance",
+    "regularization",
+    "optimizers",
+    "matrix-decompositions"
+   ],
+   "used_by": [
+    "alignment-and-rlhf",
+    "agents-and-tool-use"
+   ],
+   "extends": [
+    "pretraining-and-scaling"
+   ],
+   "contrasts_with": [
+    "pretraining-and-scaling",
+    "retrieval-augmented-generation"
+   ]
+  },
+  "alignment-and-rlhf": {
+   "related_to": [
+    "evaluation-of-llms",
+    "inference-and-decoding",
+    "agents-and-tool-use"
+   ],
+   "used_by": [
+    "inference-and-decoding",
+    "agents-and-tool-use"
+   ],
+   "extends": [
+    "finetuning-and-peft"
+   ],
+   "contrasts_with": [
+    "pretraining-and-scaling"
+   ],
+   "explained_by": [
+    "markov-decision-processes",
+    "policy-gradient"
+   ]
+  },
+  "inference-and-decoding": {
+   "related_to": [
+    "evaluation-of-llms",
+    "mlops-and-production",
+    "transformer-architecture",
+    "tokenization"
+   ],
+   "used_by": [
+    "retrieval-augmented-generation",
+    "agents-and-tool-use",
+    "evaluation-of-llms",
+    "mlops-and-production"
+   ],
+   "contrasts_with": [
+    "pretraining-and-scaling"
+   ],
+   "explained_by": [
+    "probability-foundations",
+    "transformer-architecture",
+    "tokenization"
+   ]
+  },
+  "retrieval-augmented-generation": {
+   "related_to": [
+    "embeddings",
+    "evaluation-of-llms",
+    "mlops-and-production",
+    "transformer-architecture"
+   ],
+   "used_by": [
+    "agents-and-tool-use",
+    "mlops-and-production"
+   ],
+   "extends": [
+    "embeddings",
+    "inference-and-decoding"
+   ],
+   "contrasts_with": [
+    "finetuning-and-peft"
+   ]
+  },
+  "agents-and-tool-use": {
+   "related_to": [
+    "evaluation-of-llms",
+    "mlops-and-production"
+   ],
+   "used_by": [
+    "mlops-and-production"
+   ],
+   "extends": [
+    "inference-and-decoding",
+    "retrieval-augmented-generation"
+   ],
+   "explained_by": [
+    "markov-decision-processes",
+    "policy-gradient"
+   ]
+  },
+  "markov-decision-processes": {
+   "used_by": [
+    "q-learning",
+    "policy-gradient",
+    "alignment-and-rlhf",
+    "agents-and-tool-use"
+   ],
+   "extends": [
+    "probability-foundations"
+   ],
+   "contrasts_with": [
+    "supervised-learning"
+   ]
+  },
+  "q-learning": {
+   "related_to": [
+    "neural-networks-mlp",
+    "optimizers"
+   ],
+   "extends": [
+    "markov-decision-processes"
+   ],
+   "contrasts_with": [
+    "policy-gradient"
+   ],
+   "explained_by": [
+    "markov-decision-processes",
+    "neural-networks-mlp"
+   ]
+  },
+  "policy-gradient": {
+   "related_to": [
+    "optimizers"
+   ],
+   "used_by": [
+    "alignment-and-rlhf"
+   ],
+   "extends": [
+    "markov-decision-processes"
+   ],
+   "contrasts_with": [
+    "q-learning"
+   ],
+   "explained_by": [
+    "probability-foundations",
+    "calculus-and-gradients",
+    "markov-decision-processes"
+   ]
+  },
+  "computer-vision-pipeline": {
+   "related_to": [
+    "convolutional-networks",
+    "supervised-learning",
+    "model-evaluation",
+    "embeddings"
+   ],
+   "used_by": [
+    "state-estimation-and-slam",
+    "robot-kinematics-and-control"
+   ]
+  },
+  "robot-kinematics-and-control": {
+   "related_to": [
+    "computer-vision-pipeline",
+    "electronics-foundations"
+   ],
+   "used_by": [
+    "state-estimation-and-slam"
+   ],
+   "explained_by": [
+    "vectors-and-matrices",
+    "calculus-and-gradients"
+   ]
+  },
+  "state-estimation-and-slam": {
+   "related_to": [
+    "computer-vision-pipeline"
+   ],
+   "used_by": [
+    "robot-kinematics-and-control"
+   ],
+   "extends": [
+    "bayes-rule"
+   ],
+   "explained_by": [
+    "probability-foundations"
+   ]
+  },
+  "electronics-foundations": {
+   "used_by": [
+    "robot-kinematics-and-control",
+    "state-estimation-and-slam",
+    "computer-vision-pipeline"
+   ],
+   "explained_by": [
+    "calculus-and-gradients"
+   ]
+  },
+  "python-for-numerical-work": {
+   "related_to": [
+    "vectors-and-matrices",
+    "numerical-stability"
+   ],
+   "used_by": [
+    "gradient-descent",
+    "backpropagation",
+    "clustering-and-pca",
+    "generative-models"
+   ],
+   "applied_to": [
+    "mlops-and-production"
+   ]
+  },
+  "generative-models": {
+   "related_to": [
+    "computer-vision-pipeline"
+   ],
+   "extends": [
+    "maximum-likelihood"
+   ],
+   "used_by": [
+    "pretraining-and-scaling"
+   ],
+   "explained_by": [
+    "probability-foundations",
+    "information-theory"
+   ]
+  },
+  "evaluation-of-llms": {
+   "related_to": [
+    "pretraining-and-scaling",
+    "finetuning-and-peft",
+    "alignment-and-rlhf",
+    "inference-and-decoding"
+   ],
+   "part_of": [
+    "mlops-and-production"
+   ],
+   "example_of": [
+    "model-evaluation"
+   ],
+   "explained_by": [
+    "information-theory"
+   ]
+  },
+  "mlops-and-production": {
+   "related_to": [
+    "finetuning-and-peft",
+    "bias-variance"
+   ],
+   "extends": [
+    "model-evaluation"
+   ],
+   "explained_by": [
+    "supervised-learning"
+   ],
+   "applied_to": [
+    "retrieval-augmented-generation",
+    "agents-and-tool-use"
+   ]
+  }
+ }
+}
