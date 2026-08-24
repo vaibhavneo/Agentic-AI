@@ -31,12 +31,16 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
-# Drop privileges. The app writes nothing outside memory/, which it creates
-# itself, so it has no reason to run as root.
+# Create the unprivileged user the app actually runs as (entrypoint.sh,
+# already brought in by COPY . . above, drops to it after fixing up
+# /app/memory's ownership — see that file for why this can no longer be a
+# plain `USER brain` here now that a real volume gets mounted at that path
+# at container start, not just baked into the image).
 RUN useradd --create-home --shell /usr/sbin/nologin brain \
     && mkdir -p /app/memory \
-    && chown -R brain:brain /app
-USER brain
+    && chown -R brain:brain /app \
+    && chmod +x /app/entrypoint.sh
+ENTRYPOINT ["/app/entrypoint.sh"]
 
 # server.py binds 0.0.0.0 when PORT is set and 127.0.0.1 otherwise — inside a
 # container the loopback default would be unreachable from outside, so PORT is
@@ -51,4 +55,5 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
   CMD python3 -c "import urllib.request,sys; \
       sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8080/api/status',timeout=4).status==200 else 1)"
 
-CMD ["python3", "server.py"]
+# No CMD: entrypoint.sh runs `python3 server.py` itself once it has dropped
+# to the unprivileged user, so there is no argument for a CMD to supply.
