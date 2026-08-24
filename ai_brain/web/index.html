@@ -192,6 +192,7 @@ button.go:disabled{opacity:.45;cursor:not-allowed}
     <button role="tab" data-tab="lab" aria-selected="false">Brain Lab</button>
     <button role="tab" data-tab="cur" aria-selected="false">Curriculum <span id="cur-n"></span></button>
     <button role="tab" data-tab="research" aria-selected="false">Research</button>
+    <button role="tab" data-tab="projects" aria-selected="false">Projects</button>
   </nav>
 
   <section class="panel on" id="p-ask">
@@ -374,6 +375,38 @@ button.go:disabled{opacity:.45;cursor:not-allowed}
         then record findings, open questions and contradictions into that thread's notebook.
       </div>
     </div>
+  </section>
+
+  <!-- ── Projects ── -->
+  <section class="panel" id="p-projects">
+    <p class="hint" style="margin-top:14px">A running context for something you're actively building —
+    goals, questions, decisions and notes accumulate here. When a question elsewhere shares enough concepts
+    with a project's goal, that project's context is pulled in automatically. Not project management —
+    just a place for the Brain to remember what you're working on.</p>
+
+    <div class="field"><label for="pr-name">Project</label>
+      <input id="pr-name" list="pr-name-list" placeholder="e.g. stock-ai-agent — pick an existing project or start a new one">
+      <datalist id="pr-name-list"></datalist>
+    </div>
+    <div id="pr-detail"></div>
+
+    <div class="field"><label for="pr-goal">Goal — creates the project if new, appends if it already exists</label>
+      <textarea id="pr-goal" rows="2" placeholder="What is this project trying to do?"></textarea></div>
+    <div class="crow" style="margin-bottom:14px">
+      <button class="go" id="pr-save-goal" type="button">Save goal</button>
+    </div>
+
+    <div class="row3">
+      <div class="field"><label for="pr-question">Question</label><input id="pr-question" placeholder="an open question"></div>
+      <div class="field"><label for="pr-decision">Decision</label><input id="pr-decision" placeholder="a decision made"></div>
+      <div class="field"><label for="pr-note">Note</label><input id="pr-note" placeholder="a note"></div>
+    </div>
+    <div class="row3">
+      <div class="field"><label for="pr-link">Link — a research thread or curriculum topic id</label>
+        <input id="pr-link" placeholder="e.g. agent-reliability or attention-mechanism"></div>
+      <div class="field" style="justify-content:end"><button class="go" id="pr-add" type="button">Add entry</button></div>
+    </div>
+    <p class="hint" id="pr-status"></p>
   </section>
 </div>
 
@@ -758,7 +791,7 @@ document.getElementById("q").addEventListener("keydown",e=>{
    Tabs, Brain Lab and Curriculum browser
    ════════════════════════════════════════════════════════════════════════ */
 const $ = id => document.getElementById(id);
-const PANELS = {ask:"p-ask", lab:"p-lab", cur:"p-cur", research:"p-research"};
+const PANELS = {ask:"p-ask", lab:"p-lab", cur:"p-cur", research:"p-research", projects:"p-projects"};
 
 document.querySelectorAll('.tabs button').forEach(b => b.addEventListener("click", () => {
   document.querySelectorAll('.tabs button').forEach(o =>
@@ -766,6 +799,7 @@ document.querySelectorAll('.tabs button').forEach(b => b.addEventListener("click
   Object.entries(PANELS).forEach(([k, id]) => $(id).classList.toggle("on", k === b.dataset.tab));
   if (b.dataset.tab === "cur") loadCurriculum();
   if (b.dataset.tab === "research") loadResearchThreads();
+  if (b.dataset.tab === "projects") loadProjects();
 }));
 
 /* Speech gives words; sympy needs operators. Ordered longest-phrase-first so
@@ -1314,6 +1348,71 @@ $("r-draft").addEventListener("click",draftThread);
 $("r-q").addEventListener("keydown",e=>{
   if(e.key==="Enter"&&!e.shiftKey){ e.preventDefault(); investigateThread(); }
 });
+
+/* ════════════════════════════════════════════════════════════════════════
+   Projects — a cognitive context layer over projects.py's notebook-style
+   store. Same "pick-existing-or-type-new" datalist pattern as the Research
+   tab's thread field; same inline-write-then-refresh pattern as the
+   Curriculum tab's markTopic().
+   ════════════════════════════════════════════════════════════════════════ */
+async function loadProjects(){
+  try{
+    const j=await (await fetch("/api/projects")).json();
+    $("pr-name-list").innerHTML=(j.projects||[]).map(p=>
+      '<option value="'+esc(p.project)+'">'+p.goals+' goal(s), '+p.notes+' note(s)</option>').join("");
+  }catch(_){}
+}
+async function loadProjectDetail(){
+  const name=$("pr-name").value.trim(), box=$("pr-detail");
+  if(!name){ box.innerHTML=""; return; }
+  try{
+    const r=await fetch("/api/projects/"+encodeURIComponent(name));
+    if(r.status===404){ box.innerHTML='<p class="hint">New project — nothing recorded yet. Save a goal to create it.</p>'; return; }
+    const j=await r.json();
+    const tags=(j.state.concept_tags||[]);
+    box.innerHTML='<div class="prose">'+
+      (j.brief ? renderResearchProse(j.brief) : '<p class="hint">No entries yet.</p>')+
+      (tags.length ? '<p class="hint">Concept tags: '+tags.map(esc).join(", ")+'</p>' : '')+
+      '</div>';
+  }catch(_){ box.innerHTML=""; }
+}
+function _prStatus(msg,isErr){
+  const s=$("pr-status"); s.textContent=msg; s.style.color=isErr?"var(--magenta)":"";
+}
+async function saveGoal(){
+  const name=$("pr-name").value.trim(), goal=$("pr-goal").value.trim();
+  if(!name){ _prStatus("Enter a project name first.",true); return; }
+  if(!goal){ _prStatus("Enter a goal to save.",true); return; }
+  try{
+    const r=await fetch("/api/projects/create",{method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({name,goal})});
+    if(!r.ok){ _prStatus("Couldn't save the goal.",true); return; }
+    $("pr-goal").value="";
+    _prStatus("Saved.");
+    loadProjects(); loadProjectDetail();
+  }catch(_){ _prStatus("Couldn't reach the server.",true); }
+}
+async function addEntry(){
+  const name=$("pr-name").value.trim();
+  if(!name){ _prStatus("Enter a project name first.",true); return; }
+  const question=$("pr-question").value.trim(), decision=$("pr-decision").value.trim(),
+        note=$("pr-note").value.trim(), link=$("pr-link").value.trim();
+  if(!question&&!decision&&!note&&!link){ _prStatus("Fill in at least one field to add.",true); return; }
+  try{
+    const r=await fetch("/api/projects/"+encodeURIComponent(name)+"/record",{method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({question,decision,note,link})});
+    if(r.status===404){ _prStatus("That project doesn't exist yet — save a goal first to create it.",true); return; }
+    if(!r.ok){ _prStatus("Couldn't add the entry.",true); return; }
+    $("pr-question").value=""; $("pr-decision").value=""; $("pr-note").value=""; $("pr-link").value="";
+    _prStatus("Added.");
+    loadProjects(); loadProjectDetail();
+  }catch(_){ _prStatus("Couldn't reach the server.",true); }
+}
+$("pr-name").addEventListener("blur",loadProjectDetail);
+$("pr-save-goal").addEventListener("click",saveGoal);
+$("pr-add").addEventListener("click",addEntry);
 </script>
 </body>
 </html>

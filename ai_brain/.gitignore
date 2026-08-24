@@ -6,3 +6,5 @@ memory/mastery.db
 memory/mastery.db-shm
 memory/mastery.db-wal
 memory/conversation.json
+memory/projects.json
+memory/ideas.json

@@ -366,6 +366,55 @@ def api_research_draft():
                     headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
 
 
+# ── projects: a cognitive context layer over the same JSON-file-store ──────
+# pattern research.py's notebook already established — plain POST+JSON, not
+# SSE, since nothing here streams (unlike /api/research/* above, which is
+# GET-only specifically because EventSource requires it).
+
+def _projects():
+    import projects
+    return projects
+
+
+@app.route("/api/projects")
+def api_projects():
+    return jsonify({"projects": _projects().list_projects()})
+
+
+@app.route("/api/projects/create", methods=["POST"])
+def api_projects_create():
+    body = request.get_json(silent=True) or {}
+    name = (body.get("name") or "").strip()
+    if not name:
+        return jsonify({"error": "name required"}), 400
+    goal = (body.get("goal") or "").strip()
+    return jsonify({"project": name, "state": _projects().create(name, goal=goal)})
+
+
+@app.route("/api/projects/<name>")
+def api_projects_get(name):
+    state = _projects().get(name)
+    if not state:
+        return jsonify({"error": f"unknown project: {name!r}"}), 404
+    return jsonify({"project": name, "state": state, "brief": _projects().brief(name)})
+
+
+@app.route("/api/projects/<name>/record", methods=["POST"])
+def api_projects_record(name):
+    if not _projects().get(name):
+        return jsonify({"error": f"unknown project: {name!r} — create it first"}), 404
+    body = request.get_json(silent=True) or {}
+    state = _projects().record(
+        name,
+        goal=(body.get("goal") or "").strip(),
+        question=(body.get("question") or "").strip(),
+        decision=(body.get("decision") or "").strip(),
+        note=(body.get("note") or "").strip(),
+        link=(body.get("link") or "").strip(),
+    )
+    return jsonify({"project": name, "state": state})
+
+
 # ── static files (must be registered last — it's the catch-all) ───────────
 
 @app.route("/", defaults={"path": ""})
