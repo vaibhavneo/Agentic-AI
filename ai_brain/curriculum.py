@@ -1235,6 +1235,47 @@ def related_topics(topic: Topic, k: int = 4) -> List[Topic]:
     return [t for _n, t in scored[:k]]
 
 
+def learning_plan(goal_topic_id: str, known_ids: "set[str]") -> dict:
+    """Known/missing/sequence toward a goal topic — "what should I learn
+    next toward X," using the transitive prerequisite chain learning_path()
+    already walks, split against what the reader already knows.
+
+    known_ids follows recommend_next()'s own convention: a plain set, not
+    an import of mastery.py, so this stays trivially testable and free of
+    the sqlite dependency (see recommend_next()'s docstring for the same
+    reasoning).
+
+    related_context enriches the plan with the Knowledge Graph's
+    explained_by edges (Phase 3) where available — topics that would help
+    understanding without being a hard prerequisite. Kept as a SEPARATE
+    field rather than interleaved into `sequence`: explained_by is a soft,
+    non-transitive hint, not a strict dependency, so folding it into the
+    ordered prerequisite walk would risk a confusing order for what is
+    still fundamentally learning_path()'s own well-tested sequence.
+    Optional — falls back to no related_context if the Knowledge Graph
+    hasn't been generated yet, or if importing it fails for any reason."""
+    if goal_topic_id not in TOPICS:
+        return {"known": [], "missing": [], "sequence": [], "related_context": [],
+                "error": f"unknown topic_id: {goal_topic_id!r}"}
+    sequence = learning_path(goal_topic_id)
+    known = [tid for tid in sequence if tid in known_ids]
+    missing = [tid for tid in sequence if tid not in known_ids]
+
+    related_context: List[str] = []
+    try:
+        import knowledge_graph as KG
+        seen = set(sequence)
+        for tid in sequence:
+            for soft in KG.relations(tid, "explained_by"):
+                if soft in TOPICS and soft not in seen:
+                    related_context.append(soft)
+                    seen.add(soft)
+    except Exception:
+        pass
+    return {"known": known, "missing": missing, "sequence": sequence,
+            "related_context": related_context}
+
+
 if __name__ == "__main__":
     import json
     import sys

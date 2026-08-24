@@ -241,6 +241,33 @@ def api_recommend():
                      "recent": recent}})
 
 
+@app.route("/api/learning-plan")
+def api_learning_plan():
+    """"What should I learn next toward X" — curriculum.learning_plan() is
+    pure computation (the existing prerequisite walk, enriched with the
+    Knowledge Graph's explained_by edges where available), no LLM call.
+    The "why" is deterministic string templating from facts the plan
+    already computed, not a model guess."""
+    import curriculum as CUR
+    goal = (request.args.get("goal") or "").strip()
+    if goal not in CUR.TOPICS:
+        return jsonify({"error": f"unknown goal topic_id: {goal!r}"}), 400
+    known = mastery.known_topic_ids()
+    plan = CUR.learning_plan(goal, known)
+
+    why = None
+    missing = plan["missing"]
+    if missing:
+        first = missing[0]
+        idx = plan["sequence"].index(first)
+        unblocks = next((tid for tid in plan["sequence"][idx + 1:]
+                         if first in CUR.TOPICS[tid].prerequisites), goal)
+        why = (f"Study {CUR.TOPICS[first].title!r} next because it is a prerequisite for "
+              f"{CUR.TOPICS[unblocks].title!r} and your current learning state suggests "
+              f"it has not yet been covered.")
+    return jsonify({"goal": goal, **plan, "why": why})
+
+
 @app.route("/api/mastery/mark", methods=["POST"])
 def api_mastery_mark():
     import curriculum as CUR
