@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import json
 import re
+import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
 from typing import Iterator
@@ -86,11 +87,27 @@ Reply with ONLY JSON:
  "next_steps":[{"step":"one concrete action","why":"what it would settle",
                 "kind":"derive|compute|read|experiment|search"}],
  "derivable":["any claim that could be checked symbolically, as an equation"],
+ "novel_angles":[{"proposal":"one concrete, specific research question or angle
+                    this material has not already answered — actionable, not a
+                    restatement of a gap above",
+                  "why_not_covered":"why the arXiv papers and prior thread state
+                    below do not already address this",
+                  "checked_against":["paper titles or prior findings actually
+                    compared against"],
+                  "confidence":"high|medium|low — keep this honest: checking
+                    against titles/abstracts is not the same as reading full
+                    papers, so confidence should rarely be high"}],
  "confidence":"high|medium|low"}
 
 A good next step is something that could actually be done next session — read a
 named paper, derive a stated identity, compute a specific quantity. Reject
-vague suggestions."""
+vague suggestions.
+
+novel_angles is separate from next_steps: 0-2 entries, and an empty list is the
+correct, expected answer when nothing here suggests a genuinely open angle —
+never force one to avoid an empty list. Check every candidate against the
+arXiv paper titles and the thread's own prior state you are given below; if it
+resembles retrieved or prior work, do not list it as novel."""
 
 
 def investigate(thread: str, question: str, depth: str = "intermediate",
@@ -170,15 +187,24 @@ def investigate(thread: str, question: str, depth: str = "intermediate",
         return
     yield "synthesis", {"msg": f"{len(synthesis.split())} words in {int(time.monotonic()-t_s)}s"}
 
-    # 5 ── the gap: what is NOT known, and what to do next
+    # 5 ── the gap: what is NOT known, what to do next, and (new) whether a
+    # genuinely novel angle is visible that the retrieved papers and this
+    # thread's own prior state don't already cover.
     yield "gap", {"msg": "Identifying what is not established…"}
-    gap = _json_from(_call(client, "gap", depth, _GAP_SYS,
-                           f"QUESTION: {question}\n\nSYNTHESIS:\n{synthesis[:7000]}",
+    paper_titles = "\n".join(f"- [A{i}] {p['title']} ({p['published']})"
+                             for i, p in enumerate(papers, 1)) or "(none retrieved)"
+    gap_user = (f"QUESTION: {question}\n\nSYNTHESIS:\n{synthesis[:7000]}\n\n"
+               f"ARXIV PAPERS RETRIEVED (title-level only — for checking whether a "
+               f"proposed novel angle is already covered):\n{paper_titles}")
+    if prior:
+        gap_user += f"\n\nALREADY IN THIS THREAD (do not re-propose these as novel):\n{prior}"
+    gap = _json_from(_call(client, "gap", depth, _GAP_SYS, gap_user,
                            budget, force=_plan("gap", depth)), {})
-    for k in ("gaps", "contradictions", "next_steps", "derivable"):
+    for k in ("gaps", "contradictions", "next_steps", "derivable", "novel_angles"):
         gap.setdefault(k, [])
     gap.setdefault("confidence", "medium")
     yield "gap", {"msg": (f"{len(gap['gaps'])} gap(s) · {len(gap['next_steps'])} next step(s) · "
+                          f"{len(gap['novel_angles'])} novel angle(s) · "
                           f"confidence {gap['confidence']}"), "gap": gap}
 
     # 6 ── verify anything the gap stage says is checkable
@@ -204,6 +230,10 @@ def investigate(thread: str, question: str, depth: str = "intermediate",
     for st in gap["next_steps"][:4]:
         R.record(thread, next_step=f"[{st.get('kind', 'read')}] {st.get('step', '')} "
                                    f"— {st.get('why', '')}")
+    for na in gap["novel_angles"][:2]:
+        R.record(thread, next_step=f"[propose] {na.get('proposal', '')} "
+                                   f"— {na.get('why_not_covered', '')}",
+                 sources=na.get("checked_against", [])[:3])
     state = R.thread(thread)
     yield "record", {"msg": (f"thread now holds {len(state.get('findings', []))} finding(s), "
                              f"{len(state.get('next_steps', []))} proposed step(s)"),
@@ -222,6 +252,127 @@ def investigate(thread: str, question: str, depth: str = "intermediate",
             "note": ("[S] your books · [A] arXiv preprint · [P] a prior finding "
                      "from this thread. Untagged text is the model's synthesis."),
         },
+    }
+
+
+# ── draft: turn a thread's accumulated state into a structured write-up ────
+# One new LLM call, run only when explicitly requested by the reader — never
+# part of investigate()'s own per-turn loop, so it adds nothing to that
+# loop's cost. Depth-gated the same way every other call in this app is.
+
+DRAFT_PLAN = {
+    "intro":        (MODEL_FAST, 8000),
+    "intermediate": (MODEL_FAST, 14000),
+    "advanced":     (MODEL_DEEP, 20000),
+}
+
+_DRAFT_SYS = """You are drafting a structured research write-up from ONE thread's \
+accumulated notebook state — real findings, real gaps, real contradictions, real \
+next steps, gathered across one or more investigate() sessions. This is NOT a \
+finished paper with novel experimental results — say so plainly in the output. \
+Write only what the thread's own material actually supports; never invent a \
+result, a number, or a citation that is not in the material you were given.
+
+Reply in this structure, using LaTeX for mathematics:
+
+TITLE — one line, descriptive, not clickbait
+ABSTRACT — 3-5 sentences: the question pursued, what is established, what
+  remains open. State plainly this is a literature synthesis and open-question
+  map, not a report of new experiments.
+BACKGROUND — the question and why it matters, grounded in established findings
+CURRENT UNDERSTANDING — synthesize the findings, citing sources by the labels
+  given exactly as supplied; never invent a citation identifier
+OPEN QUESTIONS AND CONTRADICTIONS — as concretely as the material states them
+PROPOSED DIRECTIONS — next steps and any proposed novel angles the thread
+  recorded, framed as what could be pursued, not as work already done
+LIMITATIONS — what this thread has NOT established (shallow coverage, search
+  on titles/abstracts not full papers, no original experiments run) — concrete,
+  not a generic disclaimer
+A NOTE ON AUTHORSHIP — one line: this draft was synthesized by an AI system
+  from a research notebook thread; disclose that plainly if this is ever
+  shared or submitted anywhere, the same as any other AI-assisted writing.
+
+CRITICAL: if the material contains no [A#] arXiv papers, say plainly in
+LIMITATIONS that no primary literature was consulted."""
+
+
+def _thread_material(t: dict) -> str:
+    """Flatten a notebook thread's accumulated state into the plain-text block
+    draft_paper() sends the model — the model sees exactly what R.record()
+    has stored, nothing more."""
+    lines = []
+    for f in t.get("findings", []):
+        srcs = ", ".join(f.get("sources") or [])
+        lines.append(f"FINDING ({f['at'][:10]}): {f['text']}" + (f"  [sources: {srcs}]" if srcs else ""))
+    for q in t.get("open_questions", []):
+        if q.get("status") == "open":
+            lines.append(f"OPEN QUESTION: {q['text']}")
+    for c in t.get("contradictions", []):
+        lines.append(f"CONTRADICTION: {c['text']}")
+    for n in t.get("next_steps", []):
+        lines.append(f"PROPOSED NEXT STEP: {n['text']}")
+    return "\n".join(lines)
+
+
+def draft_paper(thread: str, depth: str = "intermediate") -> Iterator[tuple[str, dict]]:
+    """Draft a structured, honest writeup from a thread's own accumulated
+    state — never invents a finding the thread does not contain. Yields
+    heartbeat progress the same way pipeline.py's _teach() does: a call at
+    this budget can run 20-40s, and an SSE connection with no bytes for that
+    long risks an intermediate proxy timing it out."""
+    key = _api_key()
+    if not key:
+        yield "error", {"message": "No DEEPSEEK_API_KEY found"}
+        return
+    t = R.thread(thread)
+    if not t or not t.get("findings"):
+        yield "error", {"message": f"thread {thread!r} has no recorded findings yet — "
+                                    f"run investigate() at least once first"}
+        return
+    from openai import OpenAI
+    client = OpenAI(api_key=key, base_url="https://api.deepseek.com",
+                    timeout=300.0, max_retries=1)
+    budget = Budget()
+    mat = _thread_material(t)
+    model, max_tokens = DRAFT_PLAN.get(depth, DRAFT_PLAN["intermediate"])
+
+    box: dict = {}
+
+    def _work():
+        try:
+            box["draft"] = _call(client, "draft", depth, _DRAFT_SYS,
+                                 f"THREAD: {thread}\n\nACCUMULATED NOTEBOOK STATE:\n{mat}",
+                                 budget, force=(model, max_tokens))
+        except Exception as exc:
+            box["error"] = f"{type(exc).__name__}: {exc}"
+
+    worker = threading.Thread(target=_work, daemon=True)
+    t0 = time.monotonic()
+    yield "drafting", {"msg": "Drafting from thread state…", "elapsed_s": 0}
+    worker.start()
+    while worker.is_alive():
+        worker.join(timeout=5.0)
+        if worker.is_alive():
+            yield "drafting", {"msg": f"Drafting… {int(time.monotonic()-t0)}s",
+                               "elapsed_s": int(time.monotonic() - t0)}
+    if box.get("error"):
+        yield "error", {"message": box["error"]}
+        return
+    draft = (box.get("draft") or "").strip()
+    if not draft:
+        yield "error", {"message": "the draft stage returned nothing"}
+        return
+    yield "done", {
+        "thread": thread, "depth": depth, "draft": draft,
+        "based_on": {"findings": len(t.get("findings", [])),
+                    "open_questions": sum(1 for q in t.get("open_questions", []) if q.get("status") == "open"),
+                    "contradictions": len(t.get("contradictions", [])),
+                    "next_steps": len(t.get("next_steps", []))},
+        "budget": budget.summary(), "elapsed_s": int(time.monotonic() - t0),
+        "honesty": {"note": "Synthesized entirely from this thread's own recorded "
+                            "findings — not new experiments, not a substitute for "
+                            "the primary literature beyond what investigate() "
+                            "already retrieved and recorded."},
     }
 
 

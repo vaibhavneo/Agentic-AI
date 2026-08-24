@@ -210,7 +210,8 @@ def record(thread: str, *, finding: str = "", question: str = "",
         t["contradictions"].append({"at": stamp, "text": contradiction,
                                     "sources": sources or []})
     if next_step:
-        t["next_steps"].append({"at": stamp, "text": next_step, "status": "proposed"})
+        t["next_steps"].append({"at": stamp, "text": next_step, "status": "proposed",
+                                "sources": sources or []})
     t["entries"] += 1
     t["updated"] = stamp
     _save(nb)
@@ -249,6 +250,10 @@ def brief(name: str, max_items: int = 6) -> str:
     if t.get("contradictions"):
         bits.append("Unresolved contradictions:\n" + "\n".join(
             f"  - {c['text']}" for c in t["contradictions"][-max_items:]))
+    proposed = [n for n in t.get("next_steps", []) if n.get("status") == "proposed"]
+    if proposed:
+        bits.append("Already proposed, not yet done:\n" + "\n".join(
+            f"  - {n['text']}" for n in proposed[-max_items:]))
     return "\n\n".join(bits)
 
 

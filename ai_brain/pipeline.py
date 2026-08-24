@@ -169,7 +169,7 @@ pipeline. Reply with ONLY a JSON object, no prose:
  "restate":"one sentence restating what is actually being asked",
  "question_type":"definition|teach_me|deep_dive|compare|derivation|
    worked_example|quiz_me|teach_back|whats_next|why_chain|research|
-   challenge_idea|general",
+   challenge_idea|review_paper|general",
    // definition: a plain "what is X". teach_me/deep_dive: wants the concept
    // built up, not just stated — "teach me X", "how does X really work".
    // compare: two or more things set against each other, including "are X
@@ -187,6 +187,11 @@ pipeline. Reply with ONLY a JSON object, no prose:
    // architecture", "help me develop this idea", "poke holes in this",
    // "what am I missing") — this is about testing a reader-authored idea,
    // not learning an established concept the library already covers.
+   // review_paper: the reader has pasted a paper's abstract, excerpt, or
+   // draft text and wants it critiqued as a reviewer would — evaluated for
+   // soundness/significance/clarity — not taught or explained. Distinct
+   // from challenge_idea: that is the reader's OWN idea; this is a review
+   // of existing written work, typically someone else's or a draft.
    // general: none of the above fit well.
  "premise_check":"none|misconception|ambiguous",
    // misconception: the question's own phrasing embeds something false or
@@ -266,6 +271,7 @@ _TYPE_TO_MODE = {
     "why_chain": "why_chain",
     "research": "research",
     "challenge_idea": "thinking_partner",
+    "review_paper": "paper_review",
     "general": "explain",
 }
 
@@ -613,7 +619,8 @@ def _load_skill(relative_path: str) -> str:
 
 MODE_DIRECTIVE = {name: _load_skill(f"modes/{name}.md") for name in (
     "explain", "socratic", "exercise", "compare", "deep_dive", "derivation",
-    "quiz", "teach_back", "whats_next", "why_chain", "research", "thinking_partner")}
+    "quiz", "teach_back", "whats_next", "why_chain", "research", "thinking_partner",
+    "paper_review")}
 
 # Modes whose own directive already closes on a question (socratic asks a
 # sequence, quiz asks exactly one, thinking_partner closes with one
@@ -949,12 +956,32 @@ def _validation_feedback(checks: dict) -> str:
 
 # ── the pipeline ──────────────────────────────────────────────────────────
 
+_QUESTION_CHAR_CAP = 6000
+
+
+def _cap_question(question: str, cap: int = _QUESTION_CHAR_CAP) -> tuple[str, bool]:
+    """Defensive cap on the raw incoming question, applied before understand()
+    ever sees it. Two independent risks make this necessary: /api/ask is
+    GET+EventSource, so a very long question travels as a URL-encoded query
+    string well past what a full paper needs; and _call()'s own documented
+    empty-response failure mode (a large prompt lets DeepSeek's reasoning
+    consume the whole completion budget) is worst on understand(), whose
+    600-800 token budget is the smallest in the pipeline and runs on the raw,
+    unclassified question before any mode-conditional logic exists. 6000
+    chars never touches a normal question; it gives paper_review mode a
+    natural, honest scope (abstract + key sections, not a full paper) without
+    any mode-specific logic. Matches this file's existing [:6000]/[:7000]
+    truncation precedents elsewhere."""
+    return (question, False) if len(question) <= cap else (question[:cap], True)
+
+
 def run(question: str, mode: str = "explain",
         depth: str = "intermediate", history=()) -> Iterator[tuple[str, dict]]:
     question = (question or "").strip()
     if not question:
         yield "error", {"message": "empty question"}
         return
+    question, question_truncated = _cap_question(question)
     key = _api_key()
     if not key:
         yield "error", {"message": "No DEEPSEEK_API_KEY found"}
@@ -1276,6 +1303,7 @@ def run(question: str, mode: str = "explain",
             "evidence_strength": book_ev.get("evidence_strength", "unassessed"),
             "used_web": bool(web_res.get("hits")),
             "used_tools": bool(tool_res and tool_res.get("ok")),
+            "input_truncated": question_truncated,
             "note": ("Tags: [C:] curriculum, [S] your books, [W] web, "
                      "[T] a computed value. Untagged sentences are the "
                      "model's own synthesis."),

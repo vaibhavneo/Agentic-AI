@@ -166,6 +166,34 @@ CASES = [
              lambda d: "?" in d["prose"]),
         ],
     },
+    {
+        # paper_review is a new mode combination nothing else here exercises
+        # — worth checking explicitly that a pasted abstract doesn't trip an
+        # unwarranted validation "fail" (e.g. from being read as unsupported
+        # claims rather than the paper's own claims under review), and that
+        # the new _cap_question() honesty field actually reaches a real
+        # response, not just the offline truncation-logic tests.
+        "name": "paper review mode (Phase 3 — new mode, not a teaching question)",
+        "question": (
+            "Abstract: We study a lightweight adaptation method for pretrained "
+            "transformer language models. Instead of updating all parameters "
+            "during fine-tuning, we freeze the pretrained weights and inject a "
+            "small number of trainable rank-decomposition matrices into each "
+            "attention layer. On a suite of benchmark tasks this approach "
+            "matches full fine-tuning accuracy while updating under 1% of "
+            "total parameters, and adds no inference latency once the low-"
+            "rank matrices are merged back into the original weights."
+        ),
+        "mode": "paper_review", "depth": "intermediate",
+        "checks": [
+            ("mode is echoed back as paper_review, not silently reclassified",
+             lambda d: d.get("mode") == "paper_review"),
+            ("input_truncated is present and False for a short abstract",
+             lambda d: d.get("honesty", {}).get("input_truncated") is False),
+            ("verdict is not an unwarranted fail on a well-formed critique",
+             lambda d: d.get("validation", {}).get("verdict") != "fail"),
+        ],
+    },
 ]
 
 

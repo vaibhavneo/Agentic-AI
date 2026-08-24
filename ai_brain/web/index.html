@@ -191,6 +191,7 @@ button.go:disabled{opacity:.45;cursor:not-allowed}
     <button role="tab" data-tab="ask" aria-selected="true">Ask</button>
     <button role="tab" data-tab="lab" aria-selected="false">Brain Lab</button>
     <button role="tab" data-tab="cur" aria-selected="false">Curriculum <span id="cur-n"></span></button>
+    <button role="tab" data-tab="research" aria-selected="false">Research</button>
   </nav>
 
   <section class="panel on" id="p-ask">
@@ -219,6 +220,7 @@ button.go:disabled{opacity:.45;cursor:not-allowed}
         <option value="why_chain">Why chain</option>
         <option value="research">Research</option>
         <option value="thinking_partner">Thinking Partner</option>
+        <option value="paper_review">Paper Review</option>
       </select>
       <select id="depth" title="Assumed background">
         <option value="intro">Intro</option>
@@ -326,6 +328,52 @@ button.go:disabled{opacity:.45;cursor:not-allowed}
       <input id="c-q" placeholder="e.g. why does attention divide by sqrt(d_k)"></div>
     <p class="cur-count" id="c-count"></p>
     <div id="c-list"></div>
+  </section>
+
+  <!-- ── Research ── -->
+  <section class="panel" id="p-research">
+    <p class="hint" style="margin-top:14px">Investigate a question with real arXiv search. Findings,
+    open questions, contradictions and proposed next steps are recorded to a named thread's notebook,
+    so investigating the same thread again continues from what was already established instead of
+    starting over. This is a literature-synthesis and open-question-mapping tool — it does not run
+    its own experiments or produce original results.</p>
+
+    <div class="field"><label for="r-thread">Thread</label>
+      <input id="r-thread" list="r-thread-list" placeholder="e.g. attention-mechanisms — pick an existing thread or start a new one">
+      <datalist id="r-thread-list"></datalist>
+    </div>
+    <div id="r-summary"></div>
+
+    <div class="field"><label for="r-q">Question</label>
+      <textarea id="r-q" rows="2" placeholder="What do you want to investigate in this thread?"></textarea>
+    </div>
+    <div class="row3">
+      <div class="field"><label for="r-depth">Depth</label>
+        <select id="r-depth">
+          <option value="intro">Intro</option>
+          <option value="intermediate" selected>Intermediate</option>
+          <option value="advanced">Advanced</option>
+        </select>
+      </div>
+      <div style="display:flex;align-items:center;gap:6px;margin-top:18px">
+        <input type="checkbox" id="r-arxiv" checked style="width:auto">
+        <label for="r-arxiv" style="font-size:.75rem;color:var(--muted)">Search arXiv</label>
+      </div>
+      <div class="field" style="justify-content:end"><div class="crow" style="gap:8px">
+        <button class="go" id="r-go" type="button">Investigate</button>
+        <button class="go" id="r-draft" type="button" style="background:var(--violet)">Draft write-up</button>
+      </div></div>
+    </div>
+    <p class="hint" id="r-hint">Investigate runs a real arXiv search plus reasoning over this thread's
+    accumulated notebook state. Draft write-up synthesizes everything recorded in the thread so far into
+    a structured document — it needs at least one investigate() run on this thread first.</p>
+
+    <div class="log" id="r-log">
+      <div class="empty" id="r-empty">
+        Pick or type a thread name, ask a question, and Investigate will search your library and arXiv,
+        then record findings, open questions and contradictions into that thread's notebook.
+      </div>
+    </div>
   </section>
 </div>
 
@@ -710,13 +758,14 @@ document.getElementById("q").addEventListener("keydown",e=>{
    Tabs, Brain Lab and Curriculum browser
    ════════════════════════════════════════════════════════════════════════ */
 const $ = id => document.getElementById(id);
-const PANELS = {ask:"p-ask", lab:"p-lab", cur:"p-cur"};
+const PANELS = {ask:"p-ask", lab:"p-lab", cur:"p-cur", research:"p-research"};
 
 document.querySelectorAll('.tabs button').forEach(b => b.addEventListener("click", () => {
   document.querySelectorAll('.tabs button').forEach(o =>
     o.setAttribute("aria-selected", String(o === b)));
   Object.entries(PANELS).forEach(([k, id]) => $(id).classList.toggle("on", k === b.dataset.tab));
   if (b.dataset.tab === "cur") loadCurriculum();
+  if (b.dataset.tab === "research") loadResearchThreads();
 }));
 
 /* Speech gives words; sympy needs operators. Ordered longest-phrase-first so
@@ -1047,6 +1096,223 @@ $("c-q").addEventListener("input", async e => {
       ? j.matched.length + " topic(s) this question would match"
       : "no topic matches — the answer would come from books and general knowledge");
   }catch(_){}
+});
+
+/* ════════════════════════════════════════════════════════════════════════
+   Research — investigate() and draft_paper(), exposed via /api/research/*.
+   Structural mirror of ask() above (not a shared abstraction — ask() itself
+   isn't factored into helpers, so this matches the file's existing per-
+   feature style): its own EventSource, its own trace rows keyed by stage
+   name, its own busy flag so a long investigate() can't block the Ask tab
+   or vice versa.
+   ════════════════════════════════════════════════════════════════════════ */
+// Citations here use [S#]/[A#]/[P#] (book/arXiv/prior-finding — see
+// investigate()'s own "honesty.note"), not the [C:id]/[SWT]# vocabulary
+// renderProse()/offeredTags() were built around. Reusing those as-is would
+// falsely flag every genuine [A#]/[P#] citation as a red "miss" (offeredTags
+// would see an empty "kept" set for a d shape it doesn't recognize) — so
+// this is markdown-lite + LaTeX only, styled but not miss-checked.
+function renderResearchProse(md){
+  let s=String(md||""); const B=[],I=[],C=[];
+  s=s.replace(/```(\w*)\n([\s\S]*?)```/g,(m,l,c)=>{C.push(c); return "C"+(C.length-1)+"";});
+  s=s.replace(/\\\[([\s\S]*?)\\\]|\$\$([\s\S]*?)\$\$/g,(m,a,b)=>{B.push(a!==undefined?a:b); return "B"+(B.length-1)+"";});
+  s=s.replace(/\\\(([\s\S]*?)\\\)|\$([^$\n]+)\$/g,(m,a,b)=>{I.push(a!==undefined?a:b); return "I"+(I.length-1)+"";});
+  s=esc(s);
+  s=s.replace(/`([^`\n]+)`/g,(m,c)=>"<code>"+c+"</code>");
+  s=s.replace(/\*\*([^*]+)\*\*/g,"<b>$1</b>");
+  s=s.replace(/(^|[^*])\*([^*\n]+)\*(?!\*)/g,"$1<i>$2</i>");
+  s=s.replace(/^#{1,4}\s*(.+)$/gm,'<div class="sec-h">$1</div>');
+  s=s.replace(/\[([SAP]\d+)\]/g,'<span class="cite" title="S=book · A=arXiv · P=prior finding">$1</span>');
+  s=s.split(/\n{2,}/).map(p=>{
+    p=p.trim(); if(!p) return "";
+    if(/^[BC]\d+$/.test(p)) return p;
+    if(/^(-{3,}|\*{3,})$/.test(p)) return '<hr style="border:none;border-top:1px solid var(--border);margin:1.4em 0">';
+    if(/^\s*([-*]|\d+\.)\s/.test(p)){
+      const items=p.split(/\n(?=\s*(?:[-*]|\d+\.)\s)/)
+        .map(x=>"<li>"+x.replace(/^\s*(?:[-*]|\d+\.)\s*/,"").replace(/\n/g," ")+"</li>").join("");
+      return /^\s*\d+\./.test(p) ? "<ol>"+items+"</ol>" : "<ul>"+items+"</ul>";
+    }
+    if(/^<div class="sec-h">/.test(p)) return p;
+    return "<p>"+p.replace(/\n/g," ")+"</p>";
+  }).join("");
+  s=s.replace(/C(\d+)/g,(m,i)=>"<pre><code>"+esc(C[+i])+"</code></pre>");
+  s=s.replace(/B(\d+)/g,(m,i)=>'<div class="eqblock">'+tex(B[+i],true)+"</div>");
+  s=s.replace(/I(\d+)/g,(m,i)=>tex(I[+i],false));
+  return '<div class="prose">'+s+"</div>";
+}
+function _bulletList(label, items){
+  if(!items||!items.length) return "";
+  return '<div class="sec-h">'+esc(label)+'</div><ul>'+items.map(x=>"<li>"+esc(x)+"</li>").join("")+'</ul>';
+}
+function renderGap(gap){
+  if(!gap) return "";
+  let h=_bulletList("Open gaps", gap.gaps)+_bulletList("Contradictions", gap.contradictions);
+  if(gap.next_steps&&gap.next_steps.length)
+    h+='<div class="sec-h">Proposed next steps</div><ul>'+gap.next_steps.map(n=>
+      "<li>["+esc(n.kind||"read")+"] "+esc(n.step||"")+(n.why?" — "+esc(n.why):"")+"</li>").join("")+'</ul>';
+  if(gap.novel_angles&&gap.novel_angles.length)
+    h+='<div class="sec-h">Possible novel angles <span class="hint">(checked at '+
+      esc(gap.confidence||"n/a")+' confidence — title/abstract level, not full papers)</span></div><ul>'+
+      gap.novel_angles.map(na=>"<li><b>"+esc(na.proposal||"")+"</b> — "+esc(na.why_not_covered||"")+"</li>").join("")+'</ul>';
+  return h ? '<div class="prose">'+h+'</div>' : "";
+}
+function renderVerified(list){
+  if(!list||!list.length) return "";
+  return '<details class="fold" open><summary>Symbolic verification</summary>'+
+    list.map(v=>'<div class="ev-score">'+(v.equal?"✓":"✗")+' <code>'+esc(v.claim)+
+      '</code> — '+esc(v.verdict)+'</div>').join("")+'</details>';
+}
+function renderArxivPapers(arx){
+  const papers=(arx&&arx.papers)||[];
+  if(!papers.length) return "";
+  return papers.map((p,i)=>'<div class="ev-item" id="cite-A'+(i+1)+'"><div class="ev-head">'+
+    '<span class="cite">A'+(i+1)+'</span><span class="prov prov-web">arXiv</span>'+
+    '<span class="ev-src"><a href="'+esc(p.url||"#")+'" target="_blank" rel="noopener">'+
+      esc(p.title||"")+'</a></span><span class="ev-shelf">'+esc(p.published||"")+'</span></div>'+
+    '<div class="ev-text">'+esc((p.authors||[]).join(", "))+'</div></div>').join("");
+}
+
+let rBusy=false;
+function _rSetBusy(v){ rBusy=v; $("r-go").disabled=v; $("r-draft").disabled=v; }
+
+function _rBubble(label){
+  const empty=$("r-empty"); if(empty) empty.remove();
+  const log=$("r-log");
+  const me=document.createElement("div"); me.className="msg me";
+  me.innerHTML='<div class="bubble">'+label+"</div>";
+  const bot=document.createElement("div"); bot.className="msg";
+  bot.innerHTML='<div class="bubble"><div class="trace"></div></div>';
+  log.appendChild(me); log.appendChild(bot);
+  me.scrollIntoView({block:"start",behavior:"smooth"});
+  return {me, bubble:bot.querySelector(".bubble"), trace:bot.querySelector(".trace")};
+}
+
+function investigateThread(){
+  if(rBusy) return;
+  const thread=$("r-thread").value.trim(), q=$("r-q").value.trim();
+  if(!thread||!q) return;
+  _rSetBusy(true);
+  const {me, bubble, trace}=_rBubble("<b>"+esc(thread)+":</b> "+esc(q));
+  const rows={};
+  const put=(st,msg,cls)=>{
+    let r=rows[st];
+    if(!r){ r=document.createElement("div");
+      r.innerHTML='<span class="st">'+esc(st)+'</span><span class="mg"></span>';
+      trace.appendChild(r); rows[st]=r; }
+    r.className="trace-row "+(cls===undefined?"run":cls);
+    r.querySelector(".mg").textContent=msg||"";
+  };
+  const finish=()=>_rSetBusy(false);
+
+  const url="/api/research/investigate?thread="+encodeURIComponent(thread)+
+    "&q="+encodeURIComponent(q)+"&depth="+encodeURIComponent($("r-depth").value)+
+    "&use_arxiv="+($("r-arxiv").checked?"1":"0");
+  let es, settled=false;
+  try{ es=new EventSource(url); }
+  catch(e){ put("error","cannot open stream","err"); finish(); return; }
+
+  ["recall","search","survey","synthesis","gap","verify","record"].forEach(st=>es.addEventListener(st,e=>{
+    let d={}; try{ d=JSON.parse(e.data); }catch(_){}
+    put(st,d.msg||"");
+  }));
+  es.addEventListener("done",e=>{
+    settled=true; es.close(); finish();
+    let d; try{ d=JSON.parse(e.data); }catch(err){ put("error","bad payload","err"); return; }
+    Object.keys(rows).forEach(k=>rows[k].className="trace-row");
+    bubble.innerHTML=
+      renderResearchProse(d.synthesis)+
+      renderGap(d.gap)+
+      renderVerified(d.verified)+
+      '<details class="fold" open><summary>Sources &amp; provenance</summary>'+
+        renderEvidence(d.library)+renderArxivPapers(d.arxiv)+'</details>'+
+      '<details class="fold"><summary>Pipeline trace &amp; token budget</summary>'+
+        '<div class="trace">'+trace.innerHTML+'</div>'+renderBudget(d)+'</details>';
+    me.scrollIntoView({block:"start",behavior:"smooth"});
+    loadResearchThreads(); refreshThreadSummary();
+  });
+  es.addEventListener("error",e=>{
+    let d=null; try{ d=JSON.parse(e.data); }catch(_){}
+    settled=true; es.close(); finish();
+    put("error",(d&&d.message)||"stream failed","err");
+  });
+  es.onerror=()=>{ if(!settled){ settled=true; es.close(); finish();
+    put("error","connection lost","err"); } };
+}
+
+function draftThread(){
+  if(rBusy) return;
+  const thread=$("r-thread").value.trim();
+  if(!thread) return;
+  _rSetBusy(true);
+  const {me, bubble, trace}=_rBubble("<b>Draft write-up:</b> "+esc(thread));
+  let row=null;
+  const put=(msg,cls)=>{
+    if(!row){ row=document.createElement("div");
+      row.innerHTML='<span class="st">draft</span><span class="mg"></span>';
+      trace.appendChild(row); }
+    row.className="trace-row "+(cls===undefined?"run":cls);
+    row.querySelector(".mg").textContent=msg||"";
+  };
+  const finish=()=>_rSetBusy(false);
+
+  const url="/api/research/draft?thread="+encodeURIComponent(thread)+
+    "&depth="+encodeURIComponent($("r-depth").value);
+  let es, settled=false;
+  try{ es=new EventSource(url); }
+  catch(e){ put("cannot open stream","err"); finish(); return; }
+
+  es.addEventListener("drafting",e=>{
+    let d={}; try{ d=JSON.parse(e.data); }catch(_){}
+    put(d.msg||"");
+  });
+  es.addEventListener("done",e=>{
+    settled=true; es.close(); finish();
+    let d; try{ d=JSON.parse(e.data); }catch(err){ put("bad payload","err"); return; }
+    if(row) row.className="trace-row";
+    const b=d.based_on||{};
+    bubble.innerHTML=
+      renderResearchProse(d.draft)+
+      '<p class="hint">Based on '+(b.findings||0)+' finding(s), '+(b.open_questions||0)+
+        ' open question(s), '+(b.contradictions||0)+' contradiction(s), '+(b.next_steps||0)+
+        ' proposed step(s) recorded in this thread.</p>'+
+      '<details class="fold"><summary>Pipeline trace &amp; token budget</summary>'+
+        '<div class="trace">'+trace.innerHTML+'</div>'+renderBudget(d)+'</details>';
+    me.scrollIntoView({block:"start",behavior:"smooth"});
+  });
+  es.addEventListener("error",e=>{
+    let d=null; try{ d=JSON.parse(e.data); }catch(_){}
+    settled=true; es.close(); finish();
+    put((d&&d.message)||"stream failed","err");
+  });
+  es.onerror=()=>{ if(!settled){ settled=true; es.close(); finish();
+    put("connection lost","err"); } };
+}
+
+async function loadResearchThreads(){
+  try{
+    const j=await (await fetch("/api/research/threads")).json();
+    $("r-thread-list").innerHTML=(j.threads||[]).map(t=>
+      '<option value="'+esc(t.thread)+'">'+t.findings+' finding(s)</option>').join("");
+  }catch(_){}
+}
+async function refreshThreadSummary(){
+  const name=$("r-thread").value.trim(), box=$("r-summary");
+  if(!name){ box.innerHTML=""; return; }
+  try{
+    const j=await (await fetch("/api/research/thread?name="+encodeURIComponent(name))).json();
+    const s=j.state||{};
+    if(!s.created){ box.innerHTML='<p class="hint">New thread — nothing recorded yet.</p>'; return; }
+    const openQ=(s.open_questions||[]).filter(q=>q.status==="open").length;
+    box.innerHTML='<p class="hint">Existing thread, last updated '+esc((s.updated||"").slice(0,10))+
+      ' — '+(s.findings||[]).length+' finding(s) · '+openQ+' open question(s) · '+
+      (s.contradictions||[]).length+' contradiction(s) · '+(s.next_steps||[]).length+' proposed step(s).</p>';
+  }catch(_){ box.innerHTML=""; }
+}
+$("r-thread").addEventListener("blur",refreshThreadSummary);
+$("r-go").addEventListener("click",investigateThread);
+$("r-draft").addEventListener("click",draftThread);
+$("r-q").addEventListener("keydown",e=>{
+  if(e.key==="Enter"&&!e.shiftKey){ e.preventDefault(); investigateThread(); }
 });
 </script>
 </body>

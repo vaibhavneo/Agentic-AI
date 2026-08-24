@@ -289,6 +289,83 @@ def api_status():
                     "key_set": bool(os.getenv("DEEPSEEK_API_KEY"))})
 
 
+# ── /api/research/* — real literature search + a persistent notebook,
+# reusing research.py/research_loop.py's existing, already-correct
+# investigate() and draft_paper() generators. Same SSE-forwarding shape as
+# /api/ask (server.py:76-107) — GET, not POST, since the frontend drives
+# these with EventSource, which is GET-only by browser spec. ───────────────
+
+def _research():
+    import research
+    return research
+
+
+def _research_loop():
+    import research_loop
+    return research_loop
+
+
+@app.route("/api/research/threads")
+def api_research_threads():
+    return jsonify({"threads": _research().threads()})
+
+
+@app.route("/api/research/thread")
+def api_research_thread():
+    name = (request.args.get("name") or "").strip()
+    if not name:
+        return jsonify({"error": "name parameter required"}), 400
+    return jsonify({"thread": name, "state": _research().thread(name)})
+
+
+@app.route("/api/research/investigate")
+def api_research_investigate():
+    thread = (request.args.get("thread") or "").strip()
+    question = (request.args.get("q") or "").strip()
+    if not thread or not question:
+        return jsonify({"error": "thread and q parameters required"}), 400
+    depth = request.args.get("depth", "intermediate")
+    use_arxiv = request.args.get("use_arxiv", "1") not in ("0", "false", "no")
+
+    def generate():
+        try:
+            for stage, payload in _research_loop().investigate(thread, question, depth, use_arxiv=use_arxiv):
+                yield f"event: {stage}\ndata: {json.dumps(payload, default=str)}\n\n"
+        except (BrokenPipeError, ConnectionResetError):
+            return                      # reader navigated away mid-run
+        except Exception as exc:
+            try:
+                yield f"event: error\ndata: {json.dumps({'message': f'{type(exc).__name__}: {exc}'})}\n\n"
+            except Exception:
+                pass
+
+    return Response(stream_with_context(generate()), mimetype="text/event-stream",
+                    headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
+
+
+@app.route("/api/research/draft")
+def api_research_draft():
+    thread = (request.args.get("thread") or "").strip()
+    if not thread:
+        return jsonify({"error": "thread parameter required"}), 400
+    depth = request.args.get("depth", "intermediate")
+
+    def generate():
+        try:
+            for stage, payload in _research_loop().draft_paper(thread, depth):
+                yield f"event: {stage}\ndata: {json.dumps(payload, default=str)}\n\n"
+        except (BrokenPipeError, ConnectionResetError):
+            return
+        except Exception as exc:
+            try:
+                yield f"event: error\ndata: {json.dumps({'message': f'{type(exc).__name__}: {exc}'})}\n\n"
+            except Exception:
+                pass
+
+    return Response(stream_with_context(generate()), mimetype="text/event-stream",
+                    headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
+
+
 # ── static files (must be registered last — it's the catch-all) ───────────
 
 @app.route("/", defaults={"path": ""})

@@ -43,6 +43,7 @@ st, body = get("/")
 check("GET /", st == 200 and b"AI Brain" in body, f"HTTP {st}, {len(body)} bytes")
 check("Brain Lab tab present", b'data-tab="lab"' in body)
 check("Curriculum tab present", b'data-tab="cur"' in body)
+check("Research tab present", b'data-tab="research"' in body)
 st, body = get("/vendor/katex/katex.min.js")
 check("vendored KaTeX served", st == 200 and len(body) > 100_000, f"HTTP {st}, {len(body)} bytes")
 
@@ -138,6 +139,27 @@ print("[sandbox]")
 for bad in ('__import__("os").system("id")', 'open("/etc/passwd")'):
     st, body = get("/api/symbolic?" + urllib.parse.urlencode({"expr": bad}))
     check(f"blocks {bad[:30]}", st == 200 and json.loads(body).get("ok") is False)
+
+print("[research routes — investigate()/draft_paper(), exposed but not key-dependent to reach]")
+st, body = get("/api/research/threads")
+check("/api/research/threads is reachable and returns the notebook's thread list",
+      st == 200 and "threads" in json.loads(body), f"HTTP {st}")
+st, body = get("/api/research/thread?" + urllib.parse.urlencode({"name": "__smoke_test_no_such_thread__"}))
+check("/api/research/thread on an unknown thread returns 200 with an empty state, not a 404/500",
+      st == 200 and json.loads(body).get("state") == {}, f"HTTP {st}, {body[:120]!r}")
+# These two are GET+EventSource routes (browser SSE requires GET), so a
+# request missing the required params must fail fast with a plain 400 JSON
+# body — never open an SSE stream, and never 500 — before either route ever
+# touches DEEPSEEK_API_KEY. That's the one thing this smoke test can assert
+# unconditionally about them without spending a real LLM call on every run;
+# the actual investigate()/draft_paper() content is exercised manually,
+# the same way this file doesn't fabricate assertions about answer prose.
+st, body = get("/api/research/investigate")
+check("/api/research/investigate with no thread/q params fails fast with 400, not 500",
+      st == 400, f"HTTP {st}, {body[:120]!r}")
+st, body = get("/api/research/draft")
+check("/api/research/draft with no thread param fails fast with 400, not 500",
+      st == 400, f"HTTP {st}, {body[:120]!r}")
 
 print("[streaming answer]")
 q = urllib.parse.urlencode({"q": "why does attention scale the dot product by 1/sqrt(d_k)",
