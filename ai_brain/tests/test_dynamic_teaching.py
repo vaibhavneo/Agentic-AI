@@ -238,5 +238,26 @@ for m in ("socratic", "quiz", "thinking_partner"):
     check(f"no follow-up instruction for mode='{m}' (its own directive already asks one)",
           "follow-up question" not in c.last_user_prompt)
 
+print("\n[professor_engine: KNOWN RECURRING MISCONCEPTION reaches the prompt when supplied]")
+client10 = _CapturingClient()
+professor_engine(
+    "What is attention?", {"restate": "q", "premise_check": "none"}, {"kept": []}, {"hits": []}, None,
+    {"skipped": True}, {"text": ""}, "explain", "intermediate", client10, _Budget(), topics=(attention,),
+    recurring_misconceptions=[{"topic_id": attention.id,
+                               "misconception": "thinks attention is local-only", "n": 3,
+                               "last_seen": "2026-08-01T00:00:00+00:00"}])
+check("KNOWN RECURRING MISCONCEPTION block is present", "KNOWN RECURRING MISCONCEPTION" in client10.last_user_prompt)
+check("the specific misconception text reaches the prompt",
+      "thinks attention is local-only" in client10.last_user_prompt)
+check("the repeat count reaches the prompt", "hit 3 times" in client10.last_user_prompt)
+
+print("\n[professor_engine: no stray KNOWN RECURRING MISCONCEPTION block when none supplied]")
+client11 = _CapturingClient()
+professor_engine(
+    "What is attention?", {"restate": "q", "premise_check": "none"}, {"kept": []}, {"hits": []}, None,
+    {"skipped": True}, {"text": ""}, "explain", "intermediate", client11, _Budget(), topics=(attention,))
+check("no stray block when recurring_misconceptions wasn't supplied",
+      "KNOWN RECURRING MISCONCEPTION" not in client11.last_user_prompt)
+
 print(f"\n{'ALL CHECKS PASSED' if not fails else str(len(fails)) + ' FAILED: ' + str(fails)}")
 sys.exit(1 if fails else 0)

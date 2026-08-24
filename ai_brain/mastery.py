@@ -7,7 +7,7 @@ different threads; row_factory=Row for dict-like access; schema applied on
 every connect via CREATE TABLE IF NOT EXISTS, which is idempotent and
 needs no separate migration step.
 
-Two tables:
+Three tables:
   exposure       — append-only log, one row per topic per answer that
                    touched it, direct (match_topics() judged it relevant)
                    or prereq (surfaced as background by
@@ -18,6 +18,12 @@ Two tables:
   manual_status  — one row per topic the reader has explicitly marked,
                    the one genuine write this milestone exposes through a
                    POST endpoint (/api/mastery/mark).
+  misconceptions — append-only log, one row per teach_back turn that
+                   surfaced a specific misconception (evaluate_teachback()
+                   already produces this list; this just persists it
+                   instead of discarding it after display). See
+                   recurring_misconceptions() below for the honest
+                   limitation on how "the same misconception" is matched.
 
 This is intentionally NOT a general "user" or "session" system — this app
 has exactly one reader, no login, no multi-tenant concept anywhere else in
@@ -60,6 +66,13 @@ CREATE TABLE IF NOT EXISTS manual_status (
     topic_id    TEXT PRIMARY KEY,
     status      TEXT    NOT NULL,          -- 'known' | 'review'
     updated_at  TEXT    NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS misconceptions (
+    id             INTEGER PRIMARY KEY AUTOINCREMENT,
+    topic_id       TEXT    NOT NULL,
+    misconception  TEXT    NOT NULL,
+    ts             TEXT    NOT NULL
 );
 """
 
@@ -248,5 +261,58 @@ def known_topic_ids(min_direct_count: int = KNOWN_AFTER_DIRECT_COUNT) -> set[str
             "SELECT topic_id FROM exposure WHERE exposure_type = 'direct' "
             "GROUP BY topic_id HAVING COUNT(*) >= ?", (min_direct_count,)).fetchall()}
         return known
+    finally:
+        conn.close()
+
+
+def record_misconception(topic_id: str, misconception_text: str) -> None:
+    """One row per (topic, misconception) occurrence — append-only, same
+    shape as record_exposure(). Written from evaluate_teachback()'s
+    structured misconceptions list, the one place in the current pipeline
+    that already produces a clean, per-misconception judgment — this
+    persists an existing signal that used to be shown once and discarded,
+    it is not a new detector."""
+    topic_id = (topic_id or "").strip()
+    misconception_text = (misconception_text or "").strip()
+    if not topic_id or not misconception_text:
+        return
+    ts = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    conn = _connect()
+    try:
+        conn.execute(
+            "INSERT INTO misconceptions (topic_id, misconception, ts) VALUES (?, ?, ?)",
+            (topic_id, misconception_text, ts))
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def recurring_misconceptions(topic_id: str | None = None, min_count: int = 2) -> list[dict]:
+    """Misconceptions seen at least `min_count` times for a topic (or across
+    every topic if topic_id is None) — a single occurrence is one bad
+    teach-back, not a pattern worth interrupting a future answer over.
+
+    Grouped by EXACT text match. This is an honest, stated limitation, not a
+    hidden one: the same underlying misunderstanding phrased two different
+    ways across turns ("attention is local-only" vs "thinks attention only
+    sees nearby tokens") will not be recognized as the same misconception —
+    a real semantic match would need embeddings or another LLM call, out of
+    scope for this narrow addition. What this does catch — the reader
+    hitting the exact same wall repeatedly on a topic — is still real and
+    still useful; it just doesn't claim more than it delivers.
+
+    Returns [{"topic_id", "misconception", "n", "last_seen"}], most-repeated
+    first."""
+    conn = _connect()
+    try:
+        query = ("SELECT topic_id, misconception, COUNT(*) AS n, MAX(ts) AS last_seen "
+                 "FROM misconceptions ")
+        params: tuple = ()
+        if topic_id:
+            query += "WHERE topic_id = ? "
+            params = (topic_id,)
+        query += "GROUP BY topic_id, misconception HAVING COUNT(*) >= ? ORDER BY n DESC"
+        rows = conn.execute(query, params + (min_count,)).fetchall()
+        return [dict(r) for r in rows]
     finally:
         conn.close()

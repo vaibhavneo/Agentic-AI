@@ -44,19 +44,28 @@ call ran on empty evidence anyway).
 To restore book grounding, run locally against the indexes or point
 `SECOND_BRAIN_ROOT` at a slim subset.
 
-## Topic mastery (Milestone 5) is ephemeral on the hosted instance
+## Topic mastery and conversation history now persist across redeploys
 
-`mastery.py` persists to `memory/mastery.db` (stdlib SQLite). The `ai-brain`
-Railway service has no attached volume (checked via `railway volume list` —
-only the sibling `Agentic-AI` service has one, mounted at `/data`), so that
-file lives on the container's local disk and resets on every redeploy or
-reschedule. Locally it's genuinely persistent across restarts. Same shape
-as the bookless-hosting limitation above: the hosted instance is a lighter,
-non-persistent version of the real thing, not a bug. If this ever needs to
-survive Railway redeploys, mount a volume for `ai-brain` (see `railway
-volume list`/`railway volume create` — the sibling service's setup is the
-template) and point `mastery._DB_PATH` at it via an env var; not done here
-since nobody asked for it yet.
+`mastery.py` writes `memory/mastery.db` (stdlib SQLite) and `conversation.py`
+writes `memory/conversation.json` — both under the Dockerfile's `/app/memory`
+(the working directory is `/app`; `mastery._DB_PATH`/`conversation.py`'s own
+path both resolve relative to `Path(__file__).parent`, i.e. `/app`). A
+volume (`ai-brain-volume`, 500MB) is attached to the `ai-brain` Railway
+service at that exact mount path — added via `railway volume --service
+<id> add --mount-path /app/memory` (the sibling `Agentic-AI` service's own
+volume, mounted at `/data`, was the precedent for how to do this on this
+project, though the mount PATH itself has to match where this app's own code
+actually reads/writes, not copy the sibling's path). Verify with `railway
+volume list --json` — it should show `serviceName: "ai-brain"`,
+`mountPath: "/app/memory"`.
+
+Practical effect: the learner model (known/weak topics, exposure counts,
+recurring misconceptions) and the conversation log now survive a `railway
+up` or a Railway-initiated restart, the same way they already did when
+running locally. Attaching the volume for the first time does not migrate
+whatever state existed on the previous, non-persistent disk — there was
+nothing worth migrating, since that state was already guaranteed to reset on
+the very next redeploy regardless.
 
 **The header badge is honest about which of these happened, not just that a
 book search was attempted.** "routed to books" (the query attempted) used to

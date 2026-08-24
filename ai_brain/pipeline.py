@@ -711,7 +711,7 @@ def professor_engine(question, understanding, book_ev, web_res, tool_res,
                      topics=(), feedback: str = "", stage: str = "professor",
                      prereq_topics=(), progression=(), known_ids=frozenset(),
                      recent_topics=(), recommended_topics=(), teachback_eval=None,
-                     history=()):
+                     history=(), recurring_misconceptions=()):
     # Curriculum first. On a host with no book indexes these are the only
     # sources there are, and they are real material — not a fallback apology.
     src_parts = ([CUR.curriculum_block(list(topics))] if topics else [])
@@ -752,6 +752,13 @@ def professor_engine(question, understanding, book_ev, web_res, tool_res,
             f"  correctness: {teachback_eval.get('correctness')}\n"
             f"  confirmed: {teachback_eval.get('confirmed')}\n"
             f"  misconceptions: {teachback_eval.get('misconceptions')}")
+    if recurring_misconceptions:
+        lines = [f"  - on {m['topic_id']}: {m['misconception']} (hit {m['n']} times)"
+                for m in recurring_misconceptions]
+        src_parts.append(
+            "KNOWN RECURRING MISCONCEPTION(S) — the reader has hit these more than once "
+            "in past teach-back attempts; address proactively rather than waiting for a "
+            "repeat:\n" + "\n".join(lines))
     src_parts += [f"[{c['tag']}] {_format_citation_header(c)}\n{c['text'][:1100]}"
                   for c in book_ev.get("kept", [])]
     src_parts += [f"[W{i}] ({h['title']})\n{h['snippet']}"
@@ -994,6 +1001,11 @@ def run(question: str, mode: str = "explain",
     # which used to either recompute this or (for the two new consumers)
     # not exist at all.
     known = mastery.known_topic_ids()
+    # Evidence-driven upgrade: a matched topic's misconceptions the reader
+    # has hit repeatedly (>=2 teach-back turns, mastery.py's own default) —
+    # named so the teaching stage addresses it up front instead of waiting
+    # for a third repeat.
+    recurring_misconceptions = [m for t in topics for m in mastery.recurring_misconceptions(t.id)]
     # Milestone 4: the prerequisite graph on each Topic has existed since
     # curriculum.py was written but nothing ever read it — surface the
     # matched topics' direct prerequisites as background context so an
@@ -1121,7 +1133,8 @@ def run(question: str, mode: str = "explain",
                                                 recent_topics=recent_topics,
                                                 recommended_topics=recommended_topics,
                                                 teachback_eval=teachback_eval,
-                                                history=history)
+                                                history=history,
+                                                recurring_misconceptions=recurring_misconceptions)
             except Exception as exc:
                 box["error"] = f"{type(exc).__name__}: {exc}"
 
@@ -1220,6 +1233,11 @@ def run(question: str, mode: str = "explain",
     if mode == "teach_back" and teachback_eval and topics:
         mastery.record_quiz_result(topics[0].id,
                                    correct=teachback_eval.get("correctness") == "correct")
+        # Same "first matched topic only" reasoning as the quiz result right
+        # above — teach_back tests ONE concept, so a misconception it
+        # surfaces belongs to that topic, not every loosely co-matched one.
+        for m in (teachback_eval.get("misconceptions") or []):
+            mastery.record_misconception(topics[0].id, m)
 
     # 9 ── answer
     yield "done", {

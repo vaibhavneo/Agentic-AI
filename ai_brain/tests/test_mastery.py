@@ -169,7 +169,43 @@ check("quiz exposures do not count toward direct_count (a quiz attempt isn't bei
           for r in mastery.mastery_summary()),
       "embeddings had exactly one real direct exposure before the quiz calls")
 
+print("\n[evidence-driven upgrade: record_misconception / recurring_misconceptions]")
+_tmp3 = tempfile.TemporaryDirectory()
+mastery._DB_PATH = Path(_tmp3.name) / "mastery3.db"
+
+mastery.record_misconception("attention-mechanism", "thinks attention is local-only")
+check("a single occurrence is never 'recurring' (honesty gate)",
+      mastery.recurring_misconceptions("attention-mechanism") == [],
+      str(mastery.recurring_misconceptions("attention-mechanism")))
+
+mastery.record_misconception("attention-mechanism", "thinks attention is local-only")
+rec = mastery.recurring_misconceptions("attention-mechanism")
+check("a second occurrence of the SAME text now counts as recurring",
+      len(rec) == 1 and rec[0]["misconception"] == "thinks attention is local-only" and rec[0]["n"] == 2,
+      str(rec))
+
+mastery.record_misconception("attention-mechanism", "a differently-phrased misconception")
+rec2 = mastery.recurring_misconceptions("attention-mechanism")
+check("a distinct misconception text for the same topic does NOT get conflated with the first "
+      "(exact-match grouping, stated limitation)",
+      len(rec2) == 1 and rec2[0]["misconception"] == "thinks attention is local-only", str(rec2))
+
+mastery.record_misconception("embeddings", "unrelated misconception on a different topic")
+mastery.record_misconception("embeddings", "unrelated misconception on a different topic")
+check("recurring_misconceptions(topic_id=None) aggregates across all topics",
+      len(mastery.recurring_misconceptions()) == 2, str(mastery.recurring_misconceptions()))
+check("recurring_misconceptions('attention-mechanism') stays scoped to that topic only",
+      len(mastery.recurring_misconceptions("attention-mechanism")) == 1)
+
+check("empty topic_id is a no-op, not a crash",
+      mastery.record_misconception("", "x") is None)
+check("empty misconception text is a no-op, not a crash",
+      mastery.record_misconception("embeddings", "  ") is None)
+check("neither no-op created a stray row",
+      sum(m["n"] for m in mastery.recurring_misconceptions()) == 4)
+
 print(f"\n{'ALL CHECKS PASSED' if not fails else str(len(fails)) + ' FAILED: ' + str(fails)}")
 _tmp.cleanup()
 _tmp2.cleanup()
+_tmp3.cleanup()
 sys.exit(1 if fails else 0)
