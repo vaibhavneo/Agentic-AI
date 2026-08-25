@@ -108,6 +108,55 @@ def api_ask():
                     headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
 
 
+# ── /api/brain — the unified front door (orchestrator.py) ──────────────────
+# Exact SSE shape as /api/ask, deliberately byte-for-byte: same stream
+# format, same disconnect/error handling. /api/ask and /api/research/* stay
+# exactly as they are above — this is a NEW, additive entry point, not a
+# replacement, so it's trivially revertible (one line in the frontend) if
+# it ever needs to be.
+
+def _orchestrator():
+    import orchestrator
+    return orchestrator
+
+
+@app.route("/api/brain")
+def api_brain():
+    question = (request.args.get("q") or "").strip()
+    if not question:
+        return jsonify({"error": "q parameter required"}), 400
+    mode = request.args.get("mode", "auto")
+    depth = request.args.get("depth", "intermediate")
+    project = (request.args.get("project") or "").strip() or None
+    thread = (request.args.get("thread") or "").strip()
+    history = conversation.load_conversation().get("messages", [])
+
+    def generate():
+        try:
+            for stage, payload in _orchestrator().handle(
+                    question, explicit_mode=mode, depth=depth, history=history,
+                    explicit_project=project, explicit_thread=thread):
+                yield f"event: {stage}\ndata: {json.dumps(payload, default=str)}\n\n"
+                # Two intentionally separate memory lanes (memory_spine.py's
+                # own design decision, not an oversight): only a pipeline-
+                # engine turn enters conversation.json, matching /api/ask
+                # above exactly. A research-engine turn has no "prose" field
+                # at all (it has "synthesis" instead) and keeps its own
+                # continuity via research.py's per-thread notebook.
+                if stage == "done" and payload.get("engine") == "pipeline" and payload.get("prose"):
+                    conversation.append_turn(question, payload["prose"])
+        except (BrokenPipeError, ConnectionResetError):
+            return
+        except Exception as exc:
+            try:
+                yield f"event: error\ndata: {json.dumps({'message': f'{type(exc).__name__}: {exc}'})}\n\n"
+            except Exception:
+                pass
+
+    return Response(stream_with_context(generate()), mimetype="text/event-stream",
+                    headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
+
+
 # ── Brain Lab: everything below is computed, never generated ───────────────
 
 @app.route("/api/lab")

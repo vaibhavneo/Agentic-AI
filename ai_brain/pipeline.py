@@ -1003,8 +1003,9 @@ def _cap_question(question: str, cap: int = _QUESTION_CHAR_CAP) -> tuple[str, bo
     return (question, False) if len(question) <= cap else (question[:cap], True)
 
 
-def run(question: str, mode: str = "explain",
-        depth: str = "intermediate", history=()) -> Iterator[tuple[str, dict]]:
+def run(question: str, mode: str = "explain", depth: str = "intermediate", history=(),
+        project_context: str = "", kg_context: str = "",
+        research_context: str = "") -> Iterator[tuple[str, dict]]:
     question = (question or "").strip()
     if not question:
         yield "error", {"message": "empty question"}
@@ -1189,7 +1190,10 @@ def run(question: str, mode: str = "explain",
                                                 recommended_topics=recommended_topics,
                                                 teachback_eval=teachback_eval,
                                                 history=history,
-                                                recurring_misconceptions=recurring_misconceptions)
+                                                recurring_misconceptions=recurring_misconceptions,
+                                                project_context=project_context,
+                                                kg_context=kg_context,
+                                                research_context=research_context)
             except Exception as exc:
                 box["error"] = f"{type(exc).__name__}: {exc}"
 

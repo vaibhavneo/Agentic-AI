@@ -44,6 +44,7 @@ check("GET /", st == 200 and b"AI Brain" in body, f"HTTP {st}, {len(body)} bytes
 check("Brain Lab tab present", b'data-tab="lab"' in body)
 check("Curriculum tab present", b'data-tab="cur"' in body)
 check("Research tab present", b'data-tab="research"' in body)
+check("Projects tab present", b'data-tab="projects"' in body)
 st, body = get("/vendor/katex/katex.min.js")
 check("vendored KaTeX served", st == 200 and len(body) > 100_000, f"HTTP {st}, {len(body)} bytes")
 
@@ -159,6 +160,30 @@ check("/api/research/investigate with no thread/q params fails fast with 400, no
       st == 400, f"HTTP {st}, {body[:120]!r}")
 st, body = get("/api/research/draft")
 check("/api/research/draft with no thread param fails fast with 400, not 500",
+      st == 400, f"HTTP {st}, {body[:120]!r}")
+
+print("[projects routes]")
+st, body = get("/api/projects")
+check("/api/projects is reachable and returns a list", st == 200 and "projects" in json.loads(body))
+st, body = get("/api/projects/__smoke_test_no_such_project__")
+check("/api/projects/<unknown> returns a clean 404, not a 500",
+      st == 404, f"HTTP {st}, {body[:120]!r}")
+
+print("[learning-plan route — deterministic, no LLM call]")
+st, body = get("/api/learning-plan?" + urllib.parse.urlencode({"goal": "transformer-architecture"}))
+if check("/api/learning-plan is reachable for a real goal topic", st == 200, f"HTTP {st}"):
+    d = json.loads(body)
+    check("sequence ends with the goal topic itself",
+          d.get("sequence", [])[-1:] == ["transformer-architecture"], str(d.get("sequence")))
+    check("a deterministic 'why' is present when something is missing",
+          bool(d.get("why")) or not d.get("missing"), str(d.get("why")))
+st, body = get("/api/learning-plan?goal=not-a-real-topic-id")
+check("/api/learning-plan on an unknown goal fails fast with 400, not 500",
+      st == 400, f"HTTP {st}, {body[:120]!r}")
+
+print("[/api/brain — the unified front door]")
+st, body = get("/api/brain")
+check("/api/brain with no q param fails fast with 400, not 500",
       st == 400, f"HTTP {st}, {body[:120]!r}")
 
 print("[streaming answer]")

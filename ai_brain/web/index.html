@@ -685,33 +685,52 @@ function ask(){
   };
   const finish=()=>{ busy=false; document.getElementById("ask").disabled=false; };
 
-  const url="/api/ask?q="+encodeURIComponent(q)+
+  const url="/api/brain?q="+encodeURIComponent(q)+
     "&mode="+encodeURIComponent(document.getElementById("mode").value)+
     "&depth="+encodeURIComponent(document.getElementById("depth").value);
   let es, settled=false;
   try{ es=new EventSource(url); }
   catch(e){ put("error","cannot open stream","err"); finish(); return; }
 
-  ["understand","route","gather","evidence","reasoning","professor","validation"].forEach(st=>es.addEventListener(st,e=>{
+  // Union of both engines' stage names, plus "orchestrate" (the front
+  // door's own routing/context-attachment announcements — never a name
+  // either engine uses internally, see orchestrator.py's own comment on
+  // why "route" specifically was avoided) — so a trace row appears
+  // correctly regardless of which engine ends up handling the question.
+  ["orchestrate","understand","route","gather","evidence","reasoning","professor","validation",
+   "recall","search","survey","synthesis","gap","verify","record"].forEach(st=>es.addEventListener(st,e=>{
     let d={}; try{ d=JSON.parse(e.data); }catch(_){}
-    put(st,d.msg||"");
+    put(st, d.msg || (st==="orchestrate" ? (d.thread ? "thread '"+d.thread+"'" : "") : ""));
   }));
   es.addEventListener("done",e=>{
     settled=true; es.close(); finish();
     let d; try{ d=JSON.parse(e.data); }catch(err){ put("error","bad payload","err"); return; }
     Object.keys(rows).forEach(k=>rows[k].className="trace-row");
-    bubble.innerHTML=
-      renderHeader(d)+
-      renderProse(d.prose,d)+
-      '<details class="fold" open><summary>Sources &amp; provenance</summary>'+renderEvidence(d.evidence,(d.assessment&&d.assessment.off_topic))+renderCurriculumUsed(d)+renderWeb(d)+'</details>'+
-      '<details class="fold"'+((d.validation&&d.validation.verdict&&d.validation.verdict!=="pass")?" open":"")+'><summary>Evidence engine &amp; validation</summary>'+renderChecks(d)+'</details>'+
-      '<details class="fold"><summary>Pipeline trace &amp; token budget</summary>'+
-        '<div class="trace">'+trace.innerHTML+'</div>'+renderBudget(d)+'</details>';
-    bubble.querySelectorAll("[data-cite]").forEach(c=>c.addEventListener("click",()=>{
-      const t=document.getElementById("cite-"+c.dataset.cite);
-      if(t){ t.classList.add("open"); t.scrollIntoView({block:"center",behavior:"smooth"});
-        t.style.borderColor="var(--violet)"; setTimeout(()=>t.style.borderColor="",1600); }
-    }));
+    if(d.engine==="research"){
+      // Same renderers investigateThread() already uses for the Research
+      // tab's own "done" handler — reused as-is, not reimplemented.
+      bubble.innerHTML=
+        renderResearchProse(d.synthesis)+
+        renderGap(d.gap)+
+        renderVerified(d.verified)+
+        '<details class="fold" open><summary>Sources &amp; provenance</summary>'+
+          renderEvidence(d.library)+renderArxivPapers(d.arxiv)+'</details>'+
+        '<details class="fold"><summary>Pipeline trace &amp; token budget</summary>'+
+          '<div class="trace">'+trace.innerHTML+'</div>'+renderBudget(d)+'</details>';
+    } else {
+      bubble.innerHTML=
+        renderHeader(d)+
+        renderProse(d.prose,d)+
+        '<details class="fold" open><summary>Sources &amp; provenance</summary>'+renderEvidence(d.evidence,(d.assessment&&d.assessment.off_topic))+renderCurriculumUsed(d)+renderWeb(d)+'</details>'+
+        '<details class="fold"'+((d.validation&&d.validation.verdict&&d.validation.verdict!=="pass")?" open":"")+'><summary>Evidence engine &amp; validation</summary>'+renderChecks(d)+'</details>'+
+        '<details class="fold"><summary>Pipeline trace &amp; token budget</summary>'+
+          '<div class="trace">'+trace.innerHTML+'</div>'+renderBudget(d)+'</details>';
+      bubble.querySelectorAll("[data-cite]").forEach(c=>c.addEventListener("click",()=>{
+        const t=document.getElementById("cite-"+c.dataset.cite);
+        if(t){ t.classList.add("open"); t.scrollIntoView({block:"center",behavior:"smooth"});
+          t.style.borderColor="var(--violet)"; setTimeout(()=>t.style.borderColor="",1600); }
+      }));
+    }
     me.scrollIntoView({block:"start",behavior:"smooth"});
   });
   es.addEventListener("error",e=>{
