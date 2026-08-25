@@ -57,7 +57,7 @@ CREATE TABLE IF NOT EXISTS exposure (
     id             INTEGER PRIMARY KEY AUTOINCREMENT,
     topic_id       TEXT    NOT NULL,
     ts             TEXT    NOT NULL,
-    exposure_type  TEXT    NOT NULL,      -- 'direct' | 'prereq'
+    exposure_type  TEXT    NOT NULL,      -- 'direct' | 'prereq' | 'quiz' | 'research'
     depth          TEXT,
     verdict        TEXT
 );
@@ -93,7 +93,17 @@ def _connect() -> sqlite3.Connection:
 
 
 def record_exposure(topic_ids, exposure_type: str, depth: str = "", verdict: str = "") -> None:
-    """One row per topic_id. exposure_type is 'direct' or 'prereq'."""
+    """One row per topic_id. exposure_type is 'direct' (a real teaching
+    answer touched it), 'prereq' (surfaced only as background), 'quiz'
+    (record_quiz_result() reuses this table), or 'research' (memory_spine.py:
+    a research thread's finding mapped to this topic via curriculum
+    matching — the reader wasn't taught it, but the system did surface it,
+    so it counts as exposed the same way a prereq mention does. Real
+    consequence, not free: exposed_topic_ids()/mastery_summary() are
+    exposure-type-UNFILTERED, so a 'research' touch removes a topic from
+    recommend_next()'s candidate pool even though known_ids()/weak_topics()/
+    recently_studied() — which DO filter to 'direct' — correctly don't
+    treat it as known or recently studied)."""
     if not topic_ids:
         return
     ts = datetime.now(timezone.utc).isoformat(timespec="seconds")

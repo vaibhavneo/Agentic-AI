@@ -259,5 +259,95 @@ professor_engine(
 check("no stray block when recurring_misconceptions wasn't supplied",
       "KNOWN RECURRING MISCONCEPTION" not in client11.last_user_prompt)
 
+print("\n[professor_engine: memory_spine's 3 new context blocks (Phase 5) reach the prompt when populated]")
+client12 = _CapturingClient()
+professor_engine(
+    "What is attention?", {"restate": "q", "premise_check": "none"}, {"kept": []}, {"hits": []}, None,
+    {"skipped": True}, {"text": ""}, "explain", "intermediate", client12, _Budget(), topics=(attention,),
+    project_context="Project 'transformer-research': Goal: understand transformers deeply",
+    kg_context="Attention and Scaled Dot-Product relates to: embeddings, transformer-architecture",
+    research_context="Research thread 'attention-deep-dive': Established so far:\n  - a real finding")
+check("RELEVANT PROJECT CONTEXT block present", "RELEVANT PROJECT CONTEXT" in client12.last_user_prompt)
+check("the project's own brief text reaches the prompt",
+      "understand transformers deeply" in client12.last_user_prompt)
+check("RELATED CONCEPTS block present", "RELATED CONCEPTS" in client12.last_user_prompt)
+check("the kg relation text reaches the prompt",
+      "embeddings, transformer-architecture" in client12.last_user_prompt)
+check("PRIOR RESEARCH ON THIS block present", "PRIOR RESEARCH ON THIS" in client12.last_user_prompt)
+check("the research thread's own brief text reaches the prompt",
+      "attention-deep-dive" in client12.last_user_prompt)
+
+print("\n[professor_engine: the 3 new blocks are explicitly marked non-citable, like history already is]")
+for label in ("RELEVANT PROJECT CONTEXT", "RELATED CONCEPTS", "PRIOR RESEARCH ON THIS"):
+    idx = client12.last_user_prompt.index(label)
+    line = client12.last_user_prompt[idx:idx + 80]
+    check(f"'{label}' carries the same 'not a source, do not cite' framing RECENT CONVERSATION uses",
+          "not a source, do not cite" in line, line)
+
+print("\n[professor_engine: no stray new-context blocks when none of the 3 were supplied]")
+client13 = _CapturingClient()
+professor_engine(
+    "What is attention?", {"restate": "q", "premise_check": "none"}, {"kept": []}, {"hits": []}, None,
+    {"skipped": True}, {"text": ""}, "explain", "intermediate", client13, _Budget(), topics=(attention,))
+for label in ("RELEVANT PROJECT CONTEXT", "RELATED CONCEPTS", "PRIOR RESEARCH ON THIS"):
+    check(f"no stray {label} block when its data wasn't supplied", label not in client13.last_user_prompt)
+
+
+class _JSONRespondingClient:
+    """Like _CapturingClient, but the canned response content is
+    configurable — needed to test understand()'s own JSON parsing (its
+    idea_worthy field, specifically) rather than professor_engine()'s
+    prompt construction, which is all _CapturingClient's fixed 'An
+    answer.' response was ever built for."""
+    def __init__(self, content: str):
+        class _Usage:
+            prompt_tokens = 10
+            completion_tokens = 5
+            completion_tokens_details = None
+        class _Msg:
+            pass
+        class _Choice:
+            message = _Msg()
+            finish_reason = "stop"
+        class _Resp:
+            choices = [_Choice()]
+            usage = _Usage()
+        self._resp = _Resp()
+        self._resp.choices[0].message.content = content
+
+        class _Completions:
+            def create(inner_self, model, max_tokens, messages):
+                return self._resp
+        class _Chat:
+            completions = _Completions()
+        self.chat = _Chat()
+
+
+print("\n[understand: idea_worthy=true in the model's JSON reaches the returned dict]")
+from pipeline import understand
+u1 = understand("here's an idea for retrieval-first agents", "intermediate",
+                _JSONRespondingClient('{"idea_worthy": true, "question_type": "challenge_idea"}'),
+                _Budget())
+check("idea_worthy is True when the model said true", u1["idea_worthy"] is True)
+
+print("\n[understand: idea_worthy=false (the common case) reaches the returned dict]")
+u2 = understand("what is attention", "intermediate",
+                _JSONRespondingClient('{"idea_worthy": false, "question_type": "definition"}'),
+                _Budget())
+check("idea_worthy is False when the model said false", u2["idea_worthy"] is False)
+
+print("\n[understand: idea_worthy defaults to False, not missing/None, when the model omits it]")
+u3 = understand("what is attention", "intermediate",
+                _JSONRespondingClient('{"question_type": "definition"}'),
+                _Budget())
+check("idea_worthy defaults to False (bool, not None)", u3["idea_worthy"] is False)
+
+print("\n[understand: idea_worthy defaults to False on totally unparseable output, same as every other field]")
+u4 = understand("what is attention", "intermediate",
+                _JSONRespondingClient("not json at all"), _Budget())
+check("idea_worthy still False, no crash", u4["idea_worthy"] is False)
+check("question_type still falls back to 'general', same failure mode as every other field",
+      u4["question_type"] == "general")
+
 print(f"\n{'ALL CHECKS PASSED' if not fails else str(len(fails)) + ' FAILED: ' + str(fails)}")
 sys.exit(1 if fails else 0)

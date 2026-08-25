@@ -199,7 +199,16 @@ pipeline. Reply with ONLY a JSON object, no prose:
    // the question conflates two genuinely distinct things as if they were
    // one (e.g. treating two related-but-different concepts as synonyms).
    // none: the premise is fine, most questions are.
- "premise_note":"one short clause naming the specific issue, or empty"}"""
+ "premise_note":"one short clause naming the specific issue, or empty",
+ "idea_worthy":true|false
+   // true only if the reader is proposing or developing an original idea,
+   // approach, or direction worth remembering on its own (e.g. "here's an
+   // idea for X", "what if we tried Y") — NOT true for an ordinary question
+   // about established material, even a good one. A sibling of question_type
+   // rather than a value of it: this is "should this persist to memory,"
+   // an orthogonal concern from "how should this be answered," so it must
+   // not be conflated with mode selection the way question_type is.
+}"""
 
 
 def _format_history(history, max_turns: int = 2, max_answer_chars: int = 250) -> str:
@@ -244,6 +253,7 @@ def understand(question, depth, client, budget, history=()):
         "question_type": u.get("question_type") or "general",
         "premise_check": u.get("premise_check") or "none",
         "premise_note": (u.get("premise_note") or "").strip(),
+        "idea_worthy": bool(u.get("idea_worthy")),
     }
 
 
@@ -718,7 +728,9 @@ def professor_engine(question, understanding, book_ev, web_res, tool_res,
                      topics=(), feedback: str = "", stage: str = "professor",
                      prereq_topics=(), progression=(), known_ids=frozenset(),
                      recent_topics=(), recommended_topics=(), teachback_eval=None,
-                     history=(), recurring_misconceptions=()):
+                     history=(), recurring_misconceptions=(),
+                     project_context: str = "", kg_context: str = "",
+                     research_context: str = ""):
     # Curriculum first. On a host with no book indexes these are the only
     # sources there are, and they are real material — not a fallback apology.
     src_parts = ([CUR.curriculum_block(list(topics))] if topics else [])
@@ -810,6 +822,22 @@ def professor_engine(question, understanding, book_ev, web_res, tool_res,
     hist_block = _format_history(history, max_turns=2)
     if hist_block:
         extra += f"\n\nRECENT CONVERSATION (for continuity — not a source, do not cite):\n{hist_block}"
+    # memory_spine.py's unified context — a running project, Knowledge Graph
+    # relations, and prior research thread findings, when genuinely relevant
+    # to this question (deterministic set-intersection on matched topics,
+    # never fabricated). Same treatment as history above and for the same
+    # reason: this is background the model should let inform its answer,
+    # not a retrieved passage — it never gets a [tag] and never enters
+    # validation()'s offered-tag set.
+    if project_context:
+        extra += (f"\n\nRELEVANT PROJECT CONTEXT (for continuity — not a source, do not cite):"
+                 f"\n{project_context}")
+    if kg_context:
+        extra += (f"\n\nRELATED CONCEPTS (from the knowledge graph — not a source, do not cite):"
+                 f"\n{kg_context}")
+    if research_context:
+        extra += (f"\n\nPRIOR RESEARCH ON THIS (not a source, do not cite):"
+                 f"\n{research_context}")
     # socratic/quiz/thinking_partner already close on a question by their own
     # directive — adding a second one here would stack two questions at the
     # end of one answer.
