@@ -40,6 +40,13 @@ KINDS = (
     "derived_metric",    # a computed score/ratio whose provenance is its formula
                          # + input snapshot (e.g. pillar scores) — honest
                          # provenance, but snapshot-timed (as_of_honored=False)
+    "quote",             # a single most-recent trade. NEVER pit_capable: no free
+                         # vendor can answer "what was the quote at 10:31 on a
+                         # past date", so `as_of` on a quote is always a lie. The
+                         # gateway stamps as_of_honored=False and the caller sees it.
+    "intraday",          # sub-daily OHLCV bars. PIT-capable only within the
+                         # provider's retention window (yfinance keeps ~30d of
+                         # 1m bars), declared per provider in `caveats`.
 )
 
 STATUSES = ("actual", "estimate")
