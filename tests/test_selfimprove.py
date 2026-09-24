@@ -618,3 +618,107 @@ def test_the_bar_is_never_lowered_for_a_long_horizon():
     # No horizon-conditional relaxation of the threshold.
     assert "MIN_EFFECTIVE_N //" not in src
     assert "MIN_EFFECTIVE_N *" not in src
+
+
+# ── the loop must not walk its own knobs ──────────────────────────────────
+
+def test_a_knob_does_not_step_again_on_unchanged_evidence(temp_db):
+    """A six-hourly cycle re-deriving the same conclusion from the same data
+    takes another bounded step every time. Bounds cap the damage; twelve
+    cycles a day still reach any bound inside a week."""
+    import selfimprove.loop as LP
+    from selfimprove import ledger as L
+    C.apply(S.PILLAR_WEIGHTS, 20, CAND, proposal_id="p-live")
+    L.record({"group": S.PILLAR_WEIGHTS, "horizon_days": 20, "current": CUR,
+              "candidate": CAND, "verdict": V.PROMOTE, "reason": "ok",
+              "effective_n": 52}, applied=True)
+    may, why = LP._evidence_has_grown(S.PILLAR_WEIGHTS, 20, 52)
+    assert may is False
+    assert "same evidence" in why
+
+
+def test_a_knob_may_step_again_once_new_windows_arrive(temp_db):
+    import selfimprove.loop as LP
+    from selfimprove import ledger as L
+    C.apply(S.PILLAR_WEIGHTS, 20, CAND, proposal_id="p-live")
+    L.record({"group": S.PILLAR_WEIGHTS, "horizon_days": 20, "current": CUR,
+              "candidate": CAND, "verdict": V.PROMOTE, "reason": "ok",
+              "effective_n": 52}, applied=True)
+    may, _ = LP._evidence_has_grown(
+        S.PILLAR_WEIGHTS, 20, 52 + LP.MIN_NEW_WINDOWS_TO_STEP_AGAIN)
+    assert may is True
+
+
+def test_a_promotion_the_config_does_not_reflect_cannot_strand_a_knob(temp_db):
+    """Ledger and config can diverge. Gating on a promotion that is not
+    actually applied leaves the knob reverted AND barred from re-earning the
+    change -- permanently stuck."""
+    import selfimprove.loop as LP
+    from selfimprove import ledger as L
+    L.record({"group": S.PILLAR_WEIGHTS, "horizon_days": 20, "current": CUR,
+              "candidate": CAND, "verdict": V.PROMOTE, "reason": "ok",
+              "effective_n": 52}, applied=True)
+    # Config is at defaults: the recorded promotion is not in force.
+    may, why = LP._evidence_has_grown(S.PILLAR_WEIGHTS, 20, 52)
+    assert may is True
+    assert "not reflected in the active config" in why
+
+
+def test_rolling_back_marks_the_promotion_not_the_rollback_record(temp_db,
+                                                                  monkeypatch):
+    """Marking the new rollback row leaves the original looking live, so the
+    cooldown keeps finding it and holds the knob forever."""
+    import selfimprove.loop as LP
+    from selfimprove import ledger as L
+    C.apply(S.PILLAR_WEIGHTS, 20, CAND, proposal_id="p-old")
+    original = L.record({"group": S.PILLAR_WEIGHTS, "horizon_days": 20,
+                         "current": CUR, "candidate": CAND,
+                         "verdict": V.PROMOTE, "reason": "ok",
+                         "effective_n": 52}, applied=True)
+    monkeypatch.setattr(LP, "_evaluate_active", lambda g, h: {
+        "group": g, "horizon_days": h, "verdict": V.REFUSE,
+        "reason": "stopped working", "checks": [], "folds": []})
+    LP.review("cyc", dry_run=False)
+    assert L.last_promotion(S.PILLAR_WEIGHTS, 20) is None, (
+        "the original promotion is still listed as live after a rollback")
+    rows = [r for r in L.history(S.PILLAR_WEIGHTS)
+            if r["proposal_id"] == original]
+    assert rows and rows[0]["rolled_back_at"] is not None
+
+
+def test_re_testing_a_live_config_ignores_the_step_limit():
+    """max_step governs how fast the loop may move a knob, not which positions
+    may exist. A knob two legitimate steps from default is two max_steps away
+    from it, and re-testing with the step check on rolls back a position that
+    was reached correctly."""
+    far = {"technical": 0.30, "algo": 0.30, "fundamentals": 0.40}
+    strict = V.evaluate(S.PILLAR_WEIGHTS, CUR, far, 20, graphs=_graphs(400))
+    assert strict["checks"][0]["check"] == "surface"
+    assert not strict["checks"][0]["passed"], "max_step should bite here"
+
+    lenient = V.evaluate(S.PILLAR_WEIGHTS, CUR, far, 20,
+                         graphs=_graphs(400), check_step=False)
+    assert lenient["checks"][0]["passed"], (
+        "re-testing a live config must not fail on the speed limit")
+
+
+def test_re_testing_still_enforces_bounds():
+    """Relaxing the step check must not relax the bounds with it."""
+    out = {"technical": 0.05, "algo": 0.05, "fundamentals": 0.90}
+    r = V.evaluate(S.PILLAR_WEIGHTS, CUR, out, 20, graphs=_graphs(400),
+                   check_step=False)
+    assert not r["checks"][0]["passed"]
+    assert "bounds" in r["checks"][0]["detail"]
+
+
+def test_cooldown_is_reported_separately_from_a_thin_evidence_refusal(temp_db):
+    """Both mention independent windows. Lumping them together reports a knob
+    that was just promoted as though its evidence were too thin."""
+    from selfimprove.loop import _statement
+    advanced = [
+        {"verdict": "COOLDOWN", "reason": "only 0 new independent windows"},
+        {"verdict": V.REFUSE, "reason": "3 independent 252-day windows, need 20"},
+    ]
+    text = _statement(advanced, [], dry_run=False)
+    assert "1 held in cooldown" in text
+    assert "refused 1 for too few independent windows" in text

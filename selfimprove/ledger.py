@@ -222,3 +222,26 @@ def summary() -> Dict[str, Any]:
     return {"available": True, "total": total, "by_verdict": by_verdict,
             "applied": applied, "rolled_back": rolled,
             "top_refusal_reasons": reasons}
+
+
+def last_promotion(group: str, horizon: int) -> Optional[Dict[str, Any]]:
+    """The most recent APPLIED promotion for one group/horizon, if any.
+
+    The loop reads this to answer "has anything actually changed since I last
+    moved this knob". Without it a 6-hourly cycle re-derives the same
+    conclusion from the same evidence and takes another bounded step every
+    cycle, walking the weights to their bounds on the strength of one
+    measurement.
+    """
+    try:
+        conn = _conn()
+        row = conn.execute(
+            """SELECT * FROM improvement_proposals
+                WHERE grp = ? AND horizon_days = ? AND applied = 1
+                  AND rolled_back_at IS NULL AND verdict = 'PROMOTE'
+             ORDER BY epoch DESC LIMIT 1""",
+            (group, int(horizon))).fetchone()
+        conn.close()
+    except sqlite3.Error:
+        return None
+    return dict(row) if row else None

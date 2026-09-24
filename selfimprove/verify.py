@@ -170,12 +170,19 @@ def _purged_time_split(graphs: Sequence[Dict[str, Any]], horizon: int,
 
 
 def evaluate(group: str, current: Dict[str, float], candidate: Dict[str, float],
-             horizon: int, graphs: Optional[Sequence[Dict[str, Any]]] = None
-             ) -> Dict[str, Any]:
+             horizon: int, graphs: Optional[Sequence[Dict[str, Any]]] = None,
+             check_step: bool = True) -> Dict[str, Any]:
     """Run the full gate. Returns a verdict with every check's own result.
 
     The shape is deliberately uniform whether it passes or fails: a refusal
     that cannot be read as easily as an acceptance is a refusal nobody audits.
+
+    `check_step=False` is for RE-TESTING a configuration that is already live.
+    max_step is a speed limit on how fast the loop may move a knob, not a
+    statement about which positions are allowed to exist: a knob two legitimate
+    steps from default is two max_steps away from it, and re-testing it against
+    the defaults would fail the step check and roll back a position that was
+    reached correctly. Bounds and invariants are still enforced.
     """
     checks: List[Dict[str, Any]] = []
 
@@ -194,7 +201,14 @@ def evaluate(group: str, current: Dict[str, float], candidate: Dict[str, float],
     # ── 1. surface ────────────────────────────────────────────────────────
     surface_ok = True
     for key, new in candidate.items():
-        ok, why = S.check_change(group, key, float(current.get(key, 0.0)), float(new))
+        if check_step:
+            ok, why = S.check_change(group, key,
+                                     float(current.get(key, 0.0)), float(new))
+        else:
+            t = S.get(group, key)
+            ok = t is not None and t.in_bounds(float(new))
+            why = ("ok" if ok else
+                   f"{group}.{key}={float(new):.4f} is outside its bounds")
         if not ok:
             surface_ok = _add("surface", False, why)
             break
@@ -338,9 +352,12 @@ def _confidence_rows(horizon: int) -> List[Dict[str, Any]]:
 
 def evaluate_confidence(current: Dict[str, float], candidate: Dict[str, float],
                         horizon: int,
-                        rows: Optional[Sequence[Dict[str, Any]]] = None
-                        ) -> Dict[str, Any]:
-    """The gate for CONFIDENCE_MAP. Same five checks, Brier as the metric."""
+                        rows: Optional[Sequence[Dict[str, Any]]] = None,
+                        check_step: bool = True) -> Dict[str, Any]:
+    """The gate for CONFIDENCE_MAP. Same five checks, Brier as the metric.
+
+    `check_step=False` re-tests an already-live map; see `evaluate`.
+    """
     checks: List[Dict[str, Any]] = []
 
     def _add(name, ok, detail):
@@ -356,8 +373,14 @@ def evaluate_confidence(current: Dict[str, float], candidate: Dict[str, float],
     }
 
     for key, new in candidate.items():
-        ok, why = S.check_change(S.CONFIDENCE_MAP, key,
-                                 float(current.get(key, 0.0)), float(new))
+        if check_step:
+            ok, why = S.check_change(S.CONFIDENCE_MAP, key,
+                                     float(current.get(key, 0.0)), float(new))
+        else:
+            t = S.get(S.CONFIDENCE_MAP, key)
+            ok = t is not None and t.in_bounds(float(new))
+            why = ("ok" if ok else
+                   f"confidence_map.{key}={float(new):.4f} is outside its bounds")
         if not ok:
             _add("surface", False, why)
             result["reason"] = why

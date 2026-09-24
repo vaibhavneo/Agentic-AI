@@ -54,9 +54,14 @@ def _evaluate_active(group: str, horizon: int) -> Dict[str, Any]:
     """
     base = C.defaults(group)
     live = C.active(group, horizon)
+    # check_step=False: the live config may legitimately sit several bounded
+    # steps from the defaults, and max_step governs how fast the loop moves a
+    # knob rather than which positions may exist. Re-testing with the step
+    # check on would roll back correctly-reached positions for a reason that
+    # has nothing to do with whether they still work.
     if group == S.CONFIDENCE_MAP:
-        return evaluate_confidence(base, live, horizon)
-    return evaluate(group, base, live, horizon)
+        return evaluate_confidence(base, live, horizon, check_step=False)
+    return evaluate(group, base, live, horizon, check_step=False)
 
 
 def review(cycle_id: str, dry_run: bool = False) -> List[Dict[str, Any]]:
@@ -86,11 +91,68 @@ def review(cycle_id: str, dry_run: bool = False) -> List[Dict[str, Any]]:
                 # the reason survives even if the write fails.
                 pid = L.record({**ev, "verdict": "ROLLBACK"}, cycle_id=cycle_id)
                 C.revert(group, horizon, proposal_id=pid)
-                if pid:
-                    L.mark_rolled_back(pid)
+                # Mark the ORIGINAL promotion as rolled back, not the rollback
+                # record just written. Marking the new row leaves the original
+                # looking live, so `last_promotion` keeps finding it and holds
+                # the knob in cooldown forever -- stuck at defaults AND unable
+                # to re-earn the change.
+                original = L.last_promotion(group, horizon)
+                if original:
+                    L.mark_rolled_back(original["proposal_id"])
                 entry["proposal_id"] = pid
+                entry["rolled_back_promotion"] = (
+                    original["proposal_id"] if original else None)
         out.append(entry)
     return out
+
+
+# A knob may not step again until the EVIDENCE has grown by this many
+# independent windows since the promotion that last moved it.
+#
+# Without it the cycle re-derives the same conclusion from the same data every
+# six hours and takes another bounded step each time, walking the weights to
+# their bounds on the strength of a single measurement. Bounds and max_step
+# cap the damage but do not prevent it: twelve cycles a day reach any bound
+# inside a week.
+#
+# Independent windows, not wall-clock time, because that is what actually
+# changes what is knowable. At a 20-day horizon genuinely new evidence arrives
+# every 20 trading days however often the loop runs, and gating on the clock
+# would let a fast schedule outrun the data again.
+MIN_NEW_WINDOWS_TO_STEP_AGAIN = 3
+
+
+def _evidence_has_grown(group: str, horizon: int,
+                        current_effective_n: Optional[int]) -> tuple:
+    """May this knob move again yet?"""
+    prior = L.last_promotion(group, horizon)
+    if not prior:
+        return True, "no prior promotion for this knob"
+
+    # The ledger and the config can disagree: a promotion recorded as live
+    # while the knob actually sits at its defaults means the change is not in
+    # force, whatever the record says. Gating on a promotion that is not
+    # actually applied strands the knob permanently -- reverted AND barred
+    # from re-earning the change. Trust the config, which is what predictions
+    # actually read, and let the record be corrected by the next rollback.
+    live = C.active(group, horizon)
+    base = C.defaults(group)
+    if all(abs(float(live.get(k, v)) - float(v)) <= 1e-9
+           for k, v in base.items()):
+        return True, ("the last recorded promotion is not reflected in the "
+                      "active config, so nothing is in force to wait on")
+    before = prior.get("effective_n")
+    if before is None or current_effective_n is None:
+        return True, "prior promotion recorded no sample size to compare"
+    grown = int(current_effective_n) - int(before)
+    if grown >= MIN_NEW_WINDOWS_TO_STEP_AGAIN:
+        return True, (f"{grown} new independent windows since the last "
+                      f"promotion moved this knob")
+    return False, (f"only {grown} new independent window"
+                   f"{'s' if grown != 1 else ''} since the last promotion "
+                   f"moved this knob (need {MIN_NEW_WINDOWS_TO_STEP_AGAIN}); "
+                   f"stepping again would re-derive the same conclusion from "
+                   f"the same evidence")
 
 
 def advance(cycle_id: str, dry_run: bool = False,
@@ -108,6 +170,13 @@ def advance(cycle_id: str, dry_run: bool = False,
                 continue
 
             promoted = ev.get("verdict") == PROMOTE
+            if promoted:
+                may_step, why = _evidence_has_grown(
+                    proposal["group"], horizon, ev.get("effective_n"))
+                if not may_step:
+                    promoted = False
+                    ev = {**ev, "verdict": "COOLDOWN", "reason": why}
+
             applied = False
             pid = L.record(ev, cycle_id=cycle_id, applied=False)
 
@@ -173,14 +242,24 @@ def _statement(advanced: List[Dict[str, Any]], reviewed: List[Dict[str, Any]],
                 "proposer found the evidence too thin or too evenly balanced "
                 "to argue for a change.")
 
-    verb = "would be" if dry_run else "was"
+    def _verb(count):
+        if dry_run:
+            return "would be"
+        return "was" if count == 1 else "were"
+
     parts = [f"{n} proposal{'s' if n != 1 else ''} evaluated, "
-             f"{len(promoted)} {verb} promoted"]
+             f"{len(promoted)} {_verb(len(promoted))} promoted"]
     if rolled:
         parts.append(f"{len(rolled)} active override"
                      f"{'s' if len(rolled) != 1 else ''} no longer held and "
-                     f"{verb} rolled back")
-    refusals = [a for a in advanced if a.get("verdict") not in (PROMOTE, "ERROR")]
+                     f"{_verb(len(rolled))} rolled back")
+    # COOLDOWN is counted apart from REFUSE. Both mention "independent
+    # windows", and lumping them together reported a knob that had just been
+    # promoted as though its evidence were too thin -- the opposite of why it
+    # was held.
+    cooled = [a for a in advanced if a.get("verdict") == "COOLDOWN"]
+    refusals = [a for a in advanced
+                if a.get("verdict") not in (PROMOTE, "ERROR", "COOLDOWN")]
     if refusals:
         thin = sum(1 for a in refusals
                    if "independent" in (a.get("reason") or ""))
@@ -193,6 +272,9 @@ def _statement(advanced: List[Dict[str, Any]], reviewed: List[Dict[str, Any]],
             detail.append(f"{small} for an effect inside the noise floor")
         if detail:
             parts.append("refused " + " and ".join(detail))
+    if cooled:
+        parts.append(f"{len(cooled)} held in cooldown, already promoted on "
+                     f"this evidence and waiting for more")
     return "; ".join(parts) + "."
 
 
