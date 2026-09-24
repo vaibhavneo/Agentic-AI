@@ -447,3 +447,86 @@ def evaluate_any(proposal: Dict[str, Any]) -> Dict[str, Any]:
     if group == S.CONFIDENCE_MAP:
         return evaluate_confidence(cur, cand, horizon)
     return evaluate(group, cur, cand, horizon)
+
+
+# ── what is even reachable ─────────────────────────────────────────────────
+#
+# The independence bar has a consequence worth stating out loud rather than
+# rediscovering every cycle: you cannot observe N non-overlapping H-day
+# windows in less than N*H days of history, no matter how many calls you make.
+# Sampling more names on more days raises the row count and does not move
+# `effective_sample_size`, because its SPAN ceiling is a fact about the
+# calendar.
+#
+# At MIN_EFFECTIVE_N = 20 that means a 20-day horizon needs about 1.6 years of
+# history, a 1-year horizon needs 20 years, and a 3-year horizon needs 60.
+# Multi-year tuning is therefore not "waiting for more data" — it is out of
+# reach of this method, and a loop that keeps emitting "3 of 20 independent
+# windows" forever implies a patience that will never be rewarded.
+#
+# The honest response is to say which horizons are reachable, when, and which
+# are not reachable at all. Lowering the bar for long horizons would be the
+# dishonest alternative: it would let the system tune multi-year behaviour on
+# three overlapping observations.
+
+CALENDAR_PER_TRADING_DAY = 365.0 / 252.0
+
+
+def years_required(horizon: int, min_windows: int = MIN_EFFECTIVE_N) -> float:
+    """Calendar years of history needed for `min_windows` independent windows."""
+    return (min_windows * horizon * CALENDAR_PER_TRADING_DAY) / 365.0
+
+
+def feasibility(horizon: int, dates: Optional[Sequence[str]] = None
+                ) -> Dict[str, Any]:
+    """Can this horizon ever clear the bar, and if so when?"""
+    import datetime as dt
+
+    if dates is None:
+        dates = [g["as_of"] for g in graphs_for(horizon) if g.get("as_of")]
+    clean = sorted({str(d)[:10] for d in dates if d})
+
+    span_years = 0.0
+    if len(clean) >= 2:
+        try:
+            d0 = dt.date.fromisoformat(clean[0])
+            d1 = dt.date.fromisoformat(clean[-1])
+            span_years = (d1 - d0).days / 365.0
+        except ValueError:
+            span_years = 0.0
+
+    need = years_required(horizon)
+    from intelligence.calibration import effective_sample_size
+    eff = effective_sample_size(clean, horizon) if clean else 0
+    shortfall = max(0.0, need - span_years)
+
+    # A horizon whose requirement exceeds a working career of market history
+    # is not a scheduling problem.
+    out_of_reach = need > 25.0
+
+    if eff >= MIN_EFFECTIVE_N:
+        state, statement = "REACHABLE_NOW", (
+            f"{horizon}-day tuning has {eff} independent windows and can be "
+            f"evaluated now.")
+    elif out_of_reach:
+        state, statement = "OUT_OF_REACH", (
+            f"{horizon}-day tuning would need about {need:.0f} years of history "
+            f"for {MIN_EFFECTIVE_N} independent windows, and {span_years:.1f} "
+            f"years exist. This is a limit of the method, not a backlog: "
+            f"non-overlapping {horizon}-day windows accumulate at one per "
+            f"{horizon * CALENDAR_PER_TRADING_DAY / 365.0:.1f} years however "
+            f"many calls are made, so no amount of sampling shortens it. This "
+            f"horizon is tracked and reported, never tuned.")
+    else:
+        state, statement = "REACHABLE_LATER", (
+            f"{horizon}-day tuning needs about {need:.1f} years of history and "
+            f"has {span_years:.1f}. Roughly {shortfall:.1f} more years — or a "
+            f"point-in-time replay extending the history backwards, which "
+            f"produces the same independent windows without waiting.")
+
+    return {"horizon_days": horizon, "state": state,
+            "effective_n": eff, "required_windows": MIN_EFFECTIVE_N,
+            "history_years": round(span_years, 2),
+            "years_required": round(need, 2),
+            "shortfall_years": round(shortfall, 2),
+            "statement": statement}

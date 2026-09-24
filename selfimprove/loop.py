@@ -41,7 +41,7 @@ from .verify import PROMOTE, evaluate, evaluate_any, evaluate_confidence
 # horizon the outcome is dominated by microstructure and overnight gaps that
 # none of the pillars claim to forecast, so fitting weights to it would tune
 # the system on the one horizon its signals are not about.
-HORIZONS = (5, 20, 60, 126, 252)
+HORIZONS = (5, 20, 60, 126, 252, 504)
 
 
 def _evaluate_active(group: str, horizon: int) -> Dict[str, Any]:
@@ -207,14 +207,36 @@ def status() -> Dict[str, Any]:
             if diff:
                 active.append({"group": group, "horizon_days": horizon,
                                "changed": diff})
+    from .verify import feasibility
+    reach = []
+    for horizon in HORIZONS:
+        try:
+            reach.append(feasibility(horizon))
+        except Exception:
+            continue
+    now = [f for f in reach if f["state"] == "REACHABLE_NOW"]
+    never = [f for f in reach if f["state"] == "OUT_OF_REACH"]
+
     return {
         "surface": S.describe(),
         "active_overrides": active,
         "n_active_overrides": len(active),
         "ledger": L.summary(),
         "horizons": list(HORIZONS),
+        # Which horizons this method can ever tune, and when. Without it the
+        # long horizons emit the same "3 of 20 independent windows" refusal
+        # every cycle forever, implying a patience that will never be
+        # rewarded — a 1-year horizon needs 20 years of history to reach 20
+        # non-overlapping windows, and no amount of extra sampling shortens
+        # that, because the ceiling is the calendar.
+        "feasibility": reach,
         "statement": (
             f"{len(active)} tunable group/horizon pair"
             f"{'s are' if len(active) != 1 else ' is'} currently overridden by "
-            f"the loop; everything else runs on the defaults the code ships with."),
+            f"the loop; everything else runs on the defaults the code ships "
+            f"with. {len(now)} of {len(reach)} horizons have enough independent "
+            f"history to tune today"
+            + (f"; {len(never)} cannot be reached by this method at all and "
+               f"{'are' if len(never) != 1 else 'is'} tracked but never tuned."
+               if never else ".")),
     }

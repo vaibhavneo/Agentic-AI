@@ -573,3 +573,48 @@ def test_an_ungraded_options_record_reports_honestly_rather_than_empty(temp_db):
     r = report()
     assert r["n"] == 0
     assert "has matured yet" in r["statement"]
+
+
+# ── the limits of the method ──────────────────────────────────────────────
+
+def test_long_horizons_are_named_out_of_reach_not_merely_short_of_data():
+    """A 2-year horizon needs about 40 years of history for 20 non-overlapping
+    windows. Reporting that as "3 of 20, keep collecting" implies a patience
+    that will never be rewarded."""
+    f = V.feasibility(504, dates=["2023-01-01", "2026-01-01"])
+    assert f["state"] == "OUT_OF_REACH"
+    assert "limit of the method" in f["statement"]
+
+
+def test_more_sampling_does_not_move_the_independence_ceiling():
+    """The SPAN ceiling is a fact about the calendar: thousands of calls
+    inside three years still cannot contain twenty non-overlapping one-year
+    windows. This is why the bar cannot be met by sampling harder."""
+    import datetime as dt
+    d0 = dt.date.fromisoformat("2023-01-01")
+    sparse = [(d0 + dt.timedelta(days=30 * i)).isoformat() for i in range(36)]
+    dense = [(d0 + dt.timedelta(days=i)).isoformat() for i in range(1080)]
+    assert V.feasibility(252, dates=sparse)["effective_n"] == \
+           V.feasibility(252, dates=dense)["effective_n"]
+
+
+def test_a_reachable_horizon_is_not_reported_as_out_of_reach():
+    f = V.feasibility(20, dates=["2020-01-01", "2026-01-01"])
+    assert f["state"] != "OUT_OF_REACH"
+
+
+def test_years_required_scales_with_the_horizon():
+    assert V.years_required(252) > V.years_required(20) > V.years_required(5)
+    assert V.years_required(252) == pytest.approx(20.0, abs=0.5)
+
+
+def test_the_bar_is_never_lowered_for_a_long_horizon():
+    """The dishonest alternative to admitting a horizon is unreachable is to
+    require fewer windows for it, which would tune multi-year behaviour on
+    three overlapping observations."""
+    import inspect
+    src = inspect.getsource(V.evaluate) + inspect.getsource(V.evaluate_confidence)
+    assert "MIN_EFFECTIVE_N" in src
+    # No horizon-conditional relaxation of the threshold.
+    assert "MIN_EFFECTIVE_N //" not in src
+    assert "MIN_EFFECTIVE_N *" not in src
