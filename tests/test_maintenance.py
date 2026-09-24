@@ -214,7 +214,7 @@ def test_the_scheduler_can_be_disabled_by_environment():
 # that quietly grows an expensive job starves the thing it was built for.
 # Both current jobs are seconds. Adding a name here should mean someone
 # checked that.
-SCHEDULED_JOBS = {"grade_outcomes", "self_improve"}
+SCHEDULED_JOBS = {"grade_outcomes", "grade_options", "self_improve"}
 
 
 def test_the_scheduled_job_set_is_the_reviewed_one():
@@ -228,8 +228,10 @@ def test_self_improvement_runs_after_grading():
     """The loop learns from matured outcomes. Running it before the grader
     would evaluate every proposal against evidence one interval out of date."""
     order = list(m.JOBS)
-    check("grading first",
+    check("equity grading first",
           order.index("grade_outcomes") < order.index("self_improve"), order)
+    check("options grading first",
+          order.index("grade_options") < order.index("self_improve"), order)
 
 
 def test_self_improvement_does_not_apply_changes_by_default(monkeypatch):

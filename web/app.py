@@ -2372,6 +2372,23 @@ def selfimprove_scorecard_endpoint():
         return jsonify({"error": f"{type(e).__name__}: {e}"}), 500
 
 
+@app.route("/api/selfimprove/options")
+def selfimprove_options_endpoint():
+    """The options track record, split into its two separable claims.
+
+    DIRECTION (did the underlying finish where the structure needed it) and
+    VOLATILITY (was the vol the engine priced with anything like what the
+    underlying delivered) are reported apart because they have different
+    fixes. Until now neither was measured at all — every brief quoted a
+    probability of profit that was explicitly "not a measured frequency".
+    """
+    try:
+        from selfimprove.options_ledger import report
+        return jsonify(report())
+    except Exception as e:
+        return jsonify({"error": f"{type(e).__name__}: {e}"}), 500
+
+
 @app.route("/api/selfimprove/config", methods=["GET"])
 def selfimprove_config_endpoint():
     """Active overrides and the full change history, including rollbacks."""

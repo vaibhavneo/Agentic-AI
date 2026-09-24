@@ -484,3 +484,92 @@ def test_the_loop_touches_nothing_outside_the_surface(temp_db):
         assert a["group"] in S.groups()
         for key in (a.get("candidate") or {}):
             assert S.is_tunable(a["group"], key)
+
+
+# ── options outcomes: the half that was never graded ──────────────────────
+
+def _options_brief(**kw):
+    base = {
+        "ticker": "AAA", "expiry": "2026-08-21", "spot": 300.0,
+        "days_to_expiry": 45, "volatility_annualized_pct": 22.0,
+        "volatility_basis": "REALIZED_30_BAR", "view": "BULLISH",
+        "is_model_priced": True, "asset_class": "EQUITY",
+        "candidates": [{
+            "structure": "long_call",
+            "legs": [{"kind": "call", "strike": 310.0, "qty": 1}],
+            "net_cost": -950.0, "max_gain": None, "max_loss": -950.0,
+            "breakevens": [319.5], "probability_of_profit": 0.42}]}
+    base.update(kw)
+    return base
+
+
+def test_freezing_an_options_recommendation_is_idempotent(temp_db):
+    from selfimprove.options_ledger import freeze
+    b = _options_brief()
+    assert freeze(b) == freeze(b), "the same recommendation froze twice"
+
+
+def test_a_frozen_options_recommendation_is_immutable(temp_db):
+    import sqlite3
+    from data import prediction_ledger as PL
+    from selfimprove.options_ledger import freeze
+    freeze(_options_brief())
+    conn = sqlite3.connect(PL._db())
+    with pytest.raises(sqlite3.Error):
+        conn.execute("UPDATE options_snapshots SET spot_at_call = 1.0")
+    with pytest.raises(sqlite3.Error):
+        conn.execute("DELETE FROM options_snapshots")
+    conn.close()
+
+
+def test_a_brief_with_no_candidate_is_not_frozen(temp_db):
+    from selfimprove.options_ledger import freeze
+    assert freeze(_options_brief(candidates=[])) is None
+
+
+@pytest.mark.parametrize("settle,expect_profit", [
+    (309.35, False),   # just below the 310 strike: expires worthless
+    (400.00, True),    # deep in the money: 9000 intrinsic beats the 950 paid
+])
+def test_expiry_payoff_is_computed_from_the_settled_close(settle, expect_profit):
+    from selfimprove.options_ledger import _payoff
+    legs = [{"kind": "call", "strike": 310.0, "qty": 1}]
+    payoff = _payoff("long_call", legs, settle) * 100.0
+    profit = payoff - 950.0
+    assert (profit > 0) is expect_profit
+
+
+def test_the_contract_multiplier_is_applied(temp_db):
+    """Legs are quoted per share and net_cost per contract. Missing the 100x
+    would make every structure look like it moved a hundredth of what it did,
+    and every long option would read as a loss."""
+    from selfimprove.options_ledger import _payoff
+    per_share = _payoff("long_call", [{"kind": "call", "strike": 310.0,
+                                       "qty": 1}], 400.0)
+    assert per_share == pytest.approx(90.0)
+    assert per_share * 100.0 == pytest.approx(9000.0)
+
+
+def test_a_short_structure_payoff_is_negative_when_it_loses():
+    from selfimprove.options_ledger import _payoff
+    short = _payoff("short_call", [{"kind": "call", "strike": 310.0,
+                                    "qty": -1}], 400.0)
+    assert short == pytest.approx(-90.0)
+
+
+def test_the_options_report_separates_direction_from_volatility(temp_db):
+    """They have different fixes: a desk right on direction and wrong on vol
+    is mispricing every structure in a predictable direction, which is
+    correctable. Reporting one number would hide which is which."""
+    from selfimprove.options_ledger import report
+    r = report()
+    assert r["available"] is True
+    if r.get("n"):
+        assert "direction_claim" in r and "volatility_claim" in r
+
+
+def test_an_ungraded_options_record_reports_honestly_rather_than_empty(temp_db):
+    from selfimprove.options_ledger import report
+    r = report()
+    assert r["n"] == 0
+    assert "has matured yet" in r["statement"]

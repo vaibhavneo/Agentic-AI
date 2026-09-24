@@ -51,6 +51,7 @@ DEFAULT_INTERVAL_SEC = 6 * 60 * 60
 # The self-improvement cycle. Named here so the scheduler, the API and
 # the tests all refer to one string.
 SELF_IMPROVE = "self_improve"
+GRADE_OPTIONS = "grade_options"
 
 # How long a claimed-but-unfinished run is assumed live before another worker
 # may take it. A worker killed mid-run must not lock the job out forever.
@@ -216,8 +217,19 @@ def self_improve() -> Dict[str, Any]:
             "statement": res["statement"]}
 
 
+def grade_options() -> Dict[str, Any]:
+    """Settle every frozen options recommendation whose expiry has passed.
+
+    Ordered before self_improve for the same reason grade_outcomes is: the
+    loop reads what grading produced.
+    """
+    from selfimprove.options_ledger import grade
+    return grade()
+
+
 JOBS: Dict[str, Callable[[], Dict[str, Any]]] = {
     GRADE_OUTCOMES: grade_outcomes,
+    GRADE_OPTIONS: grade_options,
     SELF_IMPROVE: self_improve,
 }
 

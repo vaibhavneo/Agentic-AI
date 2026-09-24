@@ -460,4 +460,23 @@ def build(ticker: str,
                 f"No live option chain is reachable for a "
                 f"{cls['spec']['label']} from this system, so a model price is "
                 f"the best available answer rather than a fallback from one.")
+
+    # Freeze the top-ranked recommendation so it can be graded at expiry. The
+    # options side of this desk quoted a probability of profit for its whole
+    # existence and never once checked it against what happened; a brief that
+    # is not recorded is a claim that can never be wrong.
+    #
+    # Idempotent on content, so repeated builds of the same recommendation
+    # collapse to one row. Failure is swallowed deliberately: the record is
+    # worth having, but not at the cost of failing the answer the user asked
+    # for. Guarded off under pytest for the same reason the maintenance
+    # scheduler is — otherwise the suite writes to the real ledger.
+    try:
+        import os
+        import sys as _sys
+        if "pytest" not in _sys.modules and not os.getenv("PYTEST_CURRENT_TEST"):
+            from selfimprove.options_ledger import freeze as _freeze_options
+            section["frozen_id"] = _freeze_options(section)
+    except Exception:
+        pass
     return section
