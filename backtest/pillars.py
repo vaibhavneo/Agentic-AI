@@ -115,6 +115,7 @@ def compute_pillar_scores(
     pit: Optional[Dict[str, Any]] = None,
     strict_fundamentals: bool = False,
     asset_class: str = "EQUITY",
+    horizon_days: Optional[int] = None,
 ) -> Dict[str, Any]:
     """The six pillar scores + composite for RIGHT NOW (live snapshot).
 
@@ -293,9 +294,31 @@ def compute_pillar_scores(
             _p["flags"] = list(_p["flags"]) + [
                 f"not_applicable_to_{_spec.asset_class.lower()}"]
 
+    # The self-improvement loop may hold a validated, horizon-scoped override
+    # of the core weights. It is consulted ONLY when a horizon is named: a
+    # caller that does not say which horizon it is scoring cannot be given
+    # weights tuned for one, and every existing caller keeps today's behaviour
+    # exactly. Absent an override this returns CORE_WEIGHTS unchanged, so a
+    # system that has never promoted anything scores as it always did.
+    _base = dict(CORE_WEIGHTS)
+    _weight_source = "CORE_WEIGHTS"
+    if horizon_days is not None:
+        try:
+            from selfimprove.config import active as _active_weights
+            from selfimprove.surface import PILLAR_WEIGHTS as _PW
+            _override = _active_weights(_PW, int(horizon_days))
+            if _override and set(_override) == set(_base) and \
+                    any(abs(_override[k] - _base[k]) > 1e-9 for k in _base):
+                _base = _override
+                _weight_source = f"selfimprove:{int(horizon_days)}d"
+        except Exception:
+            # The loop is an enhancement, never a dependency. If its store is
+            # unreachable the desk must still score, on the shipped weights.
+            pass
+
     # Redistribute the weight of inapplicable core pillars over the rest, so
     # the composite is the weighted mean of what was MEASURED.
-    _live = {k: w for k, w in CORE_WEIGHTS.items() if k not in _inapplicable}
+    _live = {k: w for k, w in _base.items() if k not in _inapplicable}
     _live_total = sum(_live.values())
     weights = ({k: w / _live_total for k, w in _live.items()}
                if _live_total > 0 else {})
@@ -326,6 +349,11 @@ def compute_pillar_scores(
         "composite": composite,
         "action": action_for(composite),
         "weights": {k: round(v, 4) for k, v in weights.items()},
+        # Which weighting produced this score. A snapshot frozen without it
+        # cannot be attributed later: future attribution would assume the
+        # shipped weights and silently mis-assign credit for every decision
+        # made under an override.
+        "weight_source": _weight_source,
         "nominal_weights": dict(CORE_WEIGHTS),
         "asset_class": _spec.asset_class,
         "inapplicable_pillars": sorted(_inapplicable),

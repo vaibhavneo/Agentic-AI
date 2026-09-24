@@ -2289,6 +2289,122 @@ def price_history_endpoint():
 
 
 # ── Scheduled upkeep ──────────────────────────────────────────────────────
+@app.route("/api/realtime/<ticker>")
+def realtime_endpoint(ticker):
+    """A live price WITH its corroboration status.
+
+    Deliberately not a bare number. `confirmation` says whether independent
+    vendors agree (CROSS_VENDOR), whether only two code paths to one vendor
+    agree (CROSS_PATH), or whether they disagree — in which case no price is
+    returned at all, because a bad print reaching a prediction is the one new
+    failure mode live quotes add over settled bars.
+    """
+    try:
+        from mas.realtime import consensus
+        return jsonify(consensus((ticker or "").upper().strip()))
+    except Exception as e:
+        return jsonify({"error": f"{type(e).__name__}: {e}"}), 500
+
+
+@app.route("/api/selfimprove")
+def selfimprove_status_endpoint():
+    """What the loop may touch, what it has changed, and its refusal record."""
+    try:
+        from selfimprove.loop import status
+        return jsonify(status())
+    except Exception as e:
+        return jsonify({"error": f"{type(e).__name__}: {e}"}), 500
+
+
+@app.route("/api/selfimprove/run", methods=["POST"])
+def selfimprove_run_endpoint():
+    """Run one cycle. DRY BY DEFAULT.
+
+    `{"apply": true}` is required to actually move a weight, so an accidental
+    POST cannot silently change how every future prediction is scored.
+    """
+    data = request.get_json(silent=True) or {}
+    apply_changes = bool(data.get("apply"))
+    horizons = data.get("horizons")
+    if horizons is not None:
+        if not isinstance(horizons, list) or not all(
+                isinstance(h, int) for h in horizons):
+            return jsonify({"error": "horizons must be a list of integers"}), 400
+    try:
+        from selfimprove.loop import cycle
+        return jsonify(cycle(dry_run=not apply_changes, horizons=horizons))
+    except Exception as e:
+        return jsonify({"error": f"{type(e).__name__}: {e}"}), 500
+
+
+@app.route("/api/selfimprove/proposals")
+def selfimprove_proposals_endpoint():
+    """Every proposal ever evaluated, refusals included. Append-only."""
+    try:
+        from selfimprove import ledger as _sl
+        group = request.args.get("group")
+        horizon = request.args.get("horizon")
+        return jsonify({
+            "summary": _sl.summary(),
+            "proposals": _sl.history(
+                group=group,
+                horizon=int(horizon) if horizon else None,
+                limit=int(request.args.get("limit", 50))),
+        })
+    except Exception as e:
+        return jsonify({"error": f"{type(e).__name__}: {e}"}), 500
+
+
+@app.route("/api/selfimprove/scorecard")
+def selfimprove_scorecard_endpoint():
+    """Per-node attribution: what each pillar's contribution actually earned.
+
+    This is the evidence a reweighting proposal argues from, exposed so the
+    argument can be checked rather than taken on trust.
+    """
+    try:
+        from selfimprove.scorecard import summarize
+        horizon = int(request.args.get("horizon", 20))
+        return jsonify({"horizon_days": horizon,
+                        "nodes": summarize(horizon,
+                                           min_n=int(request.args.get("min_n", 5)))})
+    except Exception as e:
+        return jsonify({"error": f"{type(e).__name__}: {e}"}), 500
+
+
+@app.route("/api/selfimprove/config", methods=["GET"])
+def selfimprove_config_endpoint():
+    """Active overrides and the full change history, including rollbacks."""
+    try:
+        from selfimprove import config as _sc
+        return jsonify({"overrides": _sc.overrides(),
+                        "history": _sc.history(
+                            limit=int(request.args.get("limit", 100)))})
+    except Exception as e:
+        return jsonify({"error": f"{type(e).__name__}: {e}"}), 500
+
+
+@app.route("/api/selfimprove/revert", methods=["POST"])
+def selfimprove_revert_endpoint():
+    """Manually roll one group/horizon back to the shipped defaults.
+
+    The operator's escape hatch. Rolling back never erases the history that
+    produced the override — tunable_config_history is append-only.
+    """
+    data = request.get_json(silent=True) or {}
+    group, horizon = data.get("group"), data.get("horizon_days")
+    if not group or horizon is None:
+        return jsonify({"error": "group and horizon_days are required"}), 400
+    try:
+        from selfimprove import config as _sc, surface as _ss
+        if group not in _ss.groups():
+            return jsonify({"error": f"unknown group {group!r}; "
+                                     f"expected one of {_ss.groups()}"}), 400
+        return jsonify(_sc.revert(group, int(horizon)))
+    except Exception as e:
+        return jsonify({"error": f"{type(e).__name__}: {e}"}), 500
+
+
 # Started at IMPORT, not under __main__: production runs gunicorn, which
 # imports this module and never executes the __main__ block. Starting it there
 # is why a scheduler can look wired up and never run in the only environment

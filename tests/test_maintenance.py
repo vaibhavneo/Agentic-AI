@@ -208,11 +208,51 @@ def test_the_scheduler_can_be_disabled_by_environment():
             os.environ["MAINTENANCE_SCHEDULER"] = old
 
 
-def test_grading_is_the_only_scheduled_job():
-    """Freezing new predictions over the watchlist costs ~15 minutes of a web
-    dyno. Production already accumulates snapshots from live analyses; grading
-    was the half with no clock."""
-    check("one job", set(m.JOBS) == {"grade_outcomes"}, sorted(m.JOBS))
+# The scheduled job set is a REVIEWED WHITELIST, not an open extension point.
+# The constraint it encodes is cost: freezing new predictions over the
+# watchlist would cost ~15 minutes of a web dyno per cycle, and a scheduler
+# that quietly grows an expensive job starves the thing it was built for.
+# Both current jobs are seconds. Adding a name here should mean someone
+# checked that.
+SCHEDULED_JOBS = {"grade_outcomes", "self_improve"}
+
+
+def test_the_scheduled_job_set_is_the_reviewed_one():
+    """Production already accumulates snapshots from live analyses; grading
+    was the half with no clock, and self-improvement is the half that reads
+    what grading produced."""
+    check("reviewed job set", set(m.JOBS) == SCHEDULED_JOBS, sorted(m.JOBS))
+
+
+def test_self_improvement_runs_after_grading():
+    """The loop learns from matured outcomes. Running it before the grader
+    would evaluate every proposal against evidence one interval out of date."""
+    order = list(m.JOBS)
+    check("grading first",
+          order.index("grade_outcomes") < order.index("self_improve"), order)
+
+
+def test_self_improvement_does_not_apply_changes_by_default(monkeypatch):
+    """A system that starts rewriting its own weights the first time it is
+    deployed, before anyone has seen what it would do, is not a configuration
+    anybody chose. SELFIMPROVE_APPLY is the opt-in."""
+    monkeypatch.delenv("SELFIMPROVE_APPLY", raising=False)
+    seen = {}
+
+    def _fake_cycle(dry_run=False, horizons=None):
+        seen["dry_run"] = dry_run
+        return {"cycle_id": "x", "dry_run": dry_run, "n_proposed": 0,
+                "n_promoted": 0, "n_refused": 0, "n_rolled_back": 0,
+                "statement": ""}
+
+    import selfimprove.loop as LP
+    monkeypatch.setattr(LP, "cycle", _fake_cycle)
+    m.self_improve()
+    check("dry by default", seen.get("dry_run") is True, seen)
+
+    monkeypatch.setenv("SELFIMPROVE_APPLY", "1")
+    m.self_improve()
+    check("opt-in applies", seen.get("dry_run") is False, seen)
 
 
 def test_the_scheduler_shares_the_ledger_database():

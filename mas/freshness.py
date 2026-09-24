@@ -156,33 +156,62 @@ def market_session(asset_class: str = "EQUITY",
             "as_of_et": now_et.isoformat(timespec="seconds")}
 
 
-def live_quote(symbol: str) -> Dict[str, Any]:
-    """The most recent trade this system can see. Never raises.
+def live_quote(symbol: str, asset_class: Optional[str] = None) -> Dict[str, Any]:
+    """The most recent trade this system can see, with its corroboration.
+
+    Routed through mas.realtime rather than calling a vendor directly. Two
+    reasons, and the second is the important one:
+
+      * it restores the provider seam — vendor names belong in the registry
+        and financial_data/providers/* only, and this function used to name
+        yfinance inline, which meant the one price a user actually looks at
+        was the one price no registry edit could improve.
+
+      * an uncorroborated tick is no longer presented the same way as a
+        confirmed one. `confirmation` says how much agreement the number has,
+        and on DISAGREEMENT there is no price at all — the previous version
+        would have shown a bad print as a fact.
 
     Returns `available: False` with a reason rather than a price of None that
     a caller might format as a number.
     """
-    out: Dict[str, Any] = {"symbol": (symbol or "").upper(), "available": False,
-                           "price": None, "source": None, "as_of": None,
-                           "age_sec": None, "reason": ""}
+    sym = (symbol or "").upper()
+    out: Dict[str, Any] = {"symbol": sym, "available": False, "price": None,
+                           "source": None, "as_of": None, "age_sec": None,
+                           "confirmation": None, "n_sources": 0,
+                           "spread_pct": None, "reason": ""}
     try:
-        import yfinance as yf
-        t = yf.Ticker(out["symbol"])
-        price = None
-        try:
-            fi = t.fast_info
-            price = fi.get("lastPrice") or fi.get("last_price")
-        except Exception:
-            price = None
-        if price:
-            out.update({"available": True, "price": float(price),
-                        "source": "last trade",
-                        "as_of": dt.datetime.now().isoformat(timespec="seconds"),
-                        "age_sec": 0})
-            return out
-        out["reason"] = "the provider returned no last trade for this symbol"
+        from .realtime import consensus
+        c = consensus(sym, asset_class=asset_class)
     except Exception as e:
         out["reason"] = f"the quote could not be fetched ({type(e).__name__})"
+        return out
+
+    out.update({"confirmation": c.get("confirmation"),
+                "n_sources": c.get("n_sources", 0),
+                "spread_pct": c.get("spread_pct"),
+                "corroboration": c.get("statement")})
+
+    if not c.get("usable"):
+        out["reason"] = c.get("statement") or "no live price was available"
+        return out
+
+    lead = (c.get("quotes") or [{}])[0]
+    as_of = lead.get("as_of")
+    age = None
+    if as_of:
+        try:
+            ts = dt.datetime.fromisoformat(str(as_of))
+            now = (dt.datetime.now(ts.tzinfo) if ts.tzinfo
+                   else dt.datetime.now())
+            age = max(0, int((now - ts).total_seconds()))
+        except (ValueError, TypeError):
+            age = None
+
+    out.update({"available": True, "price": float(c["price"]),
+                "source": lead.get("provider") or "last trade",
+                "as_of": as_of or dt.datetime.now().isoformat(timespec="seconds"),
+                "age_sec": age})
     return out
 
 

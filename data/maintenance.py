@@ -48,6 +48,10 @@ GRADE_OUTCOMES = "grade_outcomes"
 # attempt failed, without ever grading the same bars repeatedly for value.
 DEFAULT_INTERVAL_SEC = 6 * 60 * 60
 
+# The self-improvement cycle. Named here so the scheduler, the API and
+# the tests all refer to one string.
+SELF_IMPROVE = "self_improve"
+
 # How long a claimed-but-unfinished run is assumed live before another worker
 # may take it. A worker killed mid-run must not lock the job out forever.
 STALE_CLAIM_SEC = 30 * 60
@@ -189,8 +193,32 @@ def grade_outcomes() -> Dict[str, Any]:
         "n_errors": len((res or {}).get("errors") or [])}
 
 
+def self_improve() -> Dict[str, Any]:
+    """Run one self-improvement cycle: review active overrides, then propose.
+
+    Ordered AFTER grade_outcomes in JOBS deliberately — the loop learns from
+    matured outcomes, so running it first would evaluate every proposal
+    against evidence one interval out of date.
+
+    SELFIMPROVE_APPLY gates whether promotions take effect. It defaults to
+    dry-run: a system that starts changing its own weights the first time it
+    is deployed, before anyone has looked at what it would do, is not a
+    configuration anybody chose. Set SELFIMPROVE_APPLY=1 to let it act.
+    """
+    from selfimprove.loop import cycle
+    dry = os.getenv("SELFIMPROVE_APPLY", "").strip().lower() not in (
+        "1", "true", "yes", "on")
+    res = cycle(dry_run=dry)
+    return {"cycle_id": res["cycle_id"], "dry_run": res["dry_run"],
+            "n_proposed": res["n_proposed"], "n_promoted": res["n_promoted"],
+            "n_refused": res["n_refused"],
+            "n_rolled_back": res["n_rolled_back"],
+            "statement": res["statement"]}
+
+
 JOBS: Dict[str, Callable[[], Dict[str, Any]]] = {
     GRADE_OUTCOMES: grade_outcomes,
+    SELF_IMPROVE: self_improve,
 }
 
 
