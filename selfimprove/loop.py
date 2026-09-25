@@ -278,6 +278,31 @@ def _statement(advanced: List[Dict[str, Any]], reviewed: List[Dict[str, Any]],
     return "; ".join(parts) + "."
 
 
+def apply_mode() -> Dict[str, Any]:
+    """Is the SCHEDULED loop armed to apply, or only to propose?
+
+    Read from the environment the same way data.maintenance.self_improve reads
+    it, so this reports the running process's actual behaviour rather than a
+    separate opinion about it. A loop whose arming cannot be observed is one
+    nobody can tell is working.
+    """
+    import os
+    raw = os.getenv("SELFIMPROVE_APPLY", "")
+    armed = raw.strip().lower() in ("1", "true", "yes", "on")
+    return {
+        "armed": armed,
+        "env_var": "SELFIMPROVE_APPLY",
+        "env_value": raw or None,
+        "statement": (
+            "The scheduled loop is ARMED: a proposal that clears the gate is "
+            "applied, and the change is recorded and reversible."
+            if armed else
+            "The scheduled loop is DRY: it attributes, proposes, verifies and "
+            "records every verdict, but moves nothing. Set SELFIMPROVE_APPLY=1 "
+            "to let it act."),
+    }
+
+
 def status() -> Dict[str, Any]:
     """What the loop has done and what is live because of it."""
     active: List[Dict[str, Any]] = []
@@ -301,6 +326,7 @@ def status() -> Dict[str, Any]:
 
     return {
         "surface": S.describe(),
+        "apply_mode": apply_mode(),
         "active_overrides": active,
         "n_active_overrides": len(active),
         "ledger": L.summary(),

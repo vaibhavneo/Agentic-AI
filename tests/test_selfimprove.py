@@ -815,3 +815,37 @@ def test_the_engine_survives_the_reliability_lookup_failing(monkeypatch):
     monkeypatch.setattr(R, "describe", _boom)
     out = R.annotate({"decision_confidence": "MEDIUM", "summary": "x"}, 20)
     assert out["decision_confidence"] == "MEDIUM"
+
+
+def test_apply_mode_is_observable(monkeypatch):
+    """A loop whose arming cannot be observed is one nobody can tell is
+    working. It must read the same variable data.maintenance reads, so it
+    reports the running process rather than a separate opinion about it."""
+    from selfimprove.loop import apply_mode
+    monkeypatch.delenv("SELFIMPROVE_APPLY", raising=False)
+    assert apply_mode()["armed"] is False
+    assert "DRY" in apply_mode()["statement"]
+    for truthy in ("1", "true", "YES", "on"):
+        monkeypatch.setenv("SELFIMPROVE_APPLY", truthy)
+        assert apply_mode()["armed"] is True, truthy
+    monkeypatch.setenv("SELFIMPROVE_APPLY", "0")
+    assert apply_mode()["armed"] is False
+
+
+def test_apply_mode_agrees_with_what_the_scheduler_actually_does(monkeypatch):
+    """The two must not drift apart: a status page saying ARMED while the job
+    runs dry is worse than no status page."""
+    from selfimprove.loop import apply_mode
+    from data import maintenance as m
+    seen = {}
+    import selfimprove.loop as LP
+    monkeypatch.setattr(LP, "cycle", lambda dry_run=False, horizons=None: (
+        seen.update(dry_run=dry_run) or {
+            "cycle_id": "x", "dry_run": dry_run, "n_proposed": 0,
+            "n_promoted": 0, "n_refused": 0, "n_rolled_back": 0,
+            "statement": ""}))
+    for value, expect_armed in (("1", True), ("", False)):
+        monkeypatch.setenv("SELFIMPROVE_APPLY", value)
+        m.self_improve()
+        assert apply_mode()["armed"] is expect_armed
+        assert seen["dry_run"] is (not expect_armed)
