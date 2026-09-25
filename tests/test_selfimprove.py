@@ -722,3 +722,96 @@ def test_cooldown_is_reported_separately_from_a_thin_evidence_refusal(temp_db):
     text = _statement(advanced, [], dry_run=False)
     assert "1 held in cooldown" in text
     assert "refused 1 for too few independent windows" in text
+
+
+# ── the confidence label must carry its record ────────────────────────────
+
+def test_a_level_with_no_measured_record_says_nothing(monkeypatch):
+    """A badge with no history behind it must look like one. Rendering a
+    reassuring default would replace an unfounded number with another."""
+    from selfimprove import reliability as R
+    monkeypatch.setattr(R, "realized", lambda lvl, h: None)
+    monkeypatch.setattr(R, "calibrated", lambda lvl, h: None)
+    assert R.describe("HIGH", 20) is None
+
+
+def test_a_thin_sample_is_not_quoted(monkeypatch):
+    """A realised rate over a handful of calls is noise with a decimal point."""
+    from selfimprove import reliability as R
+    monkeypatch.setattr(
+        "data.prediction_ledger.calibration_report",
+        lambda horizon, source="all": {"confidence_reliability": [
+            {"level": "MEDIUM", "n": R.MIN_N_TO_QUOTE - 1,
+             "realized_win_rate": 1.0, "predicted_win_prob": 0.9,
+             "calibration_gap": 0.1}]})
+    assert R.realized("MEDIUM", 20) is None
+
+
+def test_an_untouched_default_is_not_dressed_up_as_calibrated(temp_db):
+    """Reporting the shipped constant as a validated figure would be the same
+    overclaim this module exists to remove."""
+    from selfimprove import reliability as R
+    assert R.calibrated("MEDIUM", 20) is None
+    C.apply(S.CONFIDENCE_MAP, 20,
+            {"LOW": 0.617, "MEDIUM": 0.777, "HIGH": 0.95})
+    assert R.calibrated("MEDIUM", 20) == pytest.approx(0.777)
+    assert R.calibrated("HIGH", 20) is None, "HIGH was never moved"
+
+
+def test_annotate_leaves_the_dict_untouched_when_silent(monkeypatch):
+    from selfimprove import reliability as R
+    monkeypatch.setattr(R, "describe", lambda lvl, h: None)
+    original = {"decision_confidence": "MEDIUM", "summary": "x"}
+    assert R.annotate(original, 20) == original
+
+
+def test_annotate_does_not_mutate_its_input(monkeypatch):
+    from selfimprove import reliability as R
+    monkeypatch.setattr(R, "describe",
+                        lambda lvl, h: {"statement": "won 53% of 90."})
+    original = {"decision_confidence": "MEDIUM", "summary": "x"}
+    out = R.annotate(original, 20)
+    assert "track_record" not in original, "the caller's dict was mutated"
+    assert out["track_record"]["statement"] == "won 53% of 90."
+
+
+def test_the_gap_is_only_called_out_when_it_is_material(monkeypatch):
+    from selfimprove import reliability as R
+    monkeypatch.setattr(R, "calibrated", lambda lvl, h: None)
+    monkeypatch.setattr(R, "realized", lambda lvl, h: {
+        "n": 100, "realized_win_rate": 0.60, "stated_win_prob": 0.61,
+        "gap": 0.01})
+    d = R.describe("MEDIUM", 20)
+    assert "gap of" not in d["statement"], "a 1-point gap was called out"
+
+    monkeypatch.setattr(R, "realized", lambda lvl, h: {
+        "n": 100, "realized_win_rate": 0.53, "stated_win_prob": 0.88,
+        "gap": 0.34})
+    assert "gap of 34 points" in R.describe("MEDIUM", 20)["statement"]
+
+
+def test_the_confidence_map_is_now_read_outside_the_loop():
+    """The regression guard for the bug this module fixes: the loop promoted a
+    calibrated confidence map, stored it, and nothing consulted it — a knob
+    that reported as live while changing nothing.
+
+    Asserted against the imported module's own file rather than a grep from the
+    working directory, so the test does not depend on where pytest was invoked
+    or on an external binary."""
+    import pathlib
+    import decision.engine as E
+    src = pathlib.Path(E.__file__).read_text()
+    assert "selfimprove.reliability" in src, (
+        "decision/engine.py no longer consults the confidence track record")
+
+
+def test_the_engine_survives_the_reliability_lookup_failing(monkeypatch):
+    """The record is worth having, never at the cost of the brief."""
+    from selfimprove import reliability as R
+
+    def _boom(*a, **k):
+        raise RuntimeError("ledger unreachable")
+
+    monkeypatch.setattr(R, "describe", _boom)
+    out = R.annotate({"decision_confidence": "MEDIUM", "summary": "x"}, 20)
+    assert out["decision_confidence"] == "MEDIUM"

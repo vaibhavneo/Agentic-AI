@@ -175,6 +175,16 @@ def build_decision_intelligence(
     # ── 9. Confidence and quality ────────────────────────────────────────
     confidence = decompose_confidence(rec, items, thesis, edge, conflict, scenarios,
                                       position_context, catalysts)
+    # Attach what this confidence label has actually been worth. A MEDIUM badge
+    # implied a 0.877 win probability and realised 0.533 across the ledger, and
+    # until now nothing in the system said so anywhere a reader would see it.
+    # The annotation is a no-op when there is too little history to quote, so a
+    # badge with no record behind it still looks like one.
+    try:
+        from selfimprove.reliability import annotate as _annotate_confidence
+        confidence = _annotate_confidence(confidence, horizon_days)
+    except Exception:
+        pass            # the record is worth having, never at the cost of the brief
     quality = assess_decision_quality(confidence, edge, conflict, risk_budget,
                                       catalysts, position_context, level_map)
 
