@@ -86,9 +86,23 @@ def defaults(group: str) -> Dict[str, float]:
 
 
 def active(group: str, horizon: Optional[int] = None) -> Dict[str, float]:
-    """Effective values: defaults, then any ALL_HORIZONS override, then any
-    override for this specific horizon. Most specific wins."""
+    """Effective values, most specific winning:
+
+        shipped defaults  <  committed seed  <  ALL_HORIZONS  <  this horizon
+
+    The seed layer carries parameters learned on the canonical ledger to
+    deployments that cannot learn (their snapshots are quarantined, so their
+    evidence population is empty). See selfimprove/seed.py. A deployment that
+    learned its own value always overrides the seed, so exporting a seed and
+    then reading it back is not circular.
+    """
     out = defaults(group)
+    if horizon is not None:
+        try:
+            from .seed import for_group as _seeded
+            out.update(_seeded(group, int(horizon)))
+        except Exception:
+            pass        # a bad seed costs the learned values, never the score
     try:
         conn = _conn()
         rows = conn.execute(

@@ -278,6 +278,45 @@ def _statement(advanced: List[Dict[str, Any]], reviewed: List[Dict[str, Any]],
     return "; ".join(parts) + "."
 
 
+def _seed_describe() -> Dict[str, Any]:
+    try:
+        from .seed import describe
+        return describe()
+    except Exception:
+        return {"seeded": False, "statement": "the seed could not be read"}
+
+
+def _ledger_role() -> Dict[str, Any]:
+    """Whether this deployment can LEARN, as opposed to serve what was learned.
+
+    A secondary deployment quarantines its own snapshots, so its evidence
+    population is empty and the loop will correctly refuse everything forever.
+    That is not a fault, but it must be stated: a loop running on a secondary
+    deployment looks identical to one that is learning, and the difference
+    matters entirely.
+    """
+    try:
+        from data.prediction_ledger import is_canonical_ledger, ledger_role
+        canonical = is_canonical_ledger()
+        return {
+            "role": ledger_role(),
+            "can_learn": canonical,
+            "statement": (
+                "This is the canonical ledger: the loop learns here, and what "
+                "it validates can be exported as a seed for other deployments."
+                if canonical else
+                "This is a SECONDARY ledger. Its own snapshots are quarantined "
+                "so two partial histories cannot disagree, which means its "
+                "evidence population is empty and the loop will refuse every "
+                "proposal here however long it runs. It serves parameters "
+                "learned on the canonical ledger instead; learning happens "
+                "there."),
+        }
+    except Exception:
+        return {"role": "unknown", "can_learn": False,
+                "statement": "the ledger role could not be determined"}
+
+
 def apply_mode() -> Dict[str, Any]:
     """Is the SCHEDULED loop armed to apply, or only to propose?
 
@@ -327,6 +366,8 @@ def status() -> Dict[str, Any]:
     return {
         "surface": S.describe(),
         "apply_mode": apply_mode(),
+        "learned_seed": _seed_describe(),
+        "ledger_role": _ledger_role(),
         "active_overrides": active,
         "n_active_overrides": len(active),
         "ledger": L.summary(),

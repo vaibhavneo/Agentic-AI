@@ -849,3 +849,129 @@ def test_apply_mode_agrees_with_what_the_scheduler_actually_does(monkeypatch):
         m.self_improve()
         assert apply_mode()["armed"] is expect_armed
         assert seen["dry_run"] is (not expect_armed)
+
+
+# ── carrying learned parameters to a deployment that cannot learn ──────────
+
+def _as_secondary(monkeypatch):
+    """Simulate a deployment whose own snapshots are quarantined."""
+    monkeypatch.setattr("data.prediction_ledger.is_canonical_ledger",
+                        lambda: False)
+
+
+def test_a_secondary_deployment_serves_the_seed(temp_db, monkeypatch):
+    _as_secondary(monkeypatch)
+    """A secondary ledger quarantines its own snapshots, so it can never learn.
+    Without the seed layer it would serve shipped defaults forever while the
+    canonical machine held validated better ones."""
+    from selfimprove import seed
+    monkeypatch.setattr(seed, "_cache", None)
+    monkeypatch.setattr(seed, "load", lambda: {
+        S.PILLAR_WEIGHTS: {"20": {"technical": 0.4, "algo": 0.35,
+                                  "fundamentals": 0.25}}})
+    assert C.active(S.PILLAR_WEIGHTS, 20)["fundamentals"] == pytest.approx(0.25)
+    assert C.active(S.PILLAR_WEIGHTS, 5) == C.defaults(S.PILLAR_WEIGHTS), \
+        "the seed must stay scoped to the horizon it was learned at"
+
+
+def test_a_local_override_beats_the_seed(temp_db, monkeypatch):
+    _as_secondary(monkeypatch)
+    """Otherwise exporting a seed and reading it back would be circular, and a
+    deployment that learned its own value would be overwritten by an older one."""
+    from selfimprove import seed
+    monkeypatch.setattr(seed, "_cache", None)
+    monkeypatch.setattr(seed, "load", lambda: {
+        S.PILLAR_WEIGHTS: {"20": {"technical": 0.4, "algo": 0.35,
+                                  "fundamentals": 0.25}}})
+    C.apply(S.PILLAR_WEIGHTS, 20,
+            {"technical": 0.40, "algo": 0.30, "fundamentals": 0.30})
+    assert C.active(S.PILLAR_WEIGHTS, 20)["algo"] == pytest.approx(0.30)
+
+
+def test_an_invalid_seed_is_ignored_rather_than_scored(temp_db, monkeypatch):
+    _as_secondary(monkeypatch)
+    """The seed is a committed file, so it can be hand-edited. One that breaks
+    an invariant must not reach a score; staying on defaults is the safe
+    failure."""
+    from selfimprove import seed
+    monkeypatch.setattr(seed, "_cache", None)
+    monkeypatch.setattr(seed, "load", lambda: {
+        S.PILLAR_WEIGHTS: {"20": {"technical": 0.5, "algo": 0.5,
+                                  "fundamentals": 0.5}}})       # sums to 1.5
+    assert seed.for_group(S.PILLAR_WEIGHTS, 20) == {}
+    assert C.active(S.PILLAR_WEIGHTS, 20) == C.defaults(S.PILLAR_WEIGHTS)
+
+
+def test_a_seed_key_outside_the_surface_is_dropped(temp_db, monkeypatch):
+    _as_secondary(monkeypatch)
+    from selfimprove import seed
+    monkeypatch.setattr(seed, "_cache", None)
+    monkeypatch.setattr(seed, "load", lambda: {
+        S.PILLAR_WEIGHTS: {"20": {"technical": 0.4, "algo": 0.35,
+                                  "fundamentals": 0.25,
+                                  "risk_veto_threshold": 0.9}}})
+    assert "risk_veto_threshold" not in seed.for_group(S.PILLAR_WEIGHTS, 20)
+
+
+def test_a_missing_seed_is_not_an_error(temp_db, monkeypatch):
+    _as_secondary(monkeypatch)
+    from selfimprove import seed
+    monkeypatch.setattr(seed, "_cache", None)
+    monkeypatch.setattr(seed, "SEED_PATH",
+                        pathlib_Path_that_does_not_exist())
+    assert seed.load() == {}
+    assert C.active(S.PILLAR_WEIGHTS, 20) == C.defaults(S.PILLAR_WEIGHTS)
+
+
+def pathlib_Path_that_does_not_exist():
+    import pathlib
+    return pathlib.Path("/nonexistent") / "no-such-seed.json"
+
+
+def test_only_the_canonical_ledger_may_export_a_seed(monkeypatch):
+    """A secondary deployment exporting its empty state would overwrite the
+    real learned parameters with nothing."""
+    from selfimprove import seed
+    monkeypatch.setattr("data.prediction_ledger.is_canonical_ledger",
+                        lambda: False)
+    monkeypatch.setattr("data.prediction_ledger.ledger_role",
+                        lambda: "secondary")
+    r = seed.export()
+    assert r["written"] is False
+    assert "canonical" in r["reason"]
+
+
+def test_status_states_whether_this_deployment_can_learn():
+    """A loop on a secondary deployment looks identical to one that is
+    learning, and the difference matters entirely."""
+    from selfimprove.loop import _ledger_role
+    r = _ledger_role()
+    assert "can_learn" in r and r["statement"]
+
+
+def test_the_canonical_ledger_ignores_its_own_seed(temp_db, monkeypatch):
+    """Reading its own export as a baseline would make every comparison
+    circular: review would re-test a learned value against itself and find no
+    effect, and the cooldown would read a seeded value as a promotion already
+    in force."""
+    from selfimprove import seed
+    monkeypatch.setattr("data.prediction_ledger.is_canonical_ledger",
+                        lambda: True)
+    monkeypatch.setattr(seed, "_cache", None)
+    monkeypatch.setattr(seed, "load", lambda: {
+        S.PILLAR_WEIGHTS: {"20": {"technical": 0.4, "algo": 0.35,
+                                  "fundamentals": 0.25}}})
+    assert seed.for_group(S.PILLAR_WEIGHTS, 20) == {}
+    assert C.active(S.PILLAR_WEIGHTS, 20) == C.defaults(S.PILLAR_WEIGHTS)
+    assert seed.describe()["seeded"] is False
+    assert seed.describe()["seed_present"] is True
+
+
+def test_an_unknown_ledger_role_ignores_the_seed(monkeypatch):
+    """Ignoring the seed cannot cause a deployment to score on numbers nobody
+    can trace; applying it under an unknown role could."""
+    from selfimprove import seed
+    def _boom():
+        raise RuntimeError("role unavailable")
+    monkeypatch.setattr("data.prediction_ledger.is_canonical_ledger", _boom)
+    assert seed.applies_here() is False

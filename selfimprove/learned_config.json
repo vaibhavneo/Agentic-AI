@@ -1,0 +1,91 @@
+{
+  "_comment": "Parameters the self-improvement loop validated on the CANONICAL ledger, carried to deployments that cannot learn because their own snapshots are quarantined. Written by selfimprove.seed.export(); read as a layer between the shipped defaults and any local override. Delete this file to return every deployment to the weights the code ships with.",
+  "exported_at": "2026-09-25T00:16:44",
+  "groups": {
+    "confidence_map": {
+      "20": {
+        "HIGH": 0.95,
+        "LOW": 0.617,
+        "MEDIUM": 0.777
+      },
+      "5": {
+        "HIGH": 0.95,
+        "LOW": 0.617,
+        "MEDIUM": 0.777
+      }
+    },
+    "pillar_weights": {
+      "20": {
+        "algo": 0.35,
+        "fundamentals": 0.25,
+        "technical": 0.4
+      }
+    }
+  },
+  "provenance": {
+    "applied": 12,
+    "available": true,
+    "by_verdict": {
+      "COOLDOWN": 45,
+      "PROMOTE": 32,
+      "REFUSE": 184,
+      "ROLLBACK": 3
+    },
+    "rolled_back": 3,
+    "top_refusal_reasons": [
+      {
+        "n": 44,
+        "reason": "only 0 new independent windows since the last promotion moved this knob (need 3); stepping again would re-derive the same conclusion from the same evidence"
+      },
+      {
+        "n": 26,
+        "reason": "6 independent 126-day windows, need 20 \u2014 204 rows overlap in time, so row count overstates the evidence by 34x"
+      },
+      {
+        "n": 26,
+        "reason": "6 independent 126-day windows, need 20"
+      },
+      {
+        "n": 26,
+        "reason": "3 independent 252-day windows, need 20 \u2014 204 rows overlap in time, so row count overstates the evidence by 68x"
+      },
+      {
+        "n": 26,
+        "reason": "3 independent 252-day windows, need 20"
+      },
+      {
+        "n": 26,
+        "reason": "14 independent 60-day windows, need 20 \u2014 204 rows overlap in time, so row count overstates the evidence by 15x"
+      },
+      {
+        "n": 26,
+        "reason": "14 independent 60-day windows, need 20"
+      },
+      {
+        "n": 17,
+        "reason": "held-out improvement +0.01029, need at least +0.02000"
+      },
+      {
+        "n": 8,
+        "reason": "held-out improvement -0.00507, need at least +0.02000"
+      },
+      {
+        "n": 2,
+        "reason": "confidence_map.LOW would move 0.2000 in one promotion, beyond max_step 0.1"
+      }
+    ],
+    "total": 264
+  },
+  "surface_keys": {
+    "confidence_map": [
+      "LOW",
+      "MEDIUM",
+      "HIGH"
+    ],
+    "pillar_weights": [
+      "algo",
+      "fundamentals",
+      "technical"
+    ]
+  }
+}
