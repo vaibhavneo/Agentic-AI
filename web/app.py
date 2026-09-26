@@ -2306,6 +2306,89 @@ def realtime_endpoint(ticker):
         return jsonify({"error": f"{type(e).__name__}: {e}"}), 500
 
 
+@app.route("/api/pick", methods=["POST"])
+def pick_endpoint():
+    """Rank a LIVE universe and return the cross-section — stock PICKING.
+
+    The desk could analyse any name handed to it and rank nothing, because the
+    only working universe was a synthetic fixture. This ranks today's liquid US
+    common stock so the system can surface candidates rather than only check the
+    ones you already thought of.
+
+    Honesty that travels with the answer: a live universe holds only survivors,
+    so `survivorship_safe` is False and the labels say CURRENT_CONSTITUENTS_ONLY.
+    Nothing here may be read as a historical result.
+
+    `size` is capped because ranking costs roughly a third of a second per name
+    (prices plus EDGAR fundamentals), so a large universe belongs on a schedule
+    rather than inside a request that a browser is waiting on.
+    """
+    data = request.get_json(silent=True) or {}
+    try:
+        size = int(data.get("size") or 40)
+    except (TypeError, ValueError):
+        return jsonify({"error": "size must be an integer"}), 400
+    size = max(5, min(size, 120))
+    top_n = max(1, min(int(data.get("top") or 20), size))
+
+    try:
+        from xsection.live_universe import LiveUniverseProvider
+        from xsection.ranking import run_ranking
+
+        provider = LiveUniverseProvider(size=size)
+        as_of = provider._built_on
+        result = run_ranking(as_of, universe_id=provider.universe_id,
+                             provider=provider,
+                             persist=bool(data.get("persist", False)))
+        if result.get("status") != "OK":
+            return jsonify(result), 200
+
+        ranked = result.get("ranked") or []
+        slim = [{
+            "rank": r.get("rank"),
+            "ticker": r.get("ticker_as_of"),
+            "sector": r.get("sector"),
+            "composite": r.get("composite_raw"),
+            "percentile": r.get("composite_percentile"),
+            "alpha_score": r.get("alpha_score"),
+            "risk_score": r.get("risk_score"),
+            "risk_veto": r.get("risk_veto"),
+            "factors_present": r.get("factors_present"),
+            "flags": r.get("flags"),
+        } for r in ranked[:top_n]]
+
+        return jsonify({
+            "as_of": as_of,
+            "universe_id": result.get("universe_id"),
+            "n_members": result.get("n_members"),
+            "n_ranked": result.get("n_ranked"),
+            "n_excluded": result.get("n_excluded"),
+            "survivorship_safe": result.get("survivorship_safe"),
+            "labels": result.get("labels"),
+            "disclaimer": provider.disclaimer(),
+            "screens": result.get("screens"),
+            "weights": result.get("weights"),
+            "config_version": result.get("config_version"),
+            "decision_fingerprint": result.get("decision_fingerprint"),
+            "ranked": slim,
+            "no_execution": ("This is a research ranking. Nothing here places, "
+                             "sizes or routes an order."),
+        })
+    except Exception as e:
+        return jsonify({"error": f"{type(e).__name__}: {e}"}), 500
+
+
+@app.route("/api/universes")
+def universes_endpoint():
+    """Every universe the ranking engine can use, and which may be trusted for
+    historical work. A blocked one is listed with what would unblock it."""
+    try:
+        from xsection.universe import list_universes
+        return jsonify({"universes": list_universes()})
+    except Exception as e:
+        return jsonify({"error": f"{type(e).__name__}: {e}"}), 500
+
+
 @app.route("/api/selfimprove")
 def selfimprove_status_endpoint():
     """What the loop may touch, what it has changed, and its refusal record."""

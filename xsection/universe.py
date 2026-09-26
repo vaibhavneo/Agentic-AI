@@ -268,6 +268,9 @@ def get_provider(universe_id: str = "reference-smallcap-demo") -> UniverseProvid
     via WatchlistUniverseProvider — it is deliberately not a named universe here."""
     if universe_id in ("reference-smallcap-demo", "fixture", "reference"):
         return FixtureUniverseProvider()
+    if universe_id in ("us-live-liquid", "live"):
+        from xsection.live_universe import LiveUniverseProvider
+        return LiveUniverseProvider()
     if universe_id == "production-pilot":
         from xsection.providers.production_pilot import ProductionPilotProvider
         return ProductionPilotProvider()
@@ -280,12 +283,31 @@ def get_provider(universe_id: str = "reference-smallcap-demo") -> UniverseProvid
 
 
 def list_universes() -> List[Dict[str, Any]]:
+    from xsection.live_universe import LiveUniverseProvider
     fx = FixtureUniverseProvider()
     return [
         {"universe_id": fx.universe_id, "provider": "fixture_reference",
          "survivorship_safe": True, "coverage": fx.coverage(), "status": "available",
          "label": "REFERENCE (synthetic) — survivorship-safe mechanics demo",
          "disclaimer": fx.disclaimer()},
+        {"universe_id": "us-live-liquid", "provider": "sec_live",
+         "survivorship_safe": False, "coverage": LiveUniverseProvider().coverage(),
+         "status": "available",
+         "label": "LIVE US liquid common stock — today's membership, for picking",
+         "disclaimer": LiveUniverseProvider().disclaimer()},
+        {"universe_id": "production-pilot", "provider": "curated_watchlist",
+         "survivorship_safe": False,
+         "coverage": {"note": "real prices and real EDGAR fundamentals over a "
+                              "hand-curated ~100-name watchlist"},
+         "status": "available",
+         "label": "PILOT (real data) — curated 100-name watchlist",
+         "disclaimer": ("Real prices and real filed-date EDGAR fundamentals, but "
+                        "a hand-curated list of currently-listed tickers. "
+                        "Delisted names are absent, so survivorship bias inflates "
+                        "any historical metric computed on it. It was previously "
+                        "reachable through get_provider() but absent from this "
+                        "listing, which made a working real-data universe look "
+                        "like it did not exist.")},
         {"universe_id": "sharadar", "provider": "paid_interface",
          "survivorship_safe": True, "coverage": {"status": "blocked_needs_dataset"},
          "status": "blocked", "label": "Sharadar (production) — BLOCKED: needs dataset key",
