@@ -197,8 +197,34 @@ def test_persistence_roundtrip():
           '"pillars"' in r["raw_json"])
 
     # Outcome tracking + engine-filtered hit rate work through existing plumbing.
+    #
+    # The direction check is driven off the action the recommendation ACTUALLY
+    # carries rather than assuming it is directional. HOLD has no direction by
+    # design, and after the algo leg decomposition a synthetic single-leg
+    # uptrend legitimately scores 64 rather than 100 and lands in HOLD — so a
+    # test that assumed a direction was testing the scorer's band placement,
+    # not the outcome plumbing it exists to cover.
     out = store.check_outcome(rid, current_price=rec["current_price"] * 1.05)
-    check("outcome tracker accepts the rec", out.get("direction_correct") is not None)
+    action = (rec.get("action") or "").upper()
+    if action in ("BUY", "LONG", "ACCUMULATE", "SELL", "SHORT", "AVOID", "REDUCE"):
+        check("outcome tracker scores a directional call",
+              out.get("direction_correct") is not None, f"action={action}")
+    else:
+        check("outcome tracker leaves a non-directional call undirected",
+              out.get("direction_correct") is None, f"action={action}")
+    check("outcome tracker computed a realized move",
+          out.get("realized_pct") is not None, f"{out.get('realized_pct')}")
+    # The hit-rate filter needs at least one DIRECTIONAL outcome to count, and
+    # whether the scorer happens to emit one from a synthetic fixture is not
+    # what this check is about — it covers the filter's plumbing. So a directional
+    # call is logged explicitly, which also keeps the check meaningful whatever
+    # band the composite lands in as the scorer evolves.
+    directional = dict(rec)
+    directional["action"] = "ACCUMULATE"
+    directional["ticker"] = "PERSISTDIR"
+    rid2 = log_composite_recommendation(directional)
+    store.check_outcome(rid2, current_price=directional["current_price"] * 1.05)
+
     hr = store.get_historical_hit_rate(strategy_source="seven_pillar_composite")
     check("hit rate filterable by composite engine", hr["total"] >= 1, str(hr))
 

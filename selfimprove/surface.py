@@ -45,6 +45,7 @@ MONOTONIC_INCREASING = "monotonic_increasing"
 
 PILLAR_WEIGHTS = "pillar_weights"
 CONFIDENCE_MAP = "confidence_map"
+ALGO_LEG_WEIGHTS = "algo_leg_weights"
 
 # A group whose invariant is MONOTONIC_INCREASING needs its SEMANTIC order
 # declared. Sorting the keys alphabetically puts HIGH before LOW, which would
@@ -127,6 +128,42 @@ for _p in ("technical", "algo", "fundamentals"):
     _register(Tunable(PILLAR_WEIGHTS, _p, PILLAR_FLOOR, PILLAR_CEILING,
                       PILLAR_MAX_STEP, _PILLAR_RATIONALE,
                       invariant=SUM_TO_ONE, horizon_scoped=True))
+
+# The algo pillar is four voting legs, and until the decomposition landed only
+# their blend was recorded, so nothing could ask which leg carried a decision.
+# Measured over 49,880 daily observations across 20 large caps and 11 calendar
+# years: momentum and mean reversion had OPPOSITE-signed 20-day IC in 7 of the
+# 11 years (momentum +0.164 in 2016 against mean reversion -0.106; momentum
+# -0.098 in 2019 against mean reversion +0.070). Voting them at equal weight is
+# close to a guarantee of cancellation, and the blend's IC of about +0.005 at 20
+# days is that cancellation. The trend leg was negative at 5 and 60 days and the
+# volume leg fired on 5.8% of bars with no consistent sign.
+#
+# None of which is an edge — every candidate reweighting tested negative out of
+# sample. It is a reason these four should be weighed SEPARATELY on their own
+# records instead of pre-blended into one number nobody could attribute.
+_ALGO_LEG_RATIONALE = (
+    "The four algo legs were pre-blended at fixed vote weights (2/2/1/2) and "
+    "only the blend was recorded. Measured separately over 49,880 daily "
+    "observations, momentum and mean reversion carried opposite-signed 20-day "
+    "IC in 7 of 11 calendar years, so equal weights cancel them; the trend leg "
+    "measured negative at 5 and 60 days and the volume leg fired on 5.8% of "
+    "bars. Each leg should answer for itself.")
+
+# A leg floor of ZERO, unlike the pillar floor. The reasoning that keeps a
+# pillar above zero does not apply here: a pillar at zero weight stops being
+# scored and stops generating attributable observations, so it can never earn
+# its weight back. A leg's VOTE is computed from prices regardless of what it
+# is weighted, so a retired leg stays fully measurable and the loop can always
+# change its mind. Retirement is therefore safe here and is the point.
+ALGO_LEG_FLOOR = 0.0
+ALGO_LEG_CEILING = 4.0
+ALGO_LEG_MAX_STEP = 0.5
+
+for _leg in ("mean_reversion", "momentum", "trend", "volume"):
+    _register(Tunable(ALGO_LEG_WEIGHTS, _leg, ALGO_LEG_FLOOR, ALGO_LEG_CEILING,
+                      ALGO_LEG_MAX_STEP, _ALGO_LEG_RATIONALE,
+                      invariant=None, horizon_scoped=True))
 
 for _lvl in ("LOW", "MEDIUM", "HIGH"):
     _register(Tunable(CONFIDENCE_MAP, _lvl, 0.35, 0.95, 0.10,

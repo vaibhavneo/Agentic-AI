@@ -541,20 +541,30 @@ def compute_algo_signals(df: pd.DataFrame, indicators: dict,
     patterns = _detect_candlestick_patterns(df)
     result["candlestick_patterns"] = patterns
 
-    # ── Composite Algo Score (0-100)
-    algo_bull = 0
-    algo_bear = 0
-    if result.get("mean_reversion_signal") in ("STRONG_BUY", "BUY"):      algo_bull += 2
-    if result.get("mean_reversion_signal") in ("STRONG_SELL", "SELL"):    algo_bear += 2
-    if result.get("momentum_signal") in ("STRONG_BULLISH", "BULLISH"):    algo_bull += 2
-    if result.get("momentum_signal") in ("STRONG_BEARISH", "BEARISH"):    algo_bear += 2
-    if result.get("linreg_signal") in ("STRONG_UPTREND", "UPTREND"):      algo_bull += 1
-    if result.get("linreg_signal") in ("STRONG_DOWNTREND", "DOWNTREND"):  algo_bear += 1
-    if result.get("volume_price_signal") == "CONFIRMED_BREAKOUT":         algo_bull += 2
-    if result.get("volume_price_signal") == "CONFIRMED_BREAKDOWN":        algo_bear += 2
+    # ── Composite Algo Score (0-100), from the four legs it is made of.
+    #
+    # The voting used to live inline here and divided by the votes CAST, so one
+    # lonely vote scored 100 while three agreeing two-to-one scored 67 —
+    # conviction rose as evidence got scarcer. Measured over 49,880 daily
+    # observations the one- and two-vote buckets carried MAXIMUM confidence and
+    # NEGATIVE 20-day IC (-0.051 and -0.066). backtest/algo_legs.py divides by
+    # the maximum vote weight instead, so the score only spans its range when
+    # the legs actually agree, and it reports the legs and the breadth so the
+    # self-improvement loop can weigh each leg on its own record.
+    from backtest import algo_legs as _legs
 
-    total = algo_bull + algo_bear
-    result["algo_score"] = int(algo_bull / total * 100) if total else 50
+    _votes = _legs.votes_from_signals(result)
+    _combined = _legs.score_from_legs(_votes)
+    result["algo_legs"] = _votes
+    result["algo_breadth"] = _combined["breadth"]
+    result["algo_legs_fired"] = _combined["legs_fired"]
+    result["algo_denominator"] = _combined["denominator"]
+    result["algo_score"] = int(_combined["score"])
+    # The pre-fix score, kept alongside rather than discarded: the ledger holds
+    # thousands of rows scored the old way, and a reader comparing a decision
+    # to its own history needs both numbers to see why it moved.
+    result["algo_score_votes_cast"] = int(
+        _legs.score_from_legs(_votes, fixed_denominator=False)["score"])
     result["algo_direction"] = (
         "BULLISH" if result["algo_score"] >= 60 else
         "BEARISH" if result["algo_score"] <= 40 else "NEUTRAL"

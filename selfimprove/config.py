@@ -117,6 +117,9 @@ def defaults(group: str) -> Dict[str, float]:
     if group == S.PILLAR_WEIGHTS:
         from backtest.pillars import CORE_WEIGHTS
         return dict(CORE_WEIGHTS)
+    if group == S.ALGO_LEG_WEIGHTS:
+        from backtest.algo_legs import DEFAULT_LEG_WEIGHTS
+        return dict(DEFAULT_LEG_WEIGHTS)
     if group == S.CONFIDENCE_MAP:
         # The incumbent mapping the ledger measured against: these are the
         # numbers confidence_reliability compares realised win rates to.

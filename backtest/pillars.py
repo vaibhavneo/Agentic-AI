@@ -155,6 +155,52 @@ def compute_pillar_scores(
         [] if signal_summary.get("score") is not None else ["no_technical_data"])
 
     # 2. ALGO — the existing quant voting meter, verbatim (mirrored vectorized).
+    # Leg-level provenance for the algo pillar, so attribution can ask which
+    # leg carried a decision rather than only what the blend came to.
+    #
+    # The legs are COMBINED here rather than in market_data because the leg
+    # weights are horizon-scoped and this is the first place the horizon is
+    # known. The legs themselves are price-derived and horizon-independent, so
+    # computing them upstream and weighing them here puts each decision at the
+    # right seam: what the market did, then what this horizon makes of it.
+    from backtest import algo_legs as _al
+    _algo_leg_votes = dict(algo_signals.get("algo_legs") or {})
+    _algo_breadth = algo_signals.get("algo_breadth")
+    _algo_leg_weights = dict(_al.DEFAULT_LEG_WEIGHTS)
+    _algo_leg_source = "DEFAULT_LEG_WEIGHTS"
+
+    if _algo_leg_votes and horizon_days is not None:
+        try:
+            from selfimprove.config import active as _active
+            from selfimprove.config import resolve_horizon as _resolve
+            from selfimprove.surface import ALGO_LEG_WEIGHTS as _ALW
+            _cand = _active(_ALW, int(horizon_days))
+            _res, _ = _resolve(int(horizon_days))
+            if _cand and set(_cand) == set(_algo_leg_weights) and any(
+                    abs(_cand[k] - _algo_leg_weights[k]) > 1e-9
+                    for k in _algo_leg_weights):
+                _algo_leg_weights = _cand
+                _algo_leg_source = (f"selfimprove:{_res}d"
+                                    + ("" if _res == int(horizon_days)
+                                       else f" (asked {int(horizon_days)}d)"))
+        except Exception:
+            pass          # the loop is an enhancement, never a dependency
+
+    if _algo_leg_votes:
+        _recombined = _al.score_from_legs(_algo_leg_votes, _algo_leg_weights)
+        # Rescore only when the weighting actually differs from the one the
+        # upstream scorer already applied, so an untouched system keeps the
+        # exact number market_data produced rather than a re-rounded copy.
+        if _algo_leg_source != "DEFAULT_LEG_WEIGHTS":
+            algo_signals = dict(algo_signals)
+            algo_signals["algo_score"] = _recombined["score"]
+        _algo_breadth = _recombined["breadth"]
+
+    _algo_scorer_version = (
+        _al.scorer_version(_algo_leg_weights)
+        if _algo_leg_votes or _algo_breadth is not None
+        else _al.LEGACY_SCORER_VERSION)
+
     pillars["algo"] = _pillar(
         algo_signals.get("algo_score"), 1.0, True,
         "algo_signals.algo_score (z-score/momentum/linreg/volume-price voting)",
@@ -356,6 +402,17 @@ def compute_pillar_scores(
         "composite": composite,
         "action": action_for(composite),
         "weights": {k: round(v, 4) for k, v in weights.items()},
+        # Which SCORER produced the algo leg of this composite. Recorded because
+        # experiments.manifest_hash() fingerprints the variant registry, not the
+        # scorer, so without this a ledger query could not separate rows scored
+        # by the vote-ratio from rows scored by the fixed denominator — and
+        # calibration would average two different scorers into one number.
+        "algo_scorer_version": _algo_scorer_version,
+        "algo_legs": _algo_leg_votes,
+        "algo_breadth": _algo_breadth,
+        "algo_leg_weights": {k: round(float(v), 4)
+                             for k, v in _algo_leg_weights.items()},
+        "algo_leg_weight_source": _algo_leg_source,
         # Which weighting produced this score. A snapshot frozen without it
         # cannot be attributed later: future attribution would assume the
         # shipped weights and silently mis-assign credit for every decision
@@ -514,69 +571,22 @@ def technical_score_series(df: pd.DataFrame) -> pd.Series:
     return score.apply(math.floor).astype(float)
 
 
-def algo_score_series(df: pd.DataFrame) -> pd.Series:
-    """Bar-by-bar mirror of compute_algo_signals' composite vote (z-score,
-    momentum composite, 30-bar linreg slope, volume-price divergence). Monte
-    Carlo and candlestick patterns contribute zero votes in the live scorer and
-    are therefore excluded. STRONG/plain signal variants share vote sets, so
-    votes depend only on the thresholds mirrored here."""
-    close = df["Close"].astype(float)
-    volume = df["Volume"].astype(float)
-    idx = df.index
+def algo_score_series(df: pd.DataFrame,
+                      leg_weights: Optional[Dict[str, float]] = None) -> pd.Series:
+    """Bar-by-bar algo score, delegating to backtest.algo_legs.
 
-    # Mean reversion z-score (20d), live rounds to 3
-    roll_mean = close.rolling(20).mean()
-    roll_std = close.rolling(20).std()
-    z = ((close - roll_mean) / roll_std).round(3).fillna(0.0)
+    This used to hold its own copy of the voting thresholds, mirroring
+    compute_algo_signals. Two copies of the same numbers is how a backtest comes
+    to measure a strategy that is not the one running: when the live scorer
+    moved to a fixed denominator, this series kept returning the vote-ratio, and
+    the last-bar consistency test caught it at series=100 against live=64. There
+    is now one implementation and both paths call it.
 
-    # Momentum composite = mean of available 1m/3m/6m %returns (live rounds 2)
-    moms = []
-    for nper in (21, 63, 126):
-        m = ((close - close.shift(nper)) / close.shift(nper) * 100).round(2)
-        moms.append(m)
-    mom_df = pd.concat(moms, axis=1)
-    mom_comp = mom_df.mean(axis=1, skipna=True).round(2)
-    mom_any = mom_df.notna().any(axis=1)
-
-    # Rolling 30-bar linreg slope as % of window mean per day (live rounds 4).
-    # Vote thresholds are ±0.1 only (STRONG variants share the same vote sets).
-    win = 30
-    x = np.arange(win, dtype=float)
-    x_mean = x.mean()
-    ss_xx = ((x - x_mean) ** 2).sum()
-
-    def _slope_pct(w: np.ndarray) -> float:
-        y_mean = w.mean()
-        if y_mean == 0:
-            return 0.0
-        slope = ((x - x_mean) * (w - y_mean)).sum() / ss_xx
-        return round(slope / y_mean * 100, 4)
-
-    slope_pct = close.rolling(win).apply(_slope_pct, raw=True)
-
-    # Volume-price divergence (5d price change vs volume vs its 20d mean)
-    price_chg = (close - close.shift(5)) / close.shift(5)
-    vol_ma = volume.rolling(20).mean()
-    vol_chg = (volume - vol_ma) / vol_ma
-    vp_ok = price_chg.notna() & vol_chg.notna()
-    breakout = vp_ok & (price_chg > 0.02) & (vol_chg > 0.5)
-    breakdown = vp_ok & (price_chg < -0.02) & (vol_chg > 0.5)
-
-    bull = pd.Series(0.0, index=idx)
-    bear = pd.Series(0.0, index=idx)
-    bull += (z < -0.8) * 2
-    bear += (z > 0.8) * 2
-    bull += (mom_any & (mom_comp > 3)) * 2
-    bear += (mom_any & (mom_comp < -3)) * 2
-    s_ok = slope_pct.notna()
-    bull += (s_ok & (slope_pct > 0.1)) * 1
-    bear += (s_ok & (slope_pct < -0.1)) * 1
-    bull += breakout * 2
-    bear += breakdown * 2
-
-    total = bull + bear
-    score = (bull / total.replace(0, np.nan) * 100).fillna(50.0)
-    return score.apply(math.floor).astype(float)
+    Monte Carlo and candlestick patterns still contribute zero votes, as in the
+    live scorer, so they are absent here too.
+    """
+    from backtest.algo_legs import score_series
+    return score_series(df, weights=leg_weights).apply(math.floor).astype(float)
 
 
 def risk_mult_series(prices: pd.Series) -> pd.Series:
