@@ -1143,7 +1143,19 @@ def _build_decision_intelligence(ticker: str, period: str = "5y", deep: bool = F
     # synthesis came back with one directional item.
     try:
         decision["pillars"] = rec.get("pillars")
-        decision["pillar_weights"] = rec.get("weights")
+        # `rec.get("weights")` read a key the recommendation never had, so this
+        # was always None. The weights live under `pillar_weights`.
+        decision["pillar_weights"] = rec.get("pillar_weights")
+        decision["pillar_weight_source"] = rec.get("pillar_weight_source")
+        # Scorer provenance for the algo pillar. Without it a reader cannot tell
+        # whether a 64 came from one leg firing or four agreeing, and attribution
+        # cannot separate rows scored by the vote-ratio from rows scored by the
+        # fixed denominator.
+        decision["algo_scorer_version"] = rec.get("algo_scorer_version")
+        decision["algo_legs"] = rec.get("algo_legs")
+        decision["algo_breadth"] = rec.get("algo_breadth")
+        decision["algo_leg_weights"] = rec.get("algo_leg_weights")
+        decision["algo_leg_weight_source"] = rec.get("algo_leg_weight_source")
     except Exception:
         decision["pillars"] = None
 

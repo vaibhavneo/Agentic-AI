@@ -200,6 +200,19 @@ def build_recommendation(
                         "backtestable": v["backtestable"], "flags": v["flags"],
                         "claim_id": claims.get(f"pillar_{k}")}
                     for k, v in snap["pillars"].items()},
+        # Scorer provenance, carried through because this dict is what gets
+        # FROZEN. Without it the ledger cannot tell a row scored by the
+        # vote-ratio from one scored by the fixed denominator, and calibration
+        # would average two different scorers into one number. The same applies
+        # to the weights: attribution that assumed the shipped weights would
+        # mis-assign credit for every decision made under a loop override.
+        "algo_scorer_version": snap.get("algo_scorer_version"),
+        "algo_legs": snap.get("algo_legs"),
+        "algo_breadth": snap.get("algo_breadth"),
+        "algo_leg_weights": snap.get("algo_leg_weights"),
+        "algo_leg_weight_source": snap.get("algo_leg_weight_source"),
+        "pillar_weights": snap.get("weights"),
+        "pillar_weight_source": snap.get("weight_source"),
         "levels": levels,
         "position_size_pct": round(kelly * 100, 1),
         "position_size_gated": edge["level"] != "HIGH",   # true = Kelly forced to 0 (no proven edge)
