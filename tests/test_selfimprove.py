@@ -1049,3 +1049,55 @@ def test_the_recommendation_scores_pillars_at_its_own_horizon():
         "the horizon must be derived before the pillars are scored")
     assert "horizon_days=time_horizon_days" in src, (
         "the recommendation no longer passes its horizon to the pillars")
+
+
+def test_a_secondary_deployment_can_quote_the_canonical_record(temp_db, monkeypatch):
+    """Without this a reader on production sees a bare MEDIUM badge and learns
+    nothing — the exact defect the annotation exists to remove. The record is a
+    fact about the STRATEGY, which production runs identically, not about one
+    machine's disk."""
+    _as_secondary(monkeypatch)
+    from selfimprove import reliability as R, seed
+    monkeypatch.setattr(seed, "_record_cache", {
+        "60": {"confidence_reliability": [
+            {"level": "MEDIUM", "n": 66, "realized_win_rate": 0.636,
+             "predicted_win_prob": 0.90, "calibration_gap": 0.26}]}})
+    rec = R.realized("MEDIUM", 91)      # 91 resolves to 60
+    assert rec is not None
+    assert rec["n"] == 66
+    assert rec["measured_on"] == "the canonical ledger"
+
+
+def test_a_borrowed_record_always_says_where_it_came_from(temp_db, monkeypatch):
+    """Quoting another deployment's measurement without saying so would pass it
+    off as local."""
+    _as_secondary(monkeypatch)
+    from selfimprove import reliability as R, seed
+    monkeypatch.setattr(seed, "_record_cache", {
+        "60": {"confidence_reliability": [
+            {"level": "MEDIUM", "n": 66, "realized_win_rate": 0.636,
+             "predicted_win_prob": 0.90, "calibration_gap": 0.26}]}})
+    d = R.describe("MEDIUM", 91)
+    assert "canonical ledger" in d["statement"]
+    assert "serves rather than grades" in d["statement"]
+
+
+def test_the_canonical_ledger_never_borrows_a_record(monkeypatch):
+    """It has its own outcomes; reading its own export back would be circular."""
+    from selfimprove import seed
+    monkeypatch.setattr("data.prediction_ledger.is_canonical_ledger",
+                        lambda: True)
+    monkeypatch.setattr(seed, "_record_cache", {
+        "60": {"confidence_reliability": [
+            {"level": "MEDIUM", "n": 999, "realized_win_rate": 0.9}]}})
+    assert seed.record_for(60, "MEDIUM") is None
+
+
+def test_a_thin_borrowed_record_is_still_refused(temp_db, monkeypatch):
+    _as_secondary(monkeypatch)
+    from selfimprove import reliability as R, seed
+    monkeypatch.setattr(seed, "_record_cache", {
+        "60": {"confidence_reliability": [
+            {"level": "MEDIUM", "n": R.MIN_N_TO_QUOTE - 1,
+             "realized_win_rate": 1.0}]}})
+    assert R.realized("MEDIUM", 91) is None

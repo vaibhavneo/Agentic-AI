@@ -69,12 +69,36 @@ def realized(level: str, horizon: int) -> Optional[Dict[str, Any]]:
     resolved, _note = resolve_horizon(horizon)
     if resolved is None:
         return None
+    rows = []
     try:
         from data.prediction_ledger import calibration_report
         rep = calibration_report(horizon=resolved, source="all")
+        rows = rep.get("confidence_reliability") or []
     except Exception:
-        return None
-    for row in (rep.get("confidence_reliability") or []):
+        rows = []
+
+    if not rows:
+        # This deployment has graded nothing at this horizon. On a secondary
+        # deployment that is permanent, not temporary — its snapshots are
+        # quarantined by design — so fall back to the record the canonical
+        # ledger measured, carried in the seed. The provenance travels with it
+        # and is stated wherever it is quoted.
+        try:
+            from .seed import record_for
+            borrowed = record_for(resolved, lvl)
+        except Exception:
+            borrowed = None
+        if not borrowed or int(borrowed.get("n") or 0) < MIN_N_TO_QUOTE:
+            return None
+        return {"n": int(borrowed["n"]),
+                "realized_win_rate": borrowed.get("realized_win_rate"),
+                "stated_win_prob": borrowed.get("predicted_win_prob"),
+                "gap": borrowed.get("calibration_gap"),
+                "horizon_days": resolved,
+                "asked_horizon_days": int(horizon),
+                "measured_on": borrowed.get("measured_on")}
+
+    for row in rows:
         if str(row.get("level") or "").upper() != lvl:
             continue
         n = int(row.get("n") or 0)
@@ -115,6 +139,9 @@ def describe(level: str, horizon: int) -> Optional[Dict[str, Any]]:
         if cal is not None:
             parts.append(f"the loop has since validated {cal * 100:.0f}% as the "
                          f"stated figure")
+        if rec.get("measured_on"):
+            parts.append(f"measured on {rec['measured_on']}, which this "
+                         f"deployment serves rather than grades")
         out["statement"] = "; ".join(parts) + "."
     else:
         out["statement"] = (

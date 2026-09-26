@@ -82,6 +82,26 @@ def export(path: Optional[pathlib.Path] = None) -> Dict[str, Any]:
         if not horizons:
             del groups[grp]
 
+    # Carry the MEASURED RECORD too, not only the parameters. A secondary
+    # deployment has no outcomes of its own, so without this a reader there
+    # sees a bare MEDIUM badge and learns nothing — the exact defect the
+    # confidence annotation exists to remove. The track record is a fact about
+    # the STRATEGY, which production runs identically; it is not a fact about
+    # one machine's disk. It is labelled as measured on the canonical ledger
+    # wherever it is quoted, so it is never passed off as local.
+    record: Dict[str, Any] = {}
+    try:
+        from data.prediction_ledger import HORIZONS, calibration_report
+        for h in HORIZONS:
+            rep = calibration_report(horizon=h, source="all")
+            rows = [r for r in (rep.get("confidence_reliability") or [])
+                    if r.get("n")]
+            if rows:
+                record[str(h)] = {"confidence_reliability": rows,
+                                  "overall_n": (rep.get("overall") or {}).get("n")}
+    except Exception:
+        record = {}
+
     payload = {
         "_comment": ("Parameters the self-improvement loop validated on the "
                      "CANONICAL ledger, carried to deployments that cannot "
@@ -93,6 +113,7 @@ def export(path: Optional[pathlib.Path] = None) -> Dict[str, Any]:
         "exported_at": time.strftime("%Y-%m-%dT%H:%M:%S"),
         "surface_keys": {g: S.keys_in(g) for g in S.groups()},
         "groups": groups,
+        "record": record,
         "provenance": L.summary(),
     }
     target = path or SEED_PATH
@@ -117,6 +138,34 @@ def load() -> Dict[str, Any]:
         groups = {}
     _cache = groups
     return groups
+
+
+_record_cache: Optional[Dict[str, Any]] = None
+
+
+def record_for(horizon: int, level: str) -> Optional[Dict[str, Any]]:
+    """The canonical ledger's measured record for one label and horizon.
+
+    Only consulted where this deployment has no outcomes of its own — see
+    reliability.realized(). Returns the row plus `measured_on` so every caller
+    is forced to say where the number came from.
+    """
+    global _record_cache
+    if not applies_here():
+        return None
+    if _record_cache is None:
+        try:
+            raw = json.loads(SEED_PATH.read_text())
+            rec = raw.get("record") or {}
+            _record_cache = rec if isinstance(rec, dict) else {}
+        except (OSError, ValueError):
+            _record_cache = {}
+    bucket = _record_cache.get(str(int(horizon))) or {}
+    lvl = (level or "").upper()
+    for row in (bucket.get("confidence_reliability") or []):
+        if str(row.get("level") or "").upper() == lvl:
+            return {**row, "measured_on": "the canonical ledger"}
+    return None
 
 
 def applies_here() -> bool:
