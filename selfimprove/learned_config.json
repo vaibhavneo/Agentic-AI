@@ -1,6 +1,6 @@
 {
   "_comment": "Parameters the self-improvement loop validated on the CANONICAL ledger, carried to deployments that cannot learn because their own snapshots are quarantined. Written by selfimprove.seed.export(); read as a layer between the shipped defaults and any local override. Delete this file to return every deployment to the weights the code ships with.",
-  "exported_at": "2026-09-25T23:15:20",
+  "exported_at": "2026-09-26T14:43:15",
   "groups": {
     "confidence_map": {
       "20": {
@@ -26,9 +26,9 @@
     "applied": 12,
     "available": true,
     "by_verdict": {
-      "COOLDOWN": 48,
+      "COOLDOWN": 57,
       "PROMOTE": 32,
-      "REFUSE": 191,
+      "REFUSE": 212,
       "ROLLBACK": 3
     },
     "rolled_back": 3,
@@ -38,15 +38,15 @@
         "reason": "only 0 new independent windows since the last promotion moved this knob (need 3); stepping again would re-derive the same conclusion from the same evidence"
       },
       {
-        "n": 27,
+        "n": 30,
         "reason": "6 independent 126-day windows, need 20"
       },
       {
-        "n": 27,
+        "n": 30,
         "reason": "3 independent 252-day windows, need 20"
       },
       {
-        "n": 27,
+        "n": 30,
         "reason": "14 independent 60-day windows, need 20"
       },
       {
@@ -67,34 +67,34 @@
       },
       {
         "n": 8,
-        "reason": "held-out improvement -0.00507, need at least +0.02000"
+        "reason": "only -9 new independent windows since the last promotion moved this knob (need 3); stepping again would re-derive the same conclusion from the same evidence"
       },
       {
-        "n": 2,
-        "reason": "only -9 new independent windows since the last promotion moved this knob (need 3); stepping again would re-derive the same conclusion from the same evidence"
+        "n": 8,
+        "reason": "held-out improvement -0.00507, need at least +0.02000"
       }
     ],
-    "total": 274
+    "total": 304
   },
   "record": {
     "1": {
       "confidence_reliability": [
         {
-          "calibration_gap": 0.366,
+          "calibration_gap": 0.367,
           "level": "MEDIUM",
-          "n": 548,
+          "n": 553,
           "predicted_win_prob": 0.862,
-          "realized_win_rate": 0.496
+          "realized_win_rate": 0.495
         },
         {
-          "calibration_gap": 0.174,
+          "calibration_gap": 0.175,
           "level": "LOW",
-          "n": 866,
+          "n": 876,
           "predicted_win_prob": 0.687,
-          "realized_win_rate": 0.513
+          "realized_win_rate": 0.511
         }
       ],
-      "overall_n": 1779
+      "overall_n": 1800
     },
     "126": {
       "confidence_reliability": [
@@ -193,6 +193,12 @@
     }
   },
   "surface_keys": {
+    "algo_leg_weights": [
+      "mean_reversion",
+      "momentum",
+      "trend",
+      "volume"
+    ],
     "confidence_map": [
       "LOW",
       "MEDIUM",

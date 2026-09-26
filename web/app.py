@@ -489,6 +489,58 @@ def replay_list():
         return jsonify({"error": str(e)}), 500
 
 
+@app.route("/api/intraday/<ticker>")
+def intraday_endpoint(ticker):
+    """Intraday feature ICs for one name, with the cost that decides them.
+
+    Never an IC on its own. Each horizon reports the mean absolute move, the
+    round-trip cost, and the cost as a SHARE of that move — because a respectable
+    correlation over a horizon whose typical move is smaller than the spread has
+    found something real and unusable, and those are different findings.
+    """
+    try:
+        from intraday.evaluate import evaluate_symbol
+        interval = request.args.get("interval", "5m")
+        period = request.args.get("period", "1mo")
+        cost = float(request.args.get("cost_bps", 2.0))
+        return jsonify(evaluate_symbol((ticker or "").upper().strip(),
+                                       interval=interval, period=period,
+                                       cost_bps=cost))
+    except Exception as e:
+        return jsonify({"error": f"{type(e).__name__}: {e}"}), 500
+
+
+@app.route("/api/intraday/sweep", methods=["POST"])
+def intraday_sweep_endpoint():
+    """Simulate the intraday cross-section net of costs, over every feature and
+    horizon, with the multiple-comparison bar raised for the number of tests.
+
+    Testing 8 features at 3 horizons is 24 tries, so a single t above 2 is
+    roughly what chance alone produces. The response carries the Bonferroni
+    threshold next to the raw one, and `significant_adjusted` is the field to
+    read. As of 2026-09-26 on one month of 5-minute bars across 20 large caps,
+    ZERO of 24 tests cleared it — two cleared the raw bar, which is what 24
+    tests produce by chance.
+    """
+    data = request.get_json(silent=True) or {}
+    symbols = data.get("symbols")
+    if symbols is not None and (not isinstance(symbols, list)
+                               or not all(isinstance(s, str) for s in symbols)):
+        return jsonify({"error": "symbols must be a list of strings"}), 400
+    symbols = [s.upper().strip() for s in (symbols or [
+        "AAPL", "MSFT", "NVDA", "AMZN", "GOOGL", "META", "TSLA", "AVGO",
+        "JPM", "V", "WMT", "XOM", "JNJ", "PG", "KO", "BAC", "MU", "LLY",
+        "COST", "ORCL"])][:30]
+    try:
+        from intraday.simulate import sweep
+        out = sweep(symbols, cost_bps=float(data.get("cost_bps", 2.0)))
+        out["no_execution"] = ("This is a research measurement. Nothing here "
+                               "places, sizes or routes an order.")
+        return jsonify(out)
+    except Exception as e:
+        return jsonify({"error": f"{type(e).__name__}: {e}"}), 500
+
+
 @app.route("/api/universes")
 def universes():
     """Available point-in-time universes + survivorship status (mission §10)."""
