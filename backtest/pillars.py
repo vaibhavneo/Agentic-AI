@@ -306,11 +306,18 @@ def compute_pillar_scores(
         try:
             from selfimprove.config import active as _active_weights
             from selfimprove.surface import PILLAR_WEIGHTS as _PW
+            from selfimprove.config import resolve_horizon as _resolve
+            _resolved, _note = _resolve(int(horizon_days))
             _override = _active_weights(_PW, int(horizon_days))
             if _override and set(_override) == set(_base) and \
                     any(abs(_override[k] - _base[k]) > 1e-9 for k in _base):
                 _base = _override
-                _weight_source = f"selfimprove:{int(horizon_days)}d"
+                # Name the horizon the weights were LEARNED at, not the one
+                # asked for. A reader comparing two decisions needs to know
+                # when one was scored with parameters from a different horizon.
+                _weight_source = (f"selfimprove:{_resolved}d"
+                                  + ("" if _resolved == int(horizon_days)
+                                     else f" (asked {int(horizon_days)}d)"))
         except Exception:
             # The loop is an enhancement, never a dependency. If its store is
             # unreachable the desk must still score, on the shipped weights.

@@ -56,11 +56,22 @@ def calibrated(level: str, horizon: int) -> Optional[float]:
 
 
 def realized(level: str, horizon: int) -> Optional[Dict[str, Any]]:
-    """The measured record for this label at this horizon."""
+    """The measured record for this label at this horizon.
+
+    The horizon is resolved to one the LEDGER actually evaluates. The desk
+    decides at 45, 91 or 126 days, and the ledger grades at 1/5/20/60/126/252 —
+    so asking it about 91 returns an empty report and the badge went bare for
+    almost every real decision. Same resolution the weights use, so a decision's
+    weights and its track record always come from the same horizon.
+    """
     lvl = (level or "").upper()
+    from .config import resolve_horizon
+    resolved, _note = resolve_horizon(horizon)
+    if resolved is None:
+        return None
     try:
         from data.prediction_ledger import calibration_report
-        rep = calibration_report(horizon=horizon, source="all")
+        rep = calibration_report(horizon=resolved, source="all")
     except Exception:
         return None
     for row in (rep.get("confidence_reliability") or []):
@@ -72,7 +83,9 @@ def realized(level: str, horizon: int) -> Optional[Dict[str, Any]]:
         return {"n": n,
                 "realized_win_rate": row.get("realized_win_rate"),
                 "stated_win_prob": row.get("predicted_win_prob"),
-                "gap": row.get("calibration_gap")}
+                "gap": row.get("calibration_gap"),
+                "horizon_days": resolved,
+                "asked_horizon_days": int(horizon)}
     return None
 
 
@@ -89,7 +102,10 @@ def describe(level: str, horizon: int) -> Optional[Dict[str, Any]]:
 
     if rec and rec.get("realized_win_rate") is not None:
         rate = float(rec["realized_win_rate"])
-        parts = [f"{lvl} confidence at {horizon} days has won "
+        measured_at = rec.get("horizon_days", horizon)
+        at = (f"{measured_at} days" if measured_at == int(horizon)
+              else f"{measured_at} days (nearest graded to this {horizon}-day call)")
+        parts = [f"{lvl} confidence at {at} has won "
                  f"{rate * 100:.0f}% of {rec['n']} resolved calls"]
         stated = rec.get("stated_win_prob")
         if stated is not None and rec.get("gap") is not None \

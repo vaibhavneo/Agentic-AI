@@ -20,7 +20,7 @@ from __future__ import annotations
 import json
 import sqlite3
 import time
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 from . import surface as S
 
@@ -56,6 +56,45 @@ BEGIN SELECT RAISE(ABORT, 'config history is append-only'); END;
 # Horizon 0 means "applies to every horizon" — the shape a global default
 # takes in a per-horizon store.
 ALL_HORIZONS = 0
+
+# The loop tunes at the ledger's evaluation horizons. The DESK, however, decides
+# at 45, 91 or 126 days depending on the volatility regime — so an exact-match
+# lookup found nothing for almost every real decision, and the learned
+# parameters were served by this module and consulted by nothing. That is the
+# third time this pattern has appeared in this package's own wiring.
+#
+# So a requested horizon resolves to the nearest TUNED horizon, within a
+# proportional tolerance. Proportional rather than absolute because 20 days
+# away means something very different at a 5-day horizon than at a 252-day one.
+TUNED_HORIZONS = (5, 20, 60, 126, 252, 504)
+
+# Beyond this relative distance the nearest tuned horizon is not a reasonable
+# stand-in and no override applies. 0.5 lets 91 resolve to 60 (34% away) and
+# 45 resolve to 60 (33%), while a 5-day request will not borrow 20-day weights.
+HORIZON_TOLERANCE = 0.5
+
+
+def resolve_horizon(horizon: Optional[int]) -> Tuple[Optional[int], str]:
+    """Map a requested horizon onto the nearest horizon the loop tunes.
+
+    Returns (resolved_horizon, note). A resolved horizon that differs from the
+    request is disclosed in the note and ends up in the score's
+    `weight_source`, because a reader comparing two decisions needs to know
+    that one was scored with parameters learned at a different horizon.
+    """
+    if horizon is None:
+        return None, "no horizon was named, so no learned parameters apply"
+    h = int(horizon)
+    if h in TUNED_HORIZONS:
+        return h, f"{h}d is tuned directly"
+    nearest = min(TUNED_HORIZONS, key=lambda t: abs(t - h))
+    rel = abs(nearest - h) / float(max(h, 1))
+    if rel > HORIZON_TOLERANCE:
+        return None, (f"{h}d has no tuned horizon within "
+                      f"{HORIZON_TOLERANCE:.0%} (nearest is {nearest}d, "
+                      f"{rel:.0%} away), so the shipped defaults apply")
+    return nearest, (f"{h}d resolved to the {nearest}d tuned horizon "
+                     f"({rel:.0%} away)")
 
 _ready: set = set()
 
@@ -97,12 +136,14 @@ def active(group: str, horizon: Optional[int] = None) -> Dict[str, float]:
     then reading it back is not circular.
     """
     out = defaults(group)
-    if horizon is not None:
+    resolved, _note = resolve_horizon(horizon)
+    if resolved is not None:
         try:
             from .seed import for_group as _seeded
-            out.update(_seeded(group, int(horizon)))
+            out.update(_seeded(group, resolved))
         except Exception:
             pass        # a bad seed costs the learned values, never the score
+    horizon = resolved
     try:
         conn = _conn()
         rows = conn.execute(

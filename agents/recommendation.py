@@ -71,10 +71,21 @@ def build_recommendation(
     run_id = run_id or f"rec-{ticker}-{datetime.now().strftime('%Y%m%d%H%M%S')}"
     current_price = float(indicators.get("current_price") or df["Close"].iloc[-1])
 
+    # ── 0. Horizon FIRST — the pillars need it ─────────────────────────────
+    # Derived here rather than at step 4 (where it used to live) because the
+    # self-improvement loop's pillar weights are horizon-scoped, and scoring
+    # the pillars before the horizon is known meant the learned weights were
+    # served by selfimprove/config.py and consulted by nothing. It depends only
+    # on algo_signals, which is already a parameter, so computing it early
+    # changes no value — step 4 now reuses this.
+    vol_regime = algo_signals.get("vol_regime", "MEDIUM")
+    time_horizon_days = {"HIGH": 45, "MEDIUM": 91, "LOW": 126}.get(vol_regime, 91)
+
     # ── 1. Pillars + composite (deterministic; fundamentals are SEC-only) ──
     snap = compute_pillar_scores(ticker, indicators, signal_summary, algo_signals,
                                  fundamentals, reddit=reddit, stocktwits=stocktwits,
-                                 pit=pit, strict_fundamentals=True)
+                                 pit=pit, strict_fundamentals=True,
+                                 horizon_days=time_horizon_days)
 
     # ── 2. Honest backtest of the CORE, deflated against the IMMUTABLE
     # pre-registered variant count. NOT the per-ticker execution count — that is
@@ -116,9 +127,7 @@ def build_recommendation(
         "formula": "entry [p-0.5*ATR, p+0.25*ATR]; stop p-max(2*ATR,2%); target 2:1 R:R",
     }
 
-    # ── 4. Horizon — deterministic map from the volatility regime ──────────
-    vol_regime = algo_signals.get("vol_regime", "MEDIUM")
-    time_horizon_days = {"HIGH": 45, "MEDIUM": 91, "LOW": 126}.get(vol_regime, 91)
+    # ── 4. Horizon — computed at step 0, because the pillars needed it ─────
 
     # ── 5. FOUR SEPARATE, CALIBRATED CONFIDENCE DIMENSIONS ─────────────────
     # The old single "conviction" blended a good narrative with a proven edge —

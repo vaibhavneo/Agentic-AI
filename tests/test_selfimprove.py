@@ -975,3 +975,77 @@ def test_an_unknown_ledger_role_ignores_the_seed(monkeypatch):
         raise RuntimeError("role unavailable")
     monkeypatch.setattr("data.prediction_ledger.is_canonical_ledger", _boom)
     assert seed.applies_here() is False
+
+
+# ── the desk decides at horizons the loop does not tune ───────────────────
+
+def test_a_desk_horizon_resolves_to_the_nearest_tuned_one():
+    """The loop tunes at the ledger's evaluation horizons; the desk decides at
+    45, 91 or 126 days by volatility regime. Exact-match lookup found nothing
+    for almost every real decision, so the learned parameters were served and
+    consulted by nothing — the third time that pattern appeared in this
+    package's own wiring."""
+    from selfimprove.config import resolve_horizon
+    assert resolve_horizon(91)[0] == 60
+    assert resolve_horizon(45)[0] == 60
+    assert resolve_horizon(126)[0] == 126
+
+
+def test_an_exact_horizon_is_never_rewritten():
+    from selfimprove.config import TUNED_HORIZONS, resolve_horizon
+    for h in TUNED_HORIZONS:
+        assert resolve_horizon(h)[0] == h
+
+
+def test_a_horizon_too_far_from_any_tuned_one_gets_no_override():
+    """Borrowing weights learned on a different relationship to forward return
+    is the thing horizon scoping exists to prevent, so beyond the tolerance no
+    override applies at all."""
+    from selfimprove.config import resolve_horizon
+    # 12d: nearest tuned is 5d, 58% away — beyond tolerance.
+    assert resolve_horizon(12)[0] is None
+    assert "no tuned horizon within" in resolve_horizon(12)[1]
+    # 1d and 2d are far outside every tuned horizon.
+    assert resolve_horizon(1)[0] is None
+    assert resolve_horizon(2)[0] is None
+
+
+def test_the_tolerance_is_proportional_not_absolute():
+    """The same absolute gap means very different things at different horizons.
+    52 days from 252 is close; 7 days from 5 is not."""
+    from selfimprove.config import resolve_horizon
+    assert resolve_horizon(200)[0] == 252, "52d away, but only 26% of 200"
+    assert resolve_horizon(12)[0] is None, "7d away, but 58% of 12"
+
+
+def test_a_missing_horizon_applies_no_learned_parameters():
+    from selfimprove.config import resolve_horizon
+    assert resolve_horizon(None)[0] is None
+
+
+def test_the_score_discloses_the_horizon_its_weights_were_learned_at(temp_db):
+    """A reader comparing two decisions needs to know when one was scored with
+    parameters learned at a different horizon."""
+    from backtest.pillars import compute_pillar_scores as cps
+    args = dict(ticker="AAA", indicators={}, signal_summary={},
+                algo_signals={}, fundamentals={})
+    C.apply(S.PILLAR_WEIGHTS, 60,
+            {"technical": 0.40, "algo": 0.35, "fundamentals": 0.25})
+    src = cps(**args, horizon_days=91)["weight_source"]
+    assert "60d" in src and "asked 91d" in src
+    assert "60d" in cps(**args, horizon_days=60)["weight_source"]
+    assert "asked" not in cps(**args, horizon_days=60)["weight_source"]
+
+
+def test_the_recommendation_scores_pillars_at_its_own_horizon():
+    """Regression guard: the pillars were scored before the horizon existed, so
+    every horizon-scoped weight was unreachable from the real pipeline."""
+    import inspect
+    import agents.recommendation as R
+    src = inspect.getsource(R)
+    pillars_at = src.index("compute_pillar_scores(")
+    horizon_at = src.index("time_horizon_days = {")
+    assert horizon_at < pillars_at, (
+        "the horizon must be derived before the pillars are scored")
+    assert "horizon_days=time_horizon_days" in src, (
+        "the recommendation no longer passes its horizon to the pillars")
