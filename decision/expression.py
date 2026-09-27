@@ -307,3 +307,295 @@ def compare(options_section: Optional[Dict[str, Any]],
             "what the market charges. Treat the option rows as indicative shapes "
             "rather than prices."),
     }
+
+
+# ── horizon targets and where options overtake equity ─────────────────────
+#
+# The single-target table answered one question: which instrument wins if price
+# reaches the nearest sourced resistance. On IONQ that level is +2.4% away, so
+# every directional structure lost — a 2.4% move in 55 days cannot cover a
+# premium struck at 79% implied volatility. True, and incomplete: it says nothing
+# about where options DO win.
+#
+# Two crossovers answer that, and the second is the one that matters.
+#
+# CROSSOVER IN PRICE — how far the underlying must travel before a structure's
+# return on risk overtakes equity's. Solved by scan rather than algebra because
+# option payoffs are piecewise linear and a closed form would need a case per
+# structure.
+#
+# CROSSOVER IN STOP WIDTH — the structural finding. Equity's return per dollar
+# risked is 1/(spot - stop), so a TIGHT stop is itself enormous leverage: IONQ's
+# 2.42% invalidation gives a slope of 0.909 per dollar, which exceeds every
+# bounded-loss option on the board (a long call at 0.200, a call spread at
+# 0.333). No target price changes that. Options overtake equity only once the
+# stop is wide enough to hold — around 1.5 daily sigma on this name — which is
+# also the point at which the equity row stops being a position noise would
+# close. The two facts are the same fact.
+
+# Daily-sigma multiples offered as survivable alternatives to a too-tight stop.
+SURVIVABLE_SIGMAS = (1.0, 1.5, 2.0)
+
+# Scan resolution as a fraction of spot. 0.25% steps resolve a crossover to
+# about a tenth of a percent on a $45 name, which is finer than any level the
+# desk sources.
+SCAN_STEP_PCT = 0.0025
+SCAN_MAX_PCT = 2.0          # scan up to +200% before declaring no crossover
+
+
+def _equity_return_on_risk(price: float, spot: float, stop: float) -> float:
+    """Return on capital at risk for equity at a settlement price.
+
+    Independent of the capital figure: shares scale with it and so does the
+    denominator, so the ratio is (price - spot) / (spot - stop). A stop of 0
+    means UNSTOPPED, where the whole position is at risk and the ratio reduces
+    to the plain percentage move.
+    """
+    denom = spot - stop
+    if denom <= 0:
+        return 0.0
+    return (price - spot) / denom
+
+
+def _option_return_on_risk(cand: Dict[str, Any], price: float,
+                           multiplier: float) -> Optional[float]:
+    """Return on capital at risk for a structure at a settlement price."""
+    max_loss = cand.get("max_loss")
+    if max_loss in (None, 0):
+        return None
+    payoff = _payoff_at(cand.get("structure"), cand.get("legs") or [], price)
+    if payoff is None:
+        return None
+    net_cost = float(cand.get("net_cost") or 0.0)
+    return (payoff * multiplier - net_cost) / abs(float(max_loss))
+
+
+def crossover_price(cand: Dict[str, Any], spot: float, stop: float,
+                    multiplier: float) -> Dict[str, Any]:
+    """The lowest price at which this structure beats equity, or a stated no.
+
+    Scanned upward from spot. Returning "never" is the common and informative
+    answer against a tight stop, and it is reported as a fact about the stop
+    rather than a fault in the structure.
+    """
+    if spot <= 0 or stop >= spot:
+        return {"exists": False, "reason": "no usable stop distance"}
+    if stop < 0:
+        return {"exists": False, "reason": "a negative stop is not a level"}
+    step = max(spot * SCAN_STEP_PCT, 0.01)
+    price = spot
+    limit = spot * (1.0 + SCAN_MAX_PCT)
+    while price <= limit:
+        opt = _option_return_on_risk(cand, price, multiplier)
+        if opt is not None and opt > _equity_return_on_risk(price, spot, stop):
+            return {"exists": True, "price": round(price, 2),
+                    "move_pct": round(100.0 * (price / spot - 1.0), 2),
+                    "option_return_pct": round(100.0 * opt, 1),
+                    "equity_return_pct": round(
+                        100.0 * _equity_return_on_risk(price, spot, stop), 1)}
+        price += step
+    return {"exists": False,
+            "reason": (f"equity's return per dollar risked is "
+                       f"{1.0 / (spot - stop):.3f} at this stop distance "
+                       f"({100.0 * (spot - stop) / spot:.2f}%), which exceeds "
+                       f"this structure's slope at every price up to "
+                       f"+{100 * SCAN_MAX_PCT:.0f}%. A tighter stop is itself "
+                       f"leverage, and no target price overcomes it.")}
+
+
+def crossover_stop(cand: Dict[str, Any], spot: float, target: float,
+                   multiplier: float,
+                   vol_annual_pct: Optional[float] = None,
+                   days_per_year: int = 252) -> Dict[str, Any]:
+    """The stop width at which this structure overtakes equity at `target`.
+
+    The structural answer to "where do options start beating equity". Widening
+    the stop lowers equity's leverage, so there is a width past which the
+    bounded-loss structure wins — and reporting it in DAILY SIGMA as well as
+    percent is what connects it to whether the stop could be held at all.
+    """
+    opt = _option_return_on_risk(cand, target, multiplier)
+    if opt is None:
+        return {"exists": False, "reason": "structure has no bounded loss"}
+
+    step = max(spot * SCAN_STEP_PCT, 0.01)
+    stop = spot - step
+    floor = spot * 0.05          # a 95% stop is not a stop
+    while stop > floor:
+        if opt > _equity_return_on_risk(target, spot, stop):
+            width_pct = 100.0 * (spot - stop) / spot
+            sig = None
+            if vol_annual_pct and vol_annual_pct > 0:
+                daily = vol_annual_pct / (days_per_year ** 0.5)
+                sig = round(width_pct / daily, 2)
+            return {"exists": True, "stop": round(stop, 2),
+                    "width_pct": round(width_pct, 2),
+                    "width_in_daily_sigma": sig,
+                    "option_return_pct": round(100.0 * opt, 1),
+                    "holdable": (None if sig is None else bool(sig >= 1.0))}
+        stop -= step
+    return {"exists": False,
+            "reason": (f"this structure does not overtake equity at "
+                       f"{target:,.2f} for any stop width down to 95%")}
+
+
+def horizon_targets(spot: float, vol_annual_pct: Optional[float],
+                    days_per_year: int = 252,
+                    sourced: Optional[float] = None) -> List[Dict[str, Any]]:
+    """Targets to evaluate: the sourced level, then volatility-scaled horizons.
+
+    The sourced level is a price the market has actually defended and is the
+    only one with evidence behind it. The horizon bands are what the CURRENT
+    implied volatility says a horizon can hold — a width, not a forecast — and
+    they exist because a single near level cannot show where options win.
+    """
+    out: List[Dict[str, Any]] = []
+    if sourced:
+        out.append({"label": "SOURCED", "price": round(float(sourced), 2),
+                    "basis": "a level the price has traded and defended",
+                    "move_pct": round(100.0 * (float(sourced) / spot - 1.0), 2)})
+    if not vol_annual_pct or vol_annual_pct <= 0:
+        return out
+    for label, days in (("SHORT_1SD", 5), ("MEDIUM_1SD", 21), ("LONG_1SD", 126)):
+        band = (vol_annual_pct / 100.0) * ((days / float(days_per_year)) ** 0.5)
+        price = spot * (1.0 + band)
+        out.append({
+            "label": label, "price": round(price, 2), "horizon_days": days,
+            "basis": (f"one standard deviation over {days} trading days at "
+                      f"{vol_annual_pct:.1f}% implied volatility — a WIDTH the "
+                      f"horizon can hold, not a direction it will take"),
+            "move_pct": round(100.0 * band, 2)})
+    return out
+
+
+def survivable_stops(spot: float, vol_annual_pct: Optional[float],
+                     days_per_year: int = 252) -> List[Dict[str, Any]]:
+    """Stop levels at 1.0, 1.5 and 2.0 daily sigma.
+
+    Offered because the desk's sourced invalidation can sit inside a single
+    daily move, and a comparison against a stop that noise removes describes a
+    position nobody holds.
+    """
+    if not vol_annual_pct or vol_annual_pct <= 0:
+        return []
+    daily = vol_annual_pct / (days_per_year ** 0.5)
+    out = []
+    for k in SURVIVABLE_SIGMAS:
+        width = daily * k
+        out.append({"sigma": k, "stop": round(spot * (1.0 - width / 100.0), 2),
+                    "width_pct": round(width, 2)})
+    return out
+
+
+def where_options_win(options_section: Optional[Dict[str, Any]],
+                      spot: Optional[float],
+                      invalidation: Optional[float],
+                      sourced_target: Optional[float] = None,
+                      risk_capital: float = REFERENCE_RISK_CAPITAL
+                      ) -> Dict[str, Any]:
+    """The full picture: several targets, and both crossovers per structure."""
+    if not spot or spot <= 0:
+        return {"status": "UNAVAILABLE", "reason": "no usable spot price"}
+    if invalidation is None:
+        return {"status": "UNAVAILABLE",
+                "reason": "no invalidation level to compare leverage against"}
+
+    sec = options_section or {}
+    vol = (sec.get("volatility_annualized_pct")
+           or sec.get("volatility_realized_pct"))
+    mult = float(sec.get("contract_multiplier") or 100.0)
+    cands = (sec.get("candidates") or [])[:3]
+
+    targets = horizon_targets(float(spot), vol, sourced=sourced_target)
+    stops = survivable_stops(float(spot), vol)
+
+    # Comparison baselines, and the FIRST one matters most.
+    #
+    # UNSTOPPED equity is the only apples-to-apples comparison against an
+    # option's contractual floor. Every stopped baseline treats the stop as a
+    # floor and it is not one — it can gap — so capital at risk comes out small,
+    # share count comes out large, and the comparison systematically flatters
+    # equity. On IONQ that bias is decisive and it INVERTS the answer: against
+    # the 2.42% stop no structure ever wins, while against unstopped equity the
+    # call spread wins from the 21-day band onward.
+    #
+    # Modelled as stop = 0: return on risk is then (price - spot) / spot, which
+    # is exactly the unstopped return, with the whole position at risk as it
+    # should be.
+    baselines = [{"label": "UNSTOPPED_EQUITY", "stop": 0.0,
+                  "width_pct": 100.0, "in_daily_sigma": None,
+                  "note": ("the whole position is at risk, which is the only "
+                           "baseline whose floor is as real as an option's")}]
+    baselines.append({"label": "SOURCED_INVALIDATION",
+                      "stop": round(float(invalidation), 2),
+                      "width_pct": round(100.0 * (float(spot)
+                                                  - float(invalidation))
+                                         / float(spot), 2),
+                      "in_daily_sigma": _stop_in_daily_sigma(
+                          float(spot), float(invalidation), vol),
+                      "note": ("assumes the stop FILLS here; a gap through it "
+                               "loses more and there is no contractual floor")})
+    for s in stops:
+        baselines.append({"label": f"{s['sigma']}_SIGMA", "stop": s["stop"],
+                          "width_pct": s["width_pct"],
+                          "in_daily_sigma": s["sigma"],
+                          "note": "a stop wide enough that noise alone should "
+                                  "not remove it"})
+
+    grid = []
+    for cand in cands:
+        row = {"instrument": cand.get("structure"), "label": cand.get("label"),
+               "returns_at_targets": {}, "crossover_price": {},
+               "crossover_stop": {}}
+        for t in targets:
+            r = _option_return_on_risk(cand, t["price"], mult)
+            row["returns_at_targets"][t["label"]] = (
+                round(100.0 * r, 1) if r is not None else None)
+        for b in baselines:
+            row["crossover_price"][b["label"]] = crossover_price(
+                cand, float(spot), b["stop"], mult)
+        for t in targets:
+            row["crossover_stop"][t["label"]] = crossover_stop(
+                cand, float(spot), t["price"], mult, vol)
+        grid.append(row)
+
+    equity_at_targets = {}
+    for t in targets:
+        equity_at_targets[t["label"]] = {
+            b["label"]: round(100.0 * _equity_return_on_risk(
+                t["price"], float(spot), b["stop"]), 1)
+            for b in baselines}
+
+    return {
+        "status": "OK",
+        "spot": round(float(spot), 4),
+        "risk_capital": risk_capital,
+        "volatility_used_pct": vol,
+        "volatility_basis": sec.get("volatility_basis"),
+        "targets": targets,
+        "stop_baselines": baselines,
+        "equity_return_pct_at": equity_at_targets,
+        "structures": grid,
+        "the_normalisation_bias": (
+            "Every STOPPED baseline flatters equity, because it treats the stop "
+            "as a floor when only the option's floor is contractual. "
+            "UNSTOPPED_EQUITY is the comparison where both floors are real, and "
+            "on this name it inverts the answer: against the sourced stop no "
+            "structure ever wins, while against unstopped equity the bounded "
+            "structures win once the move is large enough to clear the premium. "
+            "Read the unstopped row first, then ask whether the stop you would "
+            "actually honour is wide enough to hold."),
+        "the_structural_point": (
+            f"Equity's return per dollar risked is 1/(spot - stop), so a tight "
+            f"stop IS leverage: at the sourced invalidation "
+            f"({baselines[0]['width_pct']:.2f}%) that slope is "
+            f"{1.0 / (float(spot) - float(invalidation)):.3f} per dollar, which "
+            f"no bounded-loss structure on this board matches at any price. "
+            f"Options overtake equity only once the stop is wide enough to "
+            f"hold — and that is the same width at which the equity row stops "
+            f"describing a position ordinary noise would close."),
+        "what_this_does_not_say": (
+            "The horizon targets are volatility WIDTHS, not forecasts. Nothing "
+            "here says the price will reach any of them, and no component of "
+            "this system has demonstrated a forward directional edge."),
+    }

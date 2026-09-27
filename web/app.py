@@ -1238,6 +1238,18 @@ def _build_decision_intelligence(ticker: str, period: str = "5y", deep: bool = F
             spot=float(_spot) if _spot else None,
             invalidation=float(_stop) if _stop is not None else None,
             target=_target)
+
+        # And WHERE options overtake equity, across several targets and stop
+        # baselines. The single-target table says which instrument wins if the
+        # nearest sourced level is reached; on IONQ that level is +2.4% away, so
+        # every directional structure loses and the table says nothing about
+        # where they win. This does.
+        from decision.expression import where_options_win as _where_options_win
+        decision["expression_crossover"] = _where_options_win(
+            decision.get("options"),
+            spot=float(_spot) if _spot else None,
+            invalidation=float(_stop) if _stop is not None else None,
+            sourced_target=_target)
     except Exception as e:
         decision["expression"] = {"status": "UNAVAILABLE",
                                   "reason": f"{type(e).__name__}: {e}"}

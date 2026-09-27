@@ -223,3 +223,110 @@ def test_expiry_is_stated_on_every_option_row_and_absent_on_equity():
     row = next(x for x in r["rows"] if x["instrument"] == "long_call")
     assert row["expires"] == "2026-11-20"
     assert any("expires" in c for c in row["caveats"])
+
+
+# ── where options overtake equity ─────────────────────────────────────────
+
+from decision.expression import (SURVIVABLE_SIGMAS, crossover_price,  # noqa: E402
+                                 crossover_stop, horizon_targets,
+                                 survivable_stops, where_options_win)
+
+
+def test_unstopped_equity_is_the_first_baseline():
+    """Every stopped baseline flatters equity by treating the stop as a floor
+    when only the option's floor is contractual. The honest comparison must lead."""
+    w = where_options_win(_section([_debit_call()]), spot=45.48,
+                          invalidation=44.38, sourced_target=46.55)
+    assert w["stop_baselines"][0]["label"] == "UNSTOPPED_EQUITY"
+    assert w["stop_baselines"][0]["stop"] == 0.0
+    assert w["stop_baselines"][0]["width_pct"] == 100.0
+
+
+def test_unstopped_equity_return_is_the_plain_price_move():
+    """With the whole position at risk the ratio reduces to the percentage move,
+    which is the property that makes stop=0 the right model for it."""
+    from decision.expression import _equity_return_on_risk
+    assert _equity_return_on_risk(55.0, 50.0, 0.0) == pytest.approx(0.10)
+
+
+def test_a_tight_stop_produces_more_leverage_than_any_bounded_option():
+    """Equity's slope is 1/(spot - stop), so a 2.42% stop gives 0.909 per dollar
+    — which no bounded-loss structure matches. The crossover is then absent, and
+    that is a fact about the stop rather than a fault in the structure."""
+    c = crossover_price(_debit_call(), spot=45.48, stop=44.38, multiplier=100.0)
+    assert c["exists"] is False
+    assert "0.909" in c["reason"] or "leverage" in c["reason"]
+
+
+def test_options_do_overtake_unstopped_equity():
+    """The inversion. Against a floor as real as their own, bounded structures
+    win once the move clears the premium."""
+    c = crossover_price(_debit_call(), spot=45.48, stop=0.0, multiplier=100.0)
+    assert c["exists"] is True
+    assert c["move_pct"] > 0
+    assert c["option_return_pct"] >= c["equity_return_pct"]
+
+
+def test_the_crossover_in_stop_width_is_reported_in_daily_sigma():
+    """A width in percent says nothing about whether the stop could be held;
+    the same width in daily sigma does."""
+    c = crossover_stop(_debit_call(), spot=45.48, target=56.08,
+                       multiplier=100.0, vol_annual_pct=80.0)
+    if c["exists"]:
+        assert c["width_in_daily_sigma"] is not None
+        assert c["holdable"] is not None
+
+
+def test_horizon_targets_scale_with_the_square_root_of_time():
+    ts = horizon_targets(100.0, 80.0, sourced=105.0)
+    by = {t["label"]: t for t in ts}
+    assert by["SOURCED"]["price"] == 105.0
+    short, med = by["SHORT_1SD"]["move_pct"], by["MEDIUM_1SD"]["move_pct"]
+    # 21 days against 5 is a ratio of sqrt(21/5) = 2.05.
+    assert med / short == pytest.approx((21 / 5) ** 0.5, rel=0.02)
+
+
+def test_horizon_targets_are_labelled_widths_not_forecasts():
+    for t in horizon_targets(100.0, 80.0):
+        assert "WIDTH" in t["basis"] or "traded and defended" in t["basis"]
+
+
+def test_no_volatility_means_no_horizon_targets():
+    """A band needs a volatility; inventing one would make the column a guess."""
+    assert horizon_targets(100.0, None, sourced=105.0) == [
+        {"label": "SOURCED", "price": 105.0,
+         "basis": "a level the price has traded and defended", "move_pct": 5.0}]
+
+
+def test_survivable_stops_cover_the_declared_sigmas():
+    stops = survivable_stops(100.0, 80.0)
+    assert [s["sigma"] for s in stops] == list(SURVIVABLE_SIGMAS)
+    assert all(s["stop"] < 100.0 for s in stops)
+    # Wider sigma must mean a lower stop.
+    assert stops[0]["stop"] > stops[-1]["stop"]
+
+
+def test_the_normalisation_bias_is_stated_not_left_to_be_discovered():
+    w = where_options_win(_section([_debit_call()]), spot=45.48,
+                          invalidation=44.38, sourced_target=46.55)
+    txt = w["the_normalisation_bias"]
+    assert "flatters equity" in txt
+    assert "contractual" in txt
+
+
+def test_the_crossover_view_claims_no_forecast():
+    w = where_options_win(_section([_debit_call()]), spot=45.48,
+                          invalidation=44.38, sourced_target=46.55)
+    assert "not forecasts" in w["what_this_does_not_say"]
+
+
+def test_it_refuses_without_an_invalidation_level():
+    w = where_options_win(_section([_debit_call()]), spot=45.0,
+                          invalidation=None)
+    assert w["status"] == "UNAVAILABLE"
+
+
+def test_a_negative_stop_is_refused():
+    c = crossover_price(_debit_call(), spot=45.0, stop=-5.0, multiplier=100.0)
+    assert c["exists"] is False
+    assert "negative" in c["reason"]
