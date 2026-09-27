@@ -18,6 +18,7 @@ _PATH = os.path.join(os.path.dirname(__file__), "registry.json")
 # The closed capability vocabulary. Both sides of a link must name a thing the
 # same way or the synthesis silently treats one idea as two.
 CAPABILITIES = (
+    "price_discovery",
     "equity_research",        # this desk's own read on a name
     "option_structures",      # candidate multi-leg structures for a view
     "option_pricing",         # price + greeks for a specified structure

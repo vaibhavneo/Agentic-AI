@@ -45,6 +45,23 @@ import pandas as pd
 # ── Fixed v1 weights (see module docstring before touching these) ──────────
 CORE_WEIGHTS = {"technical": 0.40, "algo": 0.40, "fundamentals": 0.20}
 MODIFIER_MAX_PTS = 5.0          # per modifier pillar, max tilt in points
+
+# Which modifier pillars actually TILT the composite.
+#
+# `social` is computed but no longer counted. Measured across the ledger its
+# correlation with forward return was +0.016 at 5 days, -0.026 at 20, and it had
+# no matured observations at all at 60 — on samples of 250, 14 and 0. A modifier
+# entitled to 5 composite points that cannot show a relationship to the outcome
+# at any horizon is 5 points of noise, and its own input carries
+# `reddit_sample_too_small` on most names.
+#
+# It stays SCORED rather than deleted, for the same reason a retired algo leg
+# keeps firing: a pillar that stops being computed stops generating attributable
+# observations and can never earn its place back, so retirement would be
+# permanent regardless of later evidence. Scored-but-not-counted keeps the
+# self-improvement loop able to change its mind.
+MODIFIER_PILLARS = ("research",)
+RETIRED_MODIFIERS = ("social",)
 ENTER_THRESHOLD = 65.0          # hysteresis: go long at/above
 EXIT_THRESHOLD = 55.0           # hysteresis: back to cash below
 VETO_BAND = (35.0, 65.0)        # composite clamp when the risk veto fires
@@ -380,7 +397,7 @@ def compute_pillar_scores(
     core = (sum(weights[k] * pillars[k]["score"] for k in weights)
             if weights else 50.0)
     modifiers = 0.0
-    for name in ("social", "research"):
+    for name in MODIFIER_PILLARS:
         if name in _inapplicable:
             continue
         p = pillars[name]
@@ -402,6 +419,10 @@ def compute_pillar_scores(
         "composite": composite,
         "action": action_for(composite),
         "weights": {k: round(v, 4) for k, v in weights.items()},
+        # Stated so a reader can see that a pillar shown with a score
+        # contributed nothing, rather than inferring it from the arithmetic.
+        "modifier_pillars": list(MODIFIER_PILLARS),
+        "retired_modifiers": list(RETIRED_MODIFIERS),
         # Which SCORER produced the algo leg of this composite. Recorded because
         # experiments.manifest_hash() fingerprints the variant registry, not the
         # scorer, so without this a ledger query could not separate rows scored

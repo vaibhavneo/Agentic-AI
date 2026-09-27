@@ -47,6 +47,11 @@ KINDS = (
     "intraday",          # sub-daily OHLCV bars. PIT-capable only within the
                          # provider's retention window (yfinance keeps ~30d of
                          # 1m bars), declared per provider in `caveats`.
+    "option_chain",      # listed option contracts with IMPLIED volatility, real
+                         # bid/ask and open interest. Never pit_capable: a chain
+                         # is a live snapshot, and no free vendor serves a past
+                         # one. This is the kind that turns MODEL option pricing
+                         # into TRADED_PRICE.
 )
 
 STATUSES = ("actual", "estimate")

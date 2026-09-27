@@ -192,6 +192,24 @@
         "quote": "Not point-in-time replayable; as_of_honored is always false for this kind.",
         "intraday": "Same vendor retention as yfinance-rt (about 30d for 1m, 60d for 5m-30m). Yahoo pads market gaps with nulls; the provider drops null bars rather than reading them as a zero price."
       }
+    },
+    "yfinance-chain": {
+      "id": "yfinance-chain",
+      "name": "Listed option chain with implied volatility (yfinance)",
+      "module": "financial_data.providers.yfinance_chain",
+      "kinds": [
+        "option_chain"
+      ],
+      "pit_capable": [],
+      "reliability": 0.8,
+      "priority": 10,
+      "rate_limit_per_sec": 2,
+      "requires_key": false,
+      "cost": "free",
+      "notes": "The kind that turns MODEL option pricing into a market price. Measured on IONQ 2026-09-26: the engine priced from realized 30-bar vol at 70.83% while the market implied 79.19%, an 8.36 vol-point gap worth $57.59 per contract on a $590 mark (9.8% understated). Also supplies REAL expirations - expiry_date() had produced 2026-11-13 for IONQ, which is not an IONQ expiration. Cross-checked against an independent broker feed on the same contract: bid, ask, open interest and volume matched exactly.",
+      "caveats": {
+        "option_chain": "A chain is a live snapshot and no free vendor serves a historical one, so as_of_honored is always false. Implied vol is solver-dependent: this feed read 80.35% on a contract where a broker feed read 79.19% from identical quotes."
+      }
     }
   }
 }

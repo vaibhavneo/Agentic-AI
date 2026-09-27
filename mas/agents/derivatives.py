@@ -181,6 +181,48 @@ def _structures(request: AgentRequest) -> AgentResult:
                            "realized volatility could not be estimated from "
                            "this price history")
 
+    # Prefer the market's IMPLIED volatility over our realized estimate.
+    #
+    # Realized vol answers "how much did this move", and an option price is
+    # "how much will it move" — the registry has carried that note against this
+    # agent's 0.55 reliability from the start. Measured on IONQ on 2026-09-26
+    # the cost was 8.36 vol points: realized 70.83% against the market's 79.19%,
+    # worth $57.59 on a $590 contract at a vega of 0.0689, or 9.8% understated.
+    #
+    # The chain also supplies REAL expirations, which matters because
+    # expiry_date() snaps to a Friday and produced 2026-11-13 for IONQ — a date
+    # IONQ does not list. A model price for a contract that does not exist is
+    # not a conservative estimate, it is an answer to a different question.
+    #
+    # Falls back silently to realized: an unreachable chain must cost the
+    # upgrade, never the answer.
+    sigma_realized = sigma
+    vol_basis = "REALIZED_30_BAR"
+    chain_meta: Dict[str, Any] = {}
+    try:
+        from financial_data.gateway import get as _fd_get
+
+        _cr = _fd_get("option_chain", request.symbol)
+        _cd = (_cr.get("data") or [None])[0]
+        if _cd and _cd.get("value"):
+            _iv = float(_cd["value"])
+            # A solver can return nonsense on a stale or one-sided quote; a
+            # plausibility band keeps a bad IV from repricing every structure.
+            if 0.01 < _iv < 5.0:
+                sigma = _iv
+                vol_basis = "IMPLIED_BY_CHAIN"
+                _ex = _cd.get("extra") or {}
+                chain_meta = {
+                    "expiration": _ex.get("expiration"),
+                    "expirations": _ex.get("expirations"),
+                    "n_calls": _ex.get("n_calls"),
+                    "n_puts": _ex.get("n_puts"),
+                    "implied_vs_realized_points": round(
+                        (_iv - sigma_realized) * 100, 2),
+                }
+    except Exception:
+        pass
+
     S = float(closes[-1])
 
     # "No directional view" and "I expect it to sit still" are DIFFERENT
@@ -249,7 +291,15 @@ def _structures(request: AgentRequest) -> AgentResult:
                "spot": round(S, 8),
                "expiry_days": days,
                "volatility_annualized_pct": round(sigma * 100, 2),
-               "volatility_basis": "REALIZED_30_BAR",
+               "volatility_basis": vol_basis,
+               # Both numbers, always. The spread between what the market
+               # charges and what the stock has actually done is itself a
+               # reading, and collapsing them to one figure hides it.
+               "volatility_realized_pct": round(sigma_realized * 100, 2),
+               "volatility_implied_pct": (round(sigma * 100, 2)
+                                          if vol_basis == "IMPLIED_BY_CHAIN"
+                                          else None),
+               "chain": chain_meta or None,
                "annualization_days": spec.days_per_year,
                "strike_step": step,
                "risk_free_rate": rate,

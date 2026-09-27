@@ -117,6 +117,39 @@ def _market_closed(d: dt.date) -> bool:
     return d == _easter(d.year) - dt.timedelta(days=2)
 
 
+def listed_expiry(symbol: str, days: int,
+                  today: Optional[dt.date] = None) -> Optional[str]:
+    """The REAL listed expiration nearest the requested horizon, or None.
+
+    expiry_date() below snaps to the Friday at or after the horizon, which is
+    right for weekly-listed names and wrong for everything else. On IONQ it
+    produced 2026-11-13; IONQ lists 11-06 then 11-20 and has no 11-13 at all,
+    so the desk was quoting a contract nobody can trade. A model price for a
+    non-existent contract is not a conservative estimate — it answers a
+    different question.
+
+    Returns None when no chain is reachable, and the caller falls back to the
+    computed Friday with its basis labelled accordingly. Being unable to read
+    the chain must cost the precision, not the answer.
+    """
+    base = today or dt.date.today()
+    target = base + dt.timedelta(days=int(days))
+    try:
+        from financial_data.providers.yfinance_chain import expirations
+        exps = expirations(symbol)
+    except Exception:
+        return None
+    dated = []
+    for e in exps or []:
+        try:
+            dated.append((abs((dt.date.fromisoformat(e) - target).days), e))
+        except (TypeError, ValueError):
+            continue
+    if not dated:
+        return None
+    return min(dated)[1]
+
+
 def expiry_date(days: int, today: Optional[dt.date] = None) -> dt.date:
     """The Friday at or after `days` out, stepped back off a market holiday.
 
@@ -393,6 +426,12 @@ def build(ticker: str,
         section["spot"] = data.get("spot") or spot
         section["volatility_annualized_pct"] = data.get("volatility_annualized_pct")
         section["volatility_basis"] = data.get("volatility_basis")
+        # Carry BOTH volatilities. The gap between what the market charges and
+        # what the stock has actually delivered is a reading in its own right,
+        # and cherry-picking one number out of the agent's result is how it got
+        # lost on the way to the brief in the first place.
+        for _k in ("volatility_realized_pct", "volatility_implied_pct", "chain"):
+            section[_k] = data.get(_k)
         section["annualization_days"] = data.get("annualization_days")
         if data.get("view") == "NONE_GIVEN":
             section["view"] = "NONE_GIVEN"
@@ -440,6 +479,24 @@ def build(ticker: str,
                 "volatility rather than from quotes."),
         },
     })
+
+    # Replace the computed Friday with a REAL listed expiration where the chain
+    # can be read. Done here rather than at construction because the ticker is
+    # only in scope once the section exists.
+    _listed = listed_expiry(ticker, section.get("days_to_expiry") or DEFAULT_DAYS)
+    if _listed:
+        section["expiry_computed"] = section.get("expiry")
+        section["expiry"] = _listed
+        section["expiry_basis"] = "LISTED"
+        section["expiry_note"] = (
+            f"A real listed expiration for {ticker}, taken from the chain and "
+            f"the nearest one to the requested horizon. The computed Friday was "
+            f"{section['expiry_computed']}"
+            + ("" if section["expiry_computed"] == _listed else
+               " — which this name does not list, so pricing it would have "
+               "quoted a contract nobody can trade."))
+    else:
+        section["expiry_basis"] = "COMPUTED_FRIDAY"
 
     if basis != "TRADED_PRICE":
         from . import registry

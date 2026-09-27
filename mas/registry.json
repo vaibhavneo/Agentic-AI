@@ -303,6 +303,33 @@
       "symbol_required": true,
       "writes": {},
       "notes": "Sits BELOW the orchestrator and ABOVE the raw specialists: it interprets what they return rather than fetching anything itself. intelligence/orchestration.py already spends compute only where it adds information; registering it makes that layer reachable by name instead of behind one endpoint."
+    },
+    "pricing": {
+      "id": "pricing",
+      "name": "Price discovery",
+      "role": "Live price, implied-vs-realized volatility, and structural horizons",
+      "module": "mas.agents.pricing",
+      "capabilities": [
+        "price_discovery"
+      ],
+      "asset_classes": [
+        "EQUITY",
+        "ETF",
+        "CRYPTO",
+        "INDEX",
+        "FX"
+      ],
+      "price_basis": "TRADED_PRICE",
+      "transport": "local",
+      "priority": 15,
+      "reliability": 0.85,
+      "est_ms": 1800,
+      "timeout_sec": 20,
+      "requires_key": null,
+      "symbol_required": true,
+      "universe": "any name with listed options or price history",
+      "writes": {},
+      "notes": "NUMBERS ONLY - no prose, no forecast, no probability. Registered in the slot the social pillar could not earn: social measured +0.016 / -0.026 correlation with forward return at 5 / 20 days and had no observations at 60. Its distinguishing output is the IMPLIED-minus-REALISED volatility gap, which the desk could not see at all before the option chain landed: on IONQ that gap was 8.6 points, the difference between what the market charges and what the name has delivered."
     }
   }
 }
