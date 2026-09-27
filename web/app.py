@@ -1211,6 +1211,37 @@ def _build_decision_intelligence(ticker: str, period: str = "5y", deep: bool = F
     except Exception:
         decision["pillars"] = None
 
+    # ── Expression: equity or options, on common terms ───────────────────
+    # The brief decided WHETHER to look at options and then listed structures.
+    # It never put the two side by side on terms a reader could compare, so
+    # "stock or option" was implied and never answered. Normalised on equal
+    # capital at risk, because one share against one contract compares nothing.
+    try:
+        from decision.expression import compare as _compare_expression
+
+        _lm = decision.get("level_map") or {}
+        _rb = decision.get("risk_budget") or {}
+
+        def _lvl(key):
+            v = _lm.get(key)
+            v = v.get("price") if isinstance(v, dict) else v
+            return float(v) if isinstance(v, (int, float)) else None
+
+        _spot = decision.get("current_price") or rec.get("current_price")
+        _stop = _rb.get("invalidation_level")
+        # The upside reference is a level the price has actually traded, never a
+        # round number: an invented target would make every row in the table a
+        # guess wearing the same formatting as a measurement.
+        _target = _lvl("nearest_resistance") or _lvl("major_resistance")
+        decision["expression"] = _compare_expression(
+            decision.get("options"),
+            spot=float(_spot) if _spot else None,
+            invalidation=float(_stop) if _stop is not None else None,
+            target=_target)
+    except Exception as e:
+        decision["expression"] = {"status": "UNAVAILABLE",
+                                  "reason": f"{type(e).__name__}: {e}"}
+
     # ── Freshness: how old is the price this was computed on? ─────────────
     # The brief showed "PRICE NOW" against a settled daily bar, so on any day
     # whose session had closed but not yet published, the headline price and

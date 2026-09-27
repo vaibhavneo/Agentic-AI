@@ -255,12 +255,35 @@ def _plain_for(c: Dict[str, Any], ticker: str, spot: Optional[float],
             f"{_money(gain) if gain is not None else 'uncapped'}, by {by}.")
 
 
+def _probability_basis(data: Dict[str, Any]) -> str:
+    """How the risk-neutral probability was produced, naming its volatility.
+
+    A probability of profit is only as good as the volatility behind it. Under
+    IMPLIED vol it is the market's own risk-neutral figure, which is a real
+    statement about what options are priced for. Under REALIZED vol it is a
+    statement about the past wearing the clothes of a forecast. Neither is a
+    measured frequency, and the distinction between them is exactly what a
+    reader needs.
+    """
+    basis = (data or {}).get("volatility_basis")
+    if basis == "IMPLIED_BY_CHAIN":
+        return ("risk-neutral under the pricing model, from the market's own "
+                "IMPLIED volatility — the market's figure, not a measured "
+                "frequency of outcomes")
+    return ("risk-neutral under the pricing model, from REALIZED volatility — "
+            "not a measured frequency and not the market's own number")
+
+
 def _from_model(data: Dict[str, Any], ticker: str) -> List[Dict[str, Any]]:
     """The local engine's evaluations, in the brief's candidate shape."""
     out: List[Dict[str, Any]] = []
     spot = data.get("spot")
     days = data.get("expiry_days") or DEFAULT_DAYS
-    exp = expiry_date(days)
+    # The real listed expiration where the chain gives one. The plain-language
+    # text quotes this date, and it was quoting the computed Friday — so a
+    # candidate read "through 13 Nov 2026" for a name that has no 13 Nov expiry.
+    _listed = listed_expiry(ticker, days)
+    exp = (dt.date.fromisoformat(_listed) if _listed else expiry_date(days))
     for i, ev in enumerate(data.get("candidates") or [], start=1):
         s = ev.get("structure") or {}
         legs = s.get("legs") or []
@@ -285,9 +308,11 @@ def _from_model(data: Dict[str, Any], ticker: str) -> List[Dict[str, Any]]:
             "max_gain_unbounded": bool(ev.get("max_profit_unbounded")),
             "breakevens": ev.get("breakevens") or [],
             "probability_of_profit": ev.get("probability_of_profit_risk_neutral"),
-            "probability_basis": ("risk-neutral under the pricing model, from "
-                                  "REALIZED volatility — not a measured frequency "
-                                  "and not the market's own number"),
+            # Names the volatility ACTUALLY used. This string was hardcoded to
+            # "REALIZED" and kept saying so after the engine moved to implied
+            # vol, which is worse than no provenance: it asserts the wrong
+            # source with the same confidence as the right one.
+            "probability_basis": _probability_basis(data),
             "greeks": ev.get("greeks"),
         }
         mg, ml = cand["max_gain"], cand["max_loss"]
@@ -311,7 +336,8 @@ def _from_chain(overlay: Dict[str, Any], ticker: str) -> List[Dict[str, Any]]:
     and its probability comes from IMPLIED volatility — the same field name
     carrying a materially stronger claim."""
     days = overlay.get("days_to_expiry") or DEFAULT_DAYS
-    exp = expiry_date(days)
+    _listed = listed_expiry(ticker, days)
+    exp = (dt.date.fromisoformat(_listed) if _listed else expiry_date(days))
     spot = overlay.get("spot")
     out = []
     for c in overlay.get("candidates") or []:
