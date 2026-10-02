@@ -52,7 +52,24 @@ def multiples(st: Dict[str, Any], mkt: Dict[str, Any], kind: str) -> Dict[str, A
         out["note"] = "EV-based multiples are not meaningful for a financial company"
     out["loss_making"] = ni is not None and ni < 0
     out["basis"] = t.get("basis")
+    out["figures_end"] = t.get("end")
+    out["price_date"] = mkt.get("price_date")
+    out["stale_warning"] = staleness(t.get("end"), mkt.get("price_date"))
     return {k: (round(v, 4) if isinstance(v, float) and abs(v) < 1e5 else v) for k, v in out.items()}
+
+
+def staleness(figures_end: Optional[str], price_date: Optional[str]) -> Optional[str]:
+    """A multiple divides today's price by figures that may be well out of date —
+    TSMC's latest XBRL year is FY2024 while its price is October 2026. Past 15
+    months the mismatch is named on the multiple itself."""
+    from .statements import _days
+    if not figures_end or not price_date:
+        return None
+    gap = _days(figures_end, price_date)
+    if gap and gap > 456:
+        return (f"the latest figures available end {figures_end}, {gap // 30} months before the price "
+                f"({price_date}); multiples pair a current price with old results")
+    return None
 
 
 def history(st: Dict[str, Any], symbol: str, kind: str, as_of: Optional[str] = None,

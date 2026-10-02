@@ -79,25 +79,51 @@ def fx_to_usd(currency: Optional[str], on: Optional[str] = None) -> Dict[str, An
             "quote": float(last["value"]), "note": "FRED H.10 noon buying rate; current vintage"}
 
 
+_ADS = r"(?:American Depositary Shares?|ADSs?|ADS)"
+_RATIO_PATTERNS = [
+    # "American Depositary Shares, each representing eight Ordinary Shares" (BABA, SAP)
+    _ADS + r"[^.]{0,80}?\beach\s+(?:of which\s+)?(?:ADS\s+)?(?:representing|represents|evidencing)\s+"
+           r"(?:the right to receive\s+)?([\w\-]+)\s*(?:\(\d+(?:\.\d+)?\)\s*)?(?:of\s+(?:our|the)\s+)?"
+           r"(?:ordinary|common|equity)?\s*shares?",
+    # "Each American Depositary Share representing ten shares of the registrant's Common Stock" (TM)
+    r"\beach\s+" + _ADS + r"\s+(?:represents|representing|evidences)\s+(?:the right to receive\s+)?"
+    r"([\w\-]+)\s*(?:\(\d+(?:\.\d+)?\)\s*)?(?:of\s+(?:our|the)\s+)?(?:ordinary|common)?\s*shares?",
+    # "one ADS represents five common shares" / "each ADS represents 5 shares" (TSMC, deeper in the 20-F)
+    r"\b(?:one|1)\s+" + _ADS + r"\s+(?:represents|representing|is equivalent to)\s+([\w\-]+)\s+"
+    r"(?:ordinary|common)?\s*shares?",
+]
+
+
+def _ratio_word(word: str) -> Optional[float]:
+    w = word.lower().strip()
+    if w in _WORDS:
+        return float(_WORDS[w])
+    try:
+        return float(w)
+    except ValueError:
+        return None
+
+
 def adr_ratio(text: str) -> Optional[Dict[str, Any]]:
-    """Ordinary shares per U.S.-listed depositary share, as the 20-F cover states it."""
-    head = re.sub(r"\s+", " ", text[:60000])
-    m = re.search(r"American Depositary Shares?,?\s*(?:\(\"?ADSs?\"?\))?[^.]{0,60}?\beach\s+(?:ADS\s+)?"
-                  r"(?:representing|represents|representing the right to receive|evidencing)\s+"
-                  r"(?:the right to receive\s+)?([\w\-]+(?:\s+hundred)?)\s*(?:\(\d+(?:\.\d+)?\)\s*)?"
-                  r"(?:of\s+(?:our|the)\s+)?(?:ordinary|common|equity)?\s*shares?", head, re.I)
-    if m:
-        word = m.group(1).lower()
-        n = _WORDS.get(word)
-        if n is None:
-            try:
-                n = float(word)
-            except ValueError:
-                n = None
-        if n:
-            return {"ratio": float(n), "quote": head[max(0, m.start() - 20):m.end() + 20].strip(),
-                    "source": "20-F cover page"}
-    # Ordinary shares listed directly (ASML, SAP on NYSE as ordinary/registry shares).
+    """Ordinary shares per U.S.-listed depositary share, as the 20-F states it.
+    The cover page usually says it; some (TSMC) only say it further in, so the
+    whole report is read and the ratio stated most often wins."""
+    flat = re.sub(r"\s+", " ", text)
+    found: Dict[float, str] = {}
+    counts: Dict[float, int] = {}
+    for pat in _RATIO_PATTERNS:
+        for m in re.finditer(pat, flat, re.I):
+            n = _ratio_word(m.group(1))
+            if n and 0.01 <= n <= 1000:
+                counts[n] = counts.get(n, 0) + 1
+                found.setdefault(n, flat[max(0, m.start() - 20):m.end() + 20].strip())
+    if counts:
+        best = max(counts, key=lambda k: counts[k])
+        return {"ratio": best, "quote": found[best], "mentions": counts[best],
+                "source": "20-F text" + ("" if len(counts) == 1 else f" (other ratios also stated: "
+                                         f"{sorted(k for k in counts if k != best)})")}
+    head = flat[:60000]
+    # Ordinary shares listed directly (ASML).
     if re.search(r"(Ordinary|Common) [Ss]hares[^.]{0,80}(Nasdaq|New York Stock Exchange)", head) and \
             not re.search(r"American Depositary", head, re.I):
         return {"ratio": 1.0, "quote": "ordinary shares listed directly in the U.S.", "source": "20-F cover page"}
