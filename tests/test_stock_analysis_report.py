@@ -28,11 +28,12 @@ def check(name, cond, detail=""):
 def test_data_lag_note():
     print("=== 1. SEC's XBRL data lagging the filings is named ===")
     from stock_analysis.report import data_lag
-    st = {"latest_annual_report": {"form": "20-F", "filed": "2025-04-17", "accession": "A"}}
-    fl = {"latest_annual": {"form": "20-F", "filed": "2026-04-16", "accession": "B"}}
+    st = {"annual": [{"end": "2024-12-31"}]}
+    fl = {"latest_annual": {"form": "20-F", "filed": "2026-04-16", "accession": "B", "report_date": "2025-12-31"}}
     note = data_lag(st, fl)
-    check("a year-newer filing missing from XBRL is named", note and "2026-04-16" in note and "2025-04-17" in note)
-    check("same filing → no note", data_lag(st, {"latest_annual": {"filed": "2025-04-17", "accession": "A"}}) is None)
+    check("a filed year missing from XBRL is named", note and "2025-12-31" in note and "2024-12-31" in note)
+    current = {"latest_annual": {"form": "20-F", "filed": "2025-04-17", "report_date": "2024-12-31"}}
+    check("figures through the latest report's year → no note", data_lag(st, current) is None)
 
 
 def test_summary_states_only_report_numbers():

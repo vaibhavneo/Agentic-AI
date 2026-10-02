@@ -37,15 +37,19 @@ def _trim_statements(st: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def data_lag(st: Dict[str, Any], filings: Dict[str, Any]) -> Optional[str]:
-    """When SEC's XBRL dataset lags the filings themselves, say so (TSMC's
-    April 2026 20-F is filed but not yet in the dataset)."""
+    """When SEC's structured (XBRL) data lags the filings themselves, say so.
+    Compared on the PERIOD covered, not on accession: TSMC's April 2026 20-F
+    has some facts in the dataset (cover-page items) while its FY2025
+    financials are not there yet — the figures still end at FY2024."""
+    from .statements import _days
     la = (filings or {}).get("latest_annual") or {}
-    xb = (st or {}).get("latest_annual_report") or {}
-    if la.get("filed") and xb.get("filed") and la["filed"] > xb["filed"] and la.get("accession") != xb.get("accession"):
-        from .statements import _days
-        if (_days(xb["filed"], la["filed"]) or 0) > 30:
-            return (f"The {la.get('form')} filed {la['filed']} is not yet in SEC's structured (XBRL) data; "
-                    f"the figures here are from the {xb.get('form')} filed {xb['filed']}.")
+    annual = (st or {}).get("annual") or []
+    covered = la.get("report_date")
+    have = annual[0]["end"] if annual else None
+    if covered and have and covered > have and (_days(have, covered) or 0) > 45:
+        return (f"The {la.get('form')} filed {la.get('filed')} covers the year to {covered[:10]}, but SEC's "
+                f"structured (XBRL) data has this company's figures only through {have}; the figures here "
+                f"are from the earlier report.")
     return None
 
 
