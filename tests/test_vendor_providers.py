@@ -116,6 +116,25 @@ def test_transcript_without_keys():
           and "FMP_API_KEY" in t["reason"], t.get("reason"))
 
 
+def test_cache_ceiling():
+    print("=== 6. the cache stays under its ceiling ===")
+    import time as _t
+    from financial_data import cache
+    root = Path(tempfile.mkdtemp())
+    for i in range(10):
+        f = root / "p" / "k" / f"f{i}.json"
+        f.parent.mkdir(parents=True, exist_ok=True)
+        f.write_text("x" * 1000)
+        os.utime(f, (_t.time() - 1000 + i, _t.time() - 1000 + i))      # f0 oldest
+    (root / "p" / "k" / "keep.db").write_text("y" * 5000)               # not a cache file
+    r = cache.prune(max_bytes=5000, target=0.8, root=root)
+    left = sorted(p.name for p in (root / "p" / "k").glob("*.json"))
+    check("pruned down to the target", r["bytes"] <= 4000 and r["pruned"] == 6, r)
+    check("oldest written go first", left == ["f6.json", "f7.json", "f8.json", "f9.json"], left)
+    check("non-cache files untouched", (root / "p" / "k" / "keep.db").exists())
+    check("no ceiling -> nothing deleted", cache.prune(max_bytes=0, root=root)["pruned"] == 0)
+
+
 if __name__ == "__main__":
     for fn in [v for k, v in dict(globals()).items() if k.startswith("test_")]:
         fn()

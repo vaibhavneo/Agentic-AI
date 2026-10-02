@@ -1,0 +1,84 @@
+{
+ "n_rows": 1492,
+ "n_symbols": 43,
+ "by_horizon": {
+  "63": {
+   "sue": {
+    "mean_ic": -0.0031,
+    "n_dates": 35,
+    "t_stat": -0.08,
+    "share_positive": 0.51
+   },
+   "reaction": {
+    "mean_ic": 0.0131,
+    "n_dates": 35,
+    "t_stat": 0.43,
+    "share_positive": 0.54
+   },
+   "rel_mom": {
+    "mean_ic": 0.0142,
+    "n_dates": 35,
+    "t_stat": 0.39,
+    "share_positive": 0.54
+   }
+  },
+  "126": {
+   "sue": {
+    "mean_ic": -0.0114,
+    "n_dates": 35,
+    "t_stat": -0.32,
+    "share_positive": 0.46
+   },
+   "reaction": {
+    "mean_ic": -0.0058,
+    "n_dates": 35,
+    "t_stat": -0.21,
+    "share_positive": 0.49
+   },
+   "rel_mom": {
+    "mean_ic": 0.0236,
+    "n_dates": 35,
+    "t_stat": 0.62,
+    "share_positive": 0.54
+   }
+  },
+  "252": {
+   "sue": {
+    "mean_ic": -0.0195,
+    "n_dates": 35,
+    "t_stat": -0.67,
+    "share_positive": 0.46
+   },
+   "reaction": {
+    "mean_ic": 0.0066,
+    "n_dates": 35,
+    "t_stat": 0.24,
+    "share_positive": 0.6
+   },
+   "rel_mom": {
+    "mean_ic": 0.0017,
+    "n_dates": 35,
+    "t_stat": 0.05,
+    "share_positive": 0.43
+   }
+  }
+ },
+ "verdict": {
+  "sue": {
+   "promote": false,
+   "positive_all_horizons": false,
+   "t_ge_2_somewhere": false
+  },
+  "reaction": {
+   "promote": false,
+   "positive_all_horizons": false,
+   "t_ge_2_somewhere": false
+  },
+  "rel_mom": {
+   "promote": false,
+   "positive_all_horizons": true,
+   "t_ge_2_somewhere": false
+  }
+ },
+ "rule": "promote only if mean IC > 0 at 63, 126 and 252 days AND t >= 2 at one or more (fixed before the run)"
+}

@@ -241,9 +241,13 @@ def filing_watch() -> Dict[str, Any]:
 
 
 def screener_refresh() -> Dict[str, Any]:
-    """Rebuild the fundamentals screener table (stock_analysis/screener.py)."""
+    """Rebuild the fundamentals screener table (stock_analysis/screener.py),
+    then hold the data cache under its ceiling — this is the job that fills it."""
+    from financial_data.cache import prune
     from stock_analysis.screener import refresh
-    return refresh()
+    res = refresh()
+    res["cache"] = prune()
+    return res
 
 
 JOBS: Dict[str, Callable[[], Dict[str, Any]]] = {

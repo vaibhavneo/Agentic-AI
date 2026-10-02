@@ -20,7 +20,7 @@ import os
 import re
 import time
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Dict, Optional
 
 # FIL_CACHE_DIR moves the cache off the repo checkout — on Railway, onto the
 # persistent volume, so a deploy stops throwing away every SEC fetch. Entries
@@ -100,3 +100,41 @@ def clear(provider: Optional[str] = None) -> int:
             f.unlink()
             n += 1
     return n
+
+
+# On a shared volume the cache must have a ceiling: a full disk fails every
+# SQLite write on it. FIL_CACHE_MAX_MB sets it; with FIL_CACHE_DIR set and no
+# ceiling given, 200 MB. A checkout's own cache (backtests) is unbounded.
+MAX_BYTES = (int(float(os.environ["FIL_CACHE_MAX_MB"]) * 1e6) if os.environ.get("FIL_CACHE_MAX_MB")
+             else (200_000_000 if os.environ.get("FIL_CACHE_DIR") else None))
+
+
+def prune(max_bytes: Optional[int] = None, target: float = 0.8, root: Optional[Path] = None) -> Dict[str, Any]:
+    """Delete the least recently written cache files until the cache is under
+    `target` x the ceiling. Safe by construction — every file is refetchable."""
+    max_bytes = max_bytes if max_bytes is not None else MAX_BYTES
+    root = root or CACHE_DIR
+    if not max_bytes or not root.exists():
+        return {"pruned": 0, "bytes": None, "ceiling": max_bytes}
+    files = []
+    for pattern in ("*.json", "*.json.gz"):
+        for f in root.rglob(pattern):
+            try:
+                st = f.stat()
+            except OSError:
+                continue
+            files.append((st.st_mtime, st.st_size, f))
+    total = sum(sz for _, sz, _ in files)
+    if total <= max_bytes:
+        return {"pruned": 0, "bytes": total, "ceiling": max_bytes}
+    n = 0
+    for _, sz, f in sorted(files, key=lambda x: x[0]):
+        if total <= max_bytes * target:
+            break
+        try:
+            f.unlink()
+        except OSError:
+            continue
+        total -= sz
+        n += 1
+    return {"pruned": n, "bytes": total, "ceiling": max_bytes}
