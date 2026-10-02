@@ -8,6 +8,7 @@ import json
 import os
 import sys
 import queue
+import re
 import threading
 from pathlib import Path
 
@@ -1681,6 +1682,106 @@ def research_stream_endpoint():
     return Response(generate(), mimetype="text/event-stream",
                     headers={"Cache-Control": "no-cache",
                              "X-Accel-Buffering": "no"})
+
+
+# ── Stock Analysis Agent: fundamentals from the SEC filings ──────────────
+
+_SA_TICKER = re.compile(r"^[A-Za-z0-9.\-^=]{1,12}$")
+_SA_SECTIONS = ("statements", "quality", "filings", "valuation", "peers", "technicals", "score")
+
+
+def _sa_args(ticker: str):
+    """Validated (ticker, as_of, peers, sections, mdna) or an error response."""
+    if not _SA_TICKER.match(ticker or ""):
+        return None, (jsonify({"error": "invalid ticker"}), 400)
+    as_of = request.args.get("as_of") or None
+    if as_of:
+        try:
+            datetime.strptime(as_of[:10], "%Y-%m-%d")
+        except ValueError:
+            return None, (jsonify({"error": "as_of must be YYYY-MM-DD"}), 400)
+        as_of = as_of[:10]
+    peers = [p.strip().upper() for p in (request.args.get("peers") or "").split(",") if p.strip()] or None
+    if peers and not all(_SA_TICKER.match(p) for p in peers):
+        return None, (jsonify({"error": "invalid peer ticker"}), 400)
+    sections = [x for x in (request.args.get("sections") or "").split(",") if x] or None
+    if sections and any(x not in _SA_SECTIONS for x in sections):
+        return None, (jsonify({"error": f"sections must be from {list(_SA_SECTIONS)}"}), 400)
+    return (ticker.upper(), as_of, peers, sections, request.args.get("mdna") == "1"), None
+
+
+@app.route("/api/stock-analysis/<ticker>")
+def stock_analysis_endpoint(ticker):
+    """The full fundamental report: statements, earnings quality, what the
+    filings disclose, valuation, peers, price context and the fundamentals
+    score. ?as_of=YYYY-MM-DD runs it on what had been filed by then;
+    ?peers=A,B names the peers; ?sections= limits the work; ?mdna=1 adds the
+    (validated) MD&A summary."""
+    args, err = _sa_args(ticker)
+    if err:
+        return err
+    from stock_analysis.report import build_report
+    sym, as_of, peers, sections, mdna = args
+    rep = build_report(sym, as_of=as_of, include=sections, peers_override=peers, mdna_summary=mdna)
+    return jsonify(rep), (200 if rep.get("available") else 404)
+
+
+@app.route("/api/stock-analysis/<ticker>/<section>")
+def stock_analysis_section_endpoint(ticker, section):
+    if section == "stream":
+        return stock_analysis_stream(ticker)
+    if section not in _SA_SECTIONS:
+        return jsonify({"error": f"unknown section; one of {list(_SA_SECTIONS)}"}), 404
+    args, err = _sa_args(ticker)
+    if err:
+        return err
+    from stock_analysis.report import build_report
+    sym, as_of, peers, _, mdna = args
+    rep = build_report(sym, as_of=as_of, include=[section], peers_override=peers, mdna_summary=mdna)
+    if not rep.get("available"):
+        return jsonify({"symbol": sym, "available": False, "reason": rep.get("reason")}), 404
+    return jsonify({"symbol": sym, "as_of": as_of, section: rep.get(section),
+                    "profile": rep.get("profile"), "data_lag": rep.get("data_lag")})
+
+
+def stock_analysis_stream(ticker):
+    """Server-sent progress for the full report (the peer table takes seconds)."""
+    args, err = _sa_args(ticker)
+    if err:
+        return err
+    sym, as_of, peers, sections, mdna = args
+    import queue as _queue
+    import threading as _threading
+
+    def generate():
+        q: "_queue.Queue" = _queue.Queue()
+        box = {}
+
+        def work():
+            try:
+                from stock_analysis.report import build_report
+                box["result"] = build_report(sym, as_of=as_of, include=sections, peers_override=peers,
+                                             mdna_summary=mdna,
+                                             progress=lambda stage, msg: q.put({"stage": stage, "message": msg}))
+            except Exception as e:
+                box["error"] = f"{type(e).__name__}: {e}"
+            finally:
+                q.put(None)
+
+        _threading.Thread(target=work, daemon=True).start()
+        yield "event: open\ndata: {}\n\n"
+        while True:
+            item = q.get()
+            if item is None:
+                break
+            yield f"event: progress\ndata: {json.dumps(item)}\n\n"
+        if "error" in box:
+            yield f"event: error\ndata: {json.dumps({'error': box['error']})}\n\n"
+        else:
+            yield f"event: result\ndata: {json.dumps(box.get('result', {}), default=str)}\n\n"
+
+    return Response(generate(), mimetype="text/event-stream",
+                    headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
 
 
 @app.route("/api/research/why", methods=["POST"])

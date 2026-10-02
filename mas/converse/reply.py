@@ -284,7 +284,20 @@ def _say_intel(d: Dict[str, Any], symbol: str) -> List[str]:
     return lines
 
 
+def _say_fundamentals(d: Dict[str, Any], symbol: str) -> List[str]:
+    lines = [f"**{symbol} — what the filings say.**"]
+    lines += [f"- {s}" for s in (d.get("summary") or [])]
+    flags = [f for f in ((d.get("filings") or {}).get("flags") or []) if f.get("severity") == "CONCERN"][:3]
+    for f in flags:
+        quote = f.get("quote") or f.get("detail") or ""
+        lines.append(f"  · {f.get('title')}: {quote[:220]}")
+    lines.append("Every figure comes from the company's 10-K/10-Q (or 20-F) filings and links to the filing "
+                 "it came from; open the Stock Analysis tab for the statements, tests and peer table.")
+    return lines
+
+
 COMPOSERS = {
+    "fundamental_analysis": _say_fundamentals,
     "market_intelligence": _say_intel,
     "analyst_narrative": _say_narrative,
     "equity_research": _say_research,
@@ -313,6 +326,8 @@ ROSTER_BLURB = [
     "- **What is it really tracking** — beta and correlation to the benchmark "
     "that actually drives it.",
     "- **Context** — how this name has behaved in setups like the current one.",
+    "- **Fundamentals from the filings** — statements, earnings quality, red flags in the 10-K, "
+    "peers and valuation, every number traced to the SEC filing it came from.",
     "- **The written reasoning** — the five analyst agents, in prose. Ask for "
     "it by name; it is slow and it never changes a number.",
     "I cannot place orders, and I will not pick a stock for you out of "

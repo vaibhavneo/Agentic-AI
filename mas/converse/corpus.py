@@ -41,6 +41,7 @@ PORTFOLIO = "portfolio_review"
 BENCHMARK = "benchmark_relation"
 INTEL = "market_intelligence"
 NARRATIVE = "analyst_narrative"
+FUNDAMENTALS = "fundamental_analysis"
 
 CASES: List[Dict[str, Any]] = [
     # ── Plain research, ticker given ──────────────────────────────────────
@@ -232,6 +233,34 @@ CASES: List[Dict[str, Any]] = [
      "symbols": ["AAPL"]},
     {"q": "should i buy tesla and how has this strategy done historically",
      "caps": [RESEARCH, BACKTEST], "symbols": ["TSLA"]},
+
+    # ── Fundamentals from the filings (added 2026-10-02) ──────────────────
+    # NOT held out in the original sense: written AFTER intent.py's
+    # fundamentals patterns existed, so they cannot measure that coverage
+    # gap. To limit the bias, the first five are the user's own words when
+    # asking for this agent, and the rest are written to be awkward for the
+    # patterns (no keyword, or a keyword that belongs to another capability).
+    # First measurement: 4 of 10. Fixed in the router afterwards: "fundamental
+    # analysis" no longer also fires the generic analysis pattern, "vs peers"
+    # no longer reads as a two-ticker comparison, "when do they report" reaches
+    # the calendar, TSMC/Kraft Heinz are known names, and a cash-conversion
+    # phrasing was added. Expectations were NOT edited to match output: the
+    # apple 10-K case still expects research as well, and still misses.
+    {"q": "analyze NVDA based on its 10-Q and 10-Ks rather than market information",
+     "caps": [RESEARCH, FUNDAMENTALS], "symbols": ["NVDA"]},
+    {"q": "what does the quality of earnings look like for SMCI", "caps": [FUNDAMENTALS], "symbols": ["SMCI"]},
+    {"q": "KO comparables", "caps": [FUNDAMENTALS], "symbols": ["KO"]},
+    {"q": "fundamental analysis of MSFT", "caps": [FUNDAMENTALS], "symbols": ["MSFT"]},
+    {"q": "is there anything in apple's 10-K i should worry about", "caps": [FUNDAMENTALS, RESEARCH],
+     "symbols": ["AAPL"]},
+    {"q": "how does jpm's balance sheet look", "caps": [FUNDAMENTALS], "symbols": ["JPM"]},
+    {"q": "is costco overvalued vs peers", "caps": [FUNDAMENTALS], "symbols": ["COST"]},
+    {"q": "has kraft heinz ever restated its numbers", "caps": [FUNDAMENTALS], "symbols": ["KHC"]},
+    {"q": "is tsmc actually turning its profit into cash", "caps": [FUNDAMENTALS], "symbols": ["TSM"],
+     "note": "no keyword at all; missed on the first measurement, then a cash-conversion phrasing "
+             "was added to intent.py — so this case no longer measures a gap"},
+    {"q": "earnings quality for AMZN, and when do they report", "caps": [FUNDAMENTALS, EVENTS],
+     "symbols": ["AMZN"]},
 ]
 
 

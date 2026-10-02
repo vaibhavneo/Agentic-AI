@@ -35,6 +35,8 @@ NAMES: Dict[str, str] = {
     "pfizer": "PFE", "moderna": "MRNA", "exxon": "XOM", "chevron": "CVX",
     "arm": "ARM", "snowflake": "SNOW", "datadog": "DDOG", "crowdstrike": "CRWD",
     "supermicro": "SMCI", "lilly": "LLY", "visa": "V", "mastercard": "MA",
+    "tsmc": "TSM", "pepsi": "PEP", "pepsico": "PEP", "toyota": "TM", "alibaba": "BABA",
+    "asml": "ASML", "procter": "PG",
     # Crypto
     "bitcoin": "BTC-USD", "btc": "BTC-USD",
     "ethereum": "ETH-USD", "ether": "ETH-USD", "eth": "ETH-USD",
@@ -60,6 +62,9 @@ PHRASE_NAMES: List[Tuple[str, str]] = [
     (r"\beurusd\b", "EURUSD=X"), (r"\bdollar\s*yen\b", "USDJPY=X"),
     (r"\bon\s+semi(conductor)?\b", "ON"),
     (r"\bberkshire\s+hathaway\b", "BRK-B"),
+    # Multi-word company names (single words are matched from NAMES).
+    (r"\btaiwan\s+semi(conductor)?\b", "TSM"), (r"\bkraft(\s+heinz)?\b", "KHC"),
+    (r"\bcoca[\s-]?cola\b", "KO"), (r"\bunder\s+armou?r\b", "UAA"),
 ]
 
 # Tickers that are also ordinary English. These NEVER resolve from a bare

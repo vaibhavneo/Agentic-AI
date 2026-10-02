@@ -31,6 +31,7 @@ CAPABILITIES = (
     "portfolio_review",       # weights, concentration, what to do
     "market_intelligence",    # the interpretive layer over the primitives
     "analyst_narrative",      # the five LLM analysts; PROSE ONLY, never a number
+    "fundamental_analysis",   # statements, earnings quality, filings, peers, valuation — from SEC filings
 )
 
 

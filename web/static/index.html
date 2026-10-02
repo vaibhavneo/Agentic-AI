@@ -271,6 +271,26 @@
     .top-row, .mid-row, .bottom-row { grid-template-columns: 1fr; }
     .cases-grid, .social-grid, .indicators-grid, .algo-grid { grid-template-columns: 1fr; }
   }
+  .sa-section { margin-top: 14px; padding-top: 10px; border-top: 1px solid var(--border); }
+  .sa-h { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); font-weight: 700; margin-bottom: 8px; }
+  .sa-head { font-size: 13px; margin-bottom: 6px; }
+  .sa-warn { font-size: 12px; color: var(--yellow); background: rgba(255,234,0,.06); border-left: 2px solid var(--yellow); padding: 6px 10px; margin: 6px 0; border-radius: 4px; }
+  .sa-list { margin: 0 0 0 18px; font-size: 13px; line-height: 1.7; }
+  .sa-small { font-size: 12px; line-height: 1.6; }
+  .sa-chip { display: inline-block; font-size: 9px; font-weight: 800; border: 1px solid; border-radius: 4px; padding: 1px 6px; text-transform: uppercase; white-space: nowrap; }
+  .sa-quote { display: block; font-size: 11px; color: var(--muted); font-style: italic; margin: 2px 0 2px 4px; }
+  .sa-scroll { overflow-x: auto; }
+  .sa-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  .sa-table th { text-align: right; color: var(--muted); font-size: 10px; text-transform: uppercase; padding: 4px 6px; border-bottom: 1px solid var(--border); }
+  .sa-table th:first-child, .sa-table td:first-child { text-align: left; }
+  .sa-table td { text-align: right; padding: 4px 6px; border-bottom: 1px solid rgba(255,255,255,.04); vertical-align: top; }
+  .sa-table tr.sa-self td { font-weight: 800; color: var(--accent); }
+  .sa-table td.l { text-align: left; }
+  .sa-score { font-size: 34px; font-weight: 900; } .sa-score span { font-size: 14px; color: var(--muted); }
+  .sa-bar { display: grid; grid-template-columns: 150px 1fr 40px; gap: 8px; align-items: center; font-size: 12px; margin-top: 4px; }
+  .sa-track { background: var(--bg3); border-radius: 4px; height: 8px; overflow: hidden; } .sa-track span { display: block; height: 100%; background: var(--accent); }
+  .sa-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 8px; }
+  .sa-kv { background: var(--bg3); border-radius: 6px; padding: 6px 8px; font-size: 12px; display: flex; flex-direction: column; }
 </style>
 </head>
 <body>
@@ -858,12 +878,14 @@
           <button class="tab-btn" onclick="showTab('technical')">📈 Technical</button>
           <button class="tab-btn" onclick="showTab('social')">💬 Social</button>
           <button class="tab-btn" onclick="showTab('algo')">🔢 Algo</button>
+          <button class="tab-btn" onclick="showTab('stockanalysis')" title="Fundamentals from the SEC filings: statements, earnings quality, red flags, peers, valuation">📑 Stock Analysis</button>
           <button class="tab-btn" onclick="showTab('verdict')" id="btn-verdict" style="background:var(--accent2);border-color:var(--accent2);color:#fff;font-weight:700" title="The synthesis: state, thesis, edge, scenarios, playbook, invalidation and monitoring">🎯 Decision Intelligence</button>
         </div>
         <div class="tab-content active" id="tab-fundamentals"><div class="analysis-text" id="text-fundamentals"><span class="muted">Waiting for analysis...</span></div></div>
         <div class="tab-content" id="tab-technical"><div class="analysis-text" id="text-technical"><span class="muted">Waiting for analysis...</span></div></div>
         <div class="tab-content" id="tab-social"><div class="analysis-text" id="text-social"><span class="muted">Waiting for analysis...</span></div></div>
         <div class="tab-content" id="tab-algo"><div class="analysis-text" id="text-algo"><span class="muted">Waiting for analysis...</span></div></div>
+        <div class="tab-content" id="tab-stockanalysis"><div id="stockAnalysisContent"><span class="muted">Waiting for analysis...</span></div></div>
         <div class="tab-content" id="tab-verdict"><div id="verdictTabContent"><span class="muted">Waiting for analysis...</span></div></div>
       </div>
     </div>
@@ -1524,6 +1546,10 @@ async function analyze() {
   document.getElementById('redditPosts').innerHTML = '';
   document.getElementById('mcChart').innerHTML = '';
   document.getElementById('patternList').innerHTML = '';
+
+  // The filings-based analysis is keyless and independent of the LLM
+  // pipeline, so it starts now and fills its tab when ready.
+  loadStockAnalysis(ticker);
 
   // First do quick data fetch for immediate display
   try {
@@ -4751,6 +4777,201 @@ window.addEventListener('resize', () => {
     // redraw if we have sparkline data - skip for now, just resize
   }
 });
+
+// ── Stock Analysis (fundamentals from the SEC filings) ───────────────────
+// Renders /api/stock-analysis/<ticker>. Every number comes from the company's
+// 10-K/10-Q/20-F through SEC EDGAR; hovering a statement cell shows the filing
+// it came from, and derived cells (Q4, quarterly cash flow) are marked "*".
+// Keyless and independent of the LLM pipeline, so it loads alongside it.
+
+const SA_STATUS_COLOR = {GOOD: 'var(--green)', OK: 'var(--accent)', WATCH: 'var(--yellow)', CONCERN: 'var(--red)',
+                         NOT_APPLICABLE: 'var(--muted)', INSUFFICIENT_DATA: 'var(--muted)',
+                         INFO: 'var(--muted)'};
+let saCurrent = null;
+
+function saPct(v, d) { return v == null || isNaN(v) ? '—' : (100 * v).toFixed(d == null ? 1 : d) + '%'; }
+function saBig(v, cur) {
+  if (v == null || isNaN(v)) return '—';
+  const a = Math.abs(v), s = v < 0 ? '-' : '', c = (cur && cur !== 'USD') ? ' ' + cur : '';
+  if (a >= 1e12) return s + (a / 1e12).toFixed(2) + 'T' + c;
+  if (a >= 1e9) return s + (a / 1e9).toFixed(2) + 'B' + c;
+  if (a >= 1e6) return s + (a / 1e6).toFixed(1) + 'M' + c;
+  return s + a.toLocaleString(undefined, {maximumFractionDigits: 2}) + c;
+}
+function saChip(status) {
+  const c = SA_STATUS_COLOR[status] || 'var(--muted)';
+  return `<span class="sa-chip" style="color:${c};border-color:${c}">${esc(String(status).replace('_', ' '))}</span>`;
+}
+function saSection(title, body) { return `<div class="sa-section"><div class="sa-h">${title}</div>${body}</div>`; }
+
+async function loadStockAnalysis(ticker) {
+  const el = document.getElementById('stockAnalysisContent');
+  if (!el) return;
+  saCurrent = ticker;
+  el.innerHTML = '<span class="muted">Reading the SEC filings… (statements, earnings quality, filings, peers)</span>';
+  try {
+    const r = await fetch(API_BASE + '/api/stock-analysis/' + encodeURIComponent(ticker));
+    const d = await r.json();
+    if (saCurrent !== ticker) return;
+    if (!d.available) {
+      el.innerHTML = `<span class="muted">No fundamental analysis for ${esc(ticker)}: ${esc(d.reason || 'not an SEC filer')}</span>`;
+      return;
+    }
+    el.innerHTML = renderStockAnalysis(d);
+  } catch (e) {
+    if (saCurrent === ticker) el.innerHTML = `<span class="muted">Stock analysis unavailable: ${esc(e.message)}</span>`;
+  }
+}
+
+function renderStockAnalysis(d) {
+  const p = d.profile || {}, st = d.statements || {}, f = st.filer || {};
+  let h = `<div class="sa-head"><b>${esc(p.name || d.symbol)}</b> · SIC ${esc(p.sic || '—')} ${esc(p.sic_description || '')}
+    · ${esc(f.form_type || '')} filer · ${esc(f.taxonomy || '')} · reports in ${esc(f.currency || '—')}
+    ${f.annual_only ? ' · <span style="color:var(--yellow)">annual figures only</span>' : ''}
+    ${d.as_of ? ' · as of ' + esc(d.as_of) : ''}</div>`;
+  if (d.data_lag) h += `<div class="sa-warn">${esc(d.data_lag)}</div>`;
+  h += saSection('Summary', '<ul class="sa-list">' + (d.summary || []).map(s => `<li>${esc(s)}</li>`).join('') + '</ul>');
+  h += renderSaScore(d.score);
+  h += renderSaQuality(d.quality);
+  h += renderSaFilings(d.filings);
+  h += renderSaValuation(d.valuation, f.currency);
+  h += renderSaPeers(d.peers);
+  h += renderSaStatements(st);
+  h += renderSaTechnicals(d.technicals);
+  h += `<div class="muted" style="font-size:11px;margin-top:10px">Source: SEC EDGAR (XBRL company facts and filed documents). `
+     + `Built in ${num((d.timings || {}).total, 1)}s · generated ${esc(d.generated_at || '')}. Not investment advice.</div>`;
+  return h;
+}
+
+function renderSaScore(s) {
+  if (!s || !s.available) return '';
+  const subs = Object.entries(s.subs || {}).map(([k, v]) =>
+    `<div class="sa-bar"><span>${esc(k.replace('_', ' '))} <span class="muted">(${Math.round(100 * (s.weights || {})[k])}%)</span></span>`
+    + `<span class="sa-track"><span style="width:${v == null ? 0 : v}%"></span></span><b>${v == null ? '—' : num(v, 0)}</b></div>`
+    + (s.working && s.working[k] ? `<div class="muted sa-small">${esc(s.working[k])}</div>` : '')).join('');
+  return saSection(`Fundamentals score <span class="muted">— ${esc(s.version)}</span>`,
+    `<div class="sa-score">${num(s.score, 0)}<span>/100</span></div>
+     <div class="muted sa-small">weighted ${num(s.base, 1)} − filing penalty ${num(s.penalty, 0)} · coverage ${saPct(s.coverage, 0)} of the weight</div>
+     ${subs}
+     ${(s.penalized_findings || []).length ? '<div class="sa-small" style="color:var(--yellow)">Penalized: ' + s.penalized_findings.map(esc).join('; ') + '</div>' : ''}`);
+}
+
+function renderSaQuality(q) {
+  if (!q || !q.available) return '';
+  const head = q.grade ? `Grade <b>${esc(q.grade)}</b> · ${num(q.score, 0)}/100 · ${q.measured} tests measured`
+                       : `Not graded — ${esc(q.not_graded_reason || '')}`;
+  const rows = (q.tests || []).map(t => {
+    const inputs = Object.entries(t.inputs || {}).map(([k, v]) =>
+      `${esc(k)}: ${saBig(v.value)} <span class="muted">(${esc(v.accession || '')}${v.derived ? ', derived' : ''})</span>`).join('<br>');
+    return `<tr><td>${saChip(t.status)}</td><td class="l"><b>${esc(t.name)}</b><div class="muted sa-small">${esc(t.explanation || '')}</div>
+      <details class="sa-small"><summary>formula, threshold, inputs</summary>${esc(t.formula || '')}<br><i>${esc(t.threshold || '')}</i>
+      ${inputs ? '<br>' + inputs : ''}</details></td><td>${esc(t.display || '—')}</td></tr>`;
+  }).join('');
+  return saSection('Quality of earnings', `<div class="sa-small" style="margin-bottom:6px">${head}</div>
+    <div class="sa-scroll"><table class="sa-table"><tbody>${rows}</tbody></table></div>`);
+}
+
+function renderSaFilings(fl) {
+  if (!fl || !fl.available) return '';
+  let b = '';
+  const flags = fl.flags || [];
+  b += flags.length ? '<ul class="sa-list">' + flags.slice(0, 12).map(x =>
+      `<li>${saChip(x.severity)} <b>${esc(x.title)}</b> ${esc(x.detail || '')}
+       ${x.quote ? `<div class="sa-quote">“${esc(x.quote)}”</div>` : ''}
+       ${(x.evidence || {}).url ? `<a href="${esc(x.evidence.url)}" target="_blank" rel="noopener" class="sa-small">filing ↗</a>` : ''}</li>`).join('') + '</ul>'
+    : '<div class="sa-small">No red flags in the last three years of filings.</div>';
+  const a = fl.auditor || {};
+  if (a.name) b += `<div class="sa-small">Auditor: <b>${esc(a.name)}</b>${a.since ? ' since ' + a.since : ''}${a.changed ? ` <span style="color:var(--yellow)">(changed from ${esc(a.prior_name)})</span>` : ''}${(a.critical_audit_matters || []).length ? ' · critical audit matters: ' + a.critical_audit_matters.map(esc).join('; ') : ''}</div>`;
+  const rf = fl.risk_factor_changes;
+  if (rf && rf.comparable) {
+    b += `<div class="sa-small">Risk factors: ${rf.headings_now} headings now vs ${rf.headings_prior} last year · ${rf.n_added} added, ${rf.n_removed} removed · ${saPct(rf.new_text_share, 0)} new text</div>`;
+    if ((rf.added || []).length) b += '<details class="sa-small"><summary>new risk-factor headings</summary><ul>' + rf.added.map(x => `<li>${esc(x)}</li>`).join('') + '</ul></details>';
+  } else if (rf && rf.reason) b += `<div class="sa-small muted">Risk-factor comparison: ${esc(rf.reason)}</div>`;
+  if (fl.sections_note) b += `<div class="sa-small muted">${esc(fl.sections_note)}</div>`;
+  const la = fl.latest_annual;
+  if (la) b += `<div class="sa-small muted">Read: ${esc(la.form)} filed ${esc(la.filed)} <a href="${esc(la.url)}" target="_blank" rel="noopener">↗</a></div>`;
+  const ms = fl.mdna_summary;
+  if (ms && ms.status === 'OK') b += '<div class="sa-small"><b>MD&A summary</b> (each point quoted from the filing):<ul>' + ms.bullets.map(x => `<li>${esc(x.point)} <span class="sa-quote">“${esc(x.quote)}”</span></li>`).join('') + '</ul></div>';
+  return saSection('What the filings say', b);
+}
+
+function renderSaValuation(v, cur) {
+  if (!v) return '';
+  const m = v.multiples || {}, mk = v.market || {}, ig = v.implied_growth || {};
+  if (!m.available) return saSection('Valuation', `<div class="sa-small muted">${esc(m.reason || mk.reason || 'not available')}</div>`);
+  const cells = [['Market cap', saBig(m.market_cap_usd) + ' USD'], ['P/E', num(m.pe, 1)], ['EV/Sales', num(m.ev_sales, 1)],
+                 ['EV/EBIT', num(m.ev_ebit, 1)], ['P/FCF', num(m.p_fcf, 1)], ['P/B', num(m.pb, 1)], ['FCF yield', saPct(m.fcf_yield)]]
+    .map(([k, x]) => `<div class="sa-kv"><span class="muted">${k}</span><b>${x}</b></div>`).join('');
+  let b = `<div class="sa-grid">${cells}</div>`;
+  b += `<div class="sa-small muted">Price ${num(mk.price, 2)} (${esc(mk.price_date || '')}) × ${esc(mk.shares_source || '')}${mk.ads_ratio && mk.ads_ratio !== 1 ? ` ÷ ${mk.ads_ratio} (ADS ratio, ${esc((mk.ads_ratio_source || {}).source || '')})` : ''}${(mk.fx || {}).series ? ` · FX ${esc(mk.fx.series)} ${esc(mk.fx.date)}` : ''}</div>`;
+  if (m.stale_warning) b += `<div class="sa-warn">${esc(m.stale_warning)}</div>`;
+  if (ig.reading) b += `<div class="sa-small" style="margin-top:6px"><b>Reverse DCF:</b> ${esc(ig.reading)}</div>`;
+  const hy = (v.history || {}).years || [];
+  if (hy.length) b += `<div class="sa-scroll"><table class="sa-table"><thead><tr><th>Fiscal year</th><th>Price*</th><th>P/E</th><th>EV/Sales</th><th>P/FCF</th></tr></thead><tbody>`
+    + hy.map(r => `<tr><td>${esc(r.fiscal_year)}</td><td>${num(r.price_split_adjusted, 2)}</td><td>${num(r.pe, 1)}</td><td>${num(r.ev_sales, 1)}</td><td>${num(r.p_fcf, 1)}</td></tr>`).join('')
+    + '</tbody></table></div><div class="muted sa-small">* split-adjusted close at fiscal year-end</div>';
+  return saSection('Valuation', b);
+}
+
+function renderSaPeers(p) {
+  if (!p) return '';
+  if (!p.available) return saSection('Peers', `<div class="sa-small muted">${esc(p.reason || 'not available')}</div>`);
+  const c = (p.comparison || {}).stats || {};
+  const cols = [['pe', 'P/E', 1, 0], ['ev_sales', 'EV/Sales', 1, 0], ['p_fcf', 'P/FCF', 1, 0], ['revenue_growth', 'Rev growth', 1, 1],
+                ['operating_margin', 'Op margin', 0, 1], ['roic', 'ROIC', 0, 1], ['quality_score', 'Quality', 0, 0]];
+  const cell = (v, pct, d) => pct ? saPct(v, d ? 1 : 0) : num(v, d ? 1 : 0);
+  const row = (r, bold) => `<tr${bold ? ' class="sa-self"' : ''}><td>${esc(r.ticker)}</td><td>${saBig(r.market_cap_usd)}</td>`
+    + cols.map(([k, , d, pct]) => `<td>${cell(r[k], pct, d)}</td>`).join('') + '</tr>';
+  const med = '<tr class="muted"><td>peer median</td><td></td>' + cols.map(([k, , d, pct]) => `<td>${cell((c[k] || {}).peer_median, pct, d)}</td>`).join('') + '</tr>';
+  return saSection('Peers', `<div class="sa-small muted">${esc((p.selection || {}).method || '')}</div>
+    <div class="sa-scroll"><table class="sa-table"><thead><tr><th>Ticker</th><th>Mkt cap</th>${cols.map(x => `<th>${x[1]}</th>`).join('')}</tr></thead>
+    <tbody>${row(p.company, true)}${(p.peers || []).map(r => row(r)).join('')}${med}</tbody></table></div>
+    <div class="sa-small">${esc((p.comparison || {}).reading || '')}</div>
+    ${(p.excluded || []).length ? `<div class="muted sa-small">Excluded: ${p.excluded.map(x => esc(x.ticker + ' (' + x.reason + ')')).join('; ')}</div>` : ''}`);
+}
+
+function renderSaStatements(st) {
+  if (!st || !st.available || !st.layout) return '';
+  const years = (st.annual || []).slice(0, 5).reverse();
+  const ttm = st.ttm || {};
+  const cur = (st.filer || {}).currency;
+  const block = (name, rows) => {
+    const body = rows.filter(k => years.some(y => (y.values || {})[k]) || (ttm.values || {})[k]).map(k => {
+      const cells = years.map(y => saCellHtml((y.values || {})[k])).join('');
+      return `<tr><td>${esc((st.labels || {})[k] || k)}</td>${cells}${saCellHtml((ttm.values || {})[k])}</tr>`;
+    }).join('');
+    return `<div class="sa-small" style="margin-top:6px"><b>${name}</b></div><div class="sa-scroll"><table class="sa-table"><thead><tr><th></th>`
+      + years.map(y => `<th>${esc(y.label)}</th>`).join('') + `<th>TTM</th></tr></thead><tbody>${body}</tbody></table></div>`;
+  };
+  const L = st.layout;
+  return saSection(`Financial statements <span class="muted">— ${esc(cur || '')}, as filed; * derived; hover for the filing</span>`,
+    block('Income statement', L.income_statement) + block('Balance sheet', L.balance_sheet) + block('Cash flow', L.cash_flow)
+    + `<div class="muted sa-small">TTM basis: ${esc(ttm.basis || '—')}${(st.restatements || []).length ? ` · ${st.restatements.length} revised figure(s) in later filings` : ''}${st.split_adjustments ? ` · ${st.split_adjustments} split adjustment(s)` : ''}</div>`);
+}
+
+function saCellHtml(c) {
+  if (!c) return '<td class="muted">—</td>';
+  const v = c.value, a = Math.abs(v);
+  const txt = a >= 1e6 ? saBig(v) : (a < 100 ? num(v, 2) : Math.round(v).toLocaleString());
+  const tip = `${c.form || ''} ${c.accession || ''} filed ${c.filed || ''}${c.how ? ' — ' + c.how : ''}`;
+  return `<td title="${esc(tip)}">${txt}${c.derived ? '*' : ''}</td>`;
+}
+
+function renderSaTechnicals(t) {
+  if (!t || !t.available) return '';
+  const r = t.returns || {}, vm = t.vs_market || {}, vs = t.vs_sector || {}, er = t.earnings_reactions || {};
+  let b = `<div class="sa-small">${esc(t.trend)} · 1m ${saPct(r['1m'])} · 3m ${saPct(r['3m'])} · 12m ${saPct(r['12m'])}
+    · vs SPY 12m ${saPct(vm['12m'])}${t.sector_benchmark ? ` · vs ${esc(t.sector_benchmark)} 12m ${saPct(vs['12m'])}` : ''}
+    · 20d vol ${saPct(t.volatility_20d, 0)} · 1y max drawdown ${saPct(t.max_drawdown_1y, 0)}</div>`;
+  if (er.available) {
+    b += `<div class="sa-small">Earnings releases (n=${er.n}): average move ${saPct(er.avg_abs_reaction)} vs the market, ${saPct(er.share_positive, 0)} up; drift continued the reaction ${saPct(er.drift_continued_share, 0)} of the time.</div>`;
+    b += '<div class="sa-scroll"><table class="sa-table"><thead><tr><th>Release</th><th>Reaction vs SPY</th><th>Next 20 days vs SPY</th></tr></thead><tbody>'
+      + (er.releases || []).slice(0, 8).map(x => `<tr><td>${esc(x.release)}</td><td style="color:${x.reaction >= 0 ? 'var(--green)' : 'var(--red)'}">${saPct(x.reaction)}</td><td>${saPct(x.drift_20d)}</td></tr>`).join('')
+      + '</tbody></table></div>';
+  }
+  b += `<div class="muted sa-small">${esc(t.note || '')}</div>`;
+  return saSection('Price context', b);
+}
 </script>
 </body>
 </html>

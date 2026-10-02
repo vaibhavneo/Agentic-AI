@@ -42,9 +42,10 @@ PORTFOLIO = "portfolio_review"
 BENCHMARK = "benchmark_relation"
 INTEL = "market_intelligence"
 NARRATIVE = "analyst_narrative"
+FUNDAMENTALS = "fundamental_analysis"
 
 ALL_CAPABILITIES = (RESEARCH, OPTIONS, BACKTEST, RECORD, REGIME, EVENTS,
-                    PORTFOLIO, BENCHMARK, INTEL, NARRATIVE)
+                    PORTFOLIO, BENCHMARK, INTEL, NARRATIVE, FUNDAMENTALS)
 
 # Capabilities that stand on their own — they answer about the DESK or the
 # MARKET, so they need no symbol.
@@ -111,7 +112,7 @@ PATTERNS: List[Tuple[str, str, float]] = [
     # ── Catalysts ─────────────────────────────────────────────────────────
     (r"\bearnings?\b", EVENTS, 1.4),
     (r"\bcatalysts?\b", EVENTS, 1.5),
-    (r"\bwhen\s+does\s+\w+\s+report\b|\bwhen\s+(does|do)\s+it\s+report\b",
+    (r"\bwhen\s+does\s+\w+\s+report\b|\bwhen\s+(does|do)\s+(it|they)\s+report\b",
      EVENTS, 1.5),
     (r"\bon\s+the\s+calendar\b|\bcalendar\b", EVENTS, 1.2),
     (r"\bevents?\s+(that\s+)?could\s+move\b|\bupcoming\s+events?\b", EVENTS, 1.5),
@@ -150,6 +151,24 @@ PATTERNS: List[Tuple[str, str, float]] = [
     (r"\banalogs?\b|\banalogues?\b", INTEL, 1.5),
     (r"\blast\s+time\s+(this|it)\b", INTEL, 1.4),
 
+    # ── Fundamentals from the filings (Stock Analysis Agent) ──────────────
+    (r"\bquality\s+of\s+(the\s+)?earnings\b|\bearnings\s+quality\b", FUNDAMENTALS, 1.8),
+    (r"\b10-?[kq]s?\b|\b20-?f\b|\bannual\s+report\b|\bsec\s+filings?\b|\bfilings\b", FUNDAMENTALS, 1.5),
+    (r"\bfundamentals?\b|\bfundamental\s+analysis\b", FUNDAMENTALS, 1.5),
+    (r"\bbalance\s+sheet\b|\bincome\s+statement\b|\bcash\s+flow\s+statement\b|"
+     r"\bfinancial\s+statements?\b|\bfree\s+cash\s+flow\b", FUNDAMENTALS, 1.5),
+    (r"\baccruals?\b|\bbeneish\b|\bpiotroski\b|\baltman\b|\bz-?score\b|\bm-?score\b", FUNDAMENTALS, 1.6),
+    (r"\bmaterial\s+weakness\b|\brestate(d|ment)?\b|\bauditor\b|\brisk\s+factors?\b|\bgoing\s+concern\b",
+     FUNDAMENTALS, 1.6),
+    (r"\bvaluation\b|\bover\s?valued\b|\bunder\s?valued\b|\bp/?e\s+ratio\b|\bmultiples?\b",
+     FUNDAMENTALS, 1.3),
+    (r"\bpeers?\b|\bcomparables?\b|\bcomps\b|\bcompetitors\b", FUNDAMENTALS, 1.3),
+    (r"\bmargins?\b|\breturn\s+on\s+(equity|capital|invested)\b|\broic\b", FUNDAMENTALS, 1.2),
+    # Cash conversion in plain words. Added after the corpus case "is tsmc
+    # actually turning its profit into cash" missed on the first measurement.
+    (r"\b(profits?|earnings|income)\s+into\s+cash\b|\bcash\s+conversion\b|\bbacked\s+by\s+cash\b",
+     FUNDAMENTALS, 1.6),
+
     # ── Research, asked explicitly ────────────────────────────────────────
     (r"\banal(yse|yze|ysis)\b", RESEARCH, 1.4),
     (r"\bshould\s+i\s+(buy|sell|add|get\s+out|own)\b", RESEARCH, 1.4),
@@ -162,7 +181,7 @@ PATTERNS: List[Tuple[str, str, float]] = [
     (r"\bhow\s+(does|do|is|are)\s+\w+\s+look", RESEARCH, 1.3),
     (r"\bgive\s+me\s+the\s+works\b|\btell\s+me\s+everything\b", RESEARCH, 1.4),
     (r"\bentry\b|\bprice\s+target\b", RESEARCH, 1.1),
-    (r"\bworried\s+about\b", RESEARCH, 1.2),
+    (r"\bworr(ied|y)\s+about\b", RESEARCH, 1.2),
     (r"\btalk\s+me\s+through\b|\bwalk\s+me\s+through\b", RESEARCH, 1.4),
     (r"\bcompare\b|\bvs\.?\b|\bversus\b|\bwhich\s+is\s+better\b", RESEARCH, 1.3),
     (r"\bstock\s+and\s+derivatives?\b", RESEARCH, 1.2),
@@ -203,14 +222,32 @@ _OPTION_OBJECT_FIRST = re.compile(
 _BUY_VERB_RESEARCH = r"\bshould\s+i\s+(buy|sell|add|get\s+out|own)\b"
 
 
+# "earnings quality" is a question about the filings, not the earnings DATE.
+_EARNINGS_QUALITY = re.compile(r"\bquality\s+of\s+(the\s+)?earnings\b|\bearnings\s+quality\b", re.I)
+_EARNINGS_EVENT = r"\bearnings?\b"
+# "fundamental analysis" names the filings agent, not the desk's verdict; and
+# "vs peers" compares against an industry, not a second named ticker.
+_FUNDAMENTAL_ANALYSIS = re.compile(r"\bfundamental\s+anal(ysis|yse|yze)\b", re.I)
+_VS_PEERS = re.compile(r"\b(vs\.?|versus|compared\s+(to|with))\s+(its\s+|the\s+)?(peers|competitors|industry|comps)\b",
+                       re.I)
+_COMPARE_RESEARCH = r"\bcompare\b|\bvs\.?\b|\bversus\b|\bwhich\s+is\s+better\b"
+
+
 def _score(text: str) -> Dict[str, float]:
     scores: Dict[str, float] = {}
     suppress_buy_verb = bool(_OPTION_OBJECT_FIRST.search(text))
     suppress_analysis = bool(_WRITTEN_ANALYSIS.search(text))
+    suppress_earnings_date = bool(_EARNINGS_QUALITY.search(text))
+    suppress_analysis = suppress_analysis or bool(_FUNDAMENTAL_ANALYSIS.search(text))
+    suppress_compare = bool(_VS_PEERS.search(text))
     for pat, cap, w in PATTERNS:
         if suppress_buy_verb and pat == _BUY_VERB_RESEARCH:
             continue
         if suppress_analysis and pat == _ANALYSIS_RESEARCH:
+            continue
+        if suppress_compare and pat == _COMPARE_RESEARCH:
+            continue
+        if suppress_earnings_date and pat == _EARNINGS_EVENT:
             continue
         if re.search(pat, text, re.I):
             scores[cap] = scores.get(cap, 0.0) + w

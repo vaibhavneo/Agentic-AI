@@ -42,9 +42,12 @@ def multiples(st: Dict[str, Any], mkt: Dict[str, Any], kind: str) -> Dict[str, A
         if a is None or b is None or b == 0 or (positive_only and b < 0):
             return None
         return a / b
+    fin = kind in FINANCIAL_KINDS
     out = {"available": True, "market_cap_usd": mc, "enterprise_value_usd": ev,
            "pe": ratio(mc, ni), "pb": ratio(mc, eq),
-           "fcf_yield": (fcf / mc) if fcf is not None and mc else None,
+           # A bank's operating cash flow moves with its loan book: a "free cash
+           # flow yield" of -18% for JPM is arithmetic, not a valuation.
+           "fcf_yield": (fcf / mc) if fcf is not None and mc and not fin else None,
            "earnings_yield": (ni / mc) if ni is not None and mc else None}
     if kind not in FINANCIAL_KINDS:
         out.update({"ev_sales": ratio(ev, rev), "ev_ebit": ratio(ev, ebit), "p_fcf": ratio(mc, fcf)})
@@ -177,6 +180,7 @@ def implied_growth(st: Dict[str, Any], mkt: Dict[str, Any], kind: str) -> Dict[s
             "reading": None if g is None else (
                 f"Today's value implies free cash flow growing about {100 * g:.1f}% a year for {YEARS} years "
                 f"(at a {100 * DISCOUNT_RATE:.0f}% discount rate and {100 * TERMINAL_GROWTH:.1f}% after)"
-                + (f"; it grew {100 * hist:.1f}% a year over the last {len(fcfs) - 1} years." if hist is not None
-                   else ".")),
+                + ((f"; it grew {100 * hist:.1f}% a year over the last {len(fcfs) - 1} years." if hist >= 0 else
+                    f"; it shrank {100 * -hist:.1f}% a year over the last {len(fcfs) - 1} years.")
+                   if hist is not None else ".")),
             "reason": None if g is not None else "implied growth is beyond the solvable range"}
