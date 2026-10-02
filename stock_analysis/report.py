@@ -21,7 +21,8 @@ from typing import Any, Callable, Dict, List, Optional
 _CACHE: Dict[tuple, tuple] = {}
 _TTL = 6 * 3600
 
-SECTIONS = ("statements", "quality", "filings", "valuation", "peers", "technicals", "street", "score")
+SECTIONS = ("statements", "quality", "filings", "valuation", "peers", "technicals", "street", "guidance",
+            "segments", "score")
 
 
 def _trim_statements(st: Dict[str, Any]) -> Dict[str, Any]:
@@ -123,6 +124,16 @@ def summarize(rep: Dict[str, Any]) -> List[str]:
                      + (f", {'+' if r12 >= 0 else ''}{_pct(r12, 0)} over 12 months" if r12 is not None else "")
                      + (f" ({'+' if rel >= 0 else ''}{_pct(rel, 0)} vs the market)" if rel is not None else "")
                      + ". Descriptive only.")
+    gd = rep.get("guidance") or {}
+    if gd.get("available"):
+        lt = gd.get("latest") or {}
+        rev = next((x for x in lt.get("statements", []) if x["metric"] == "revenue" and x["unit"] == "USD"), None)
+        cred = gd.get("credibility") or {}
+        if rev:
+            lines.append(f"Guidance ({lt.get('period_text') or 'next period'}): revenue "
+                         f"{rev['low'] / 1e9:.2f}–{rev['high'] / 1e9:.2f} billion"
+                         + (f"; actual revenue beat the guided midpoint in {cred['beat_midpoint']} of the last "
+                            f"{cred['n']} quarters" if cred.get("n") else "") + ".")
     sw = rep.get("street") or {}
     if sw.get("available"):
         bits = []
@@ -234,6 +245,16 @@ def build_report(symbol: str, as_of: Optional[str] = None, include: Optional[Lis
         say("peers", "Building the peer comparison")
         rep["peers"] = timed("peers", lambda: build_peers(symbol, prof, st, mkt, as_of,
                                                           override=peers_override))
+    if want & {"guidance", "segments"}:
+        _fl = (fil or {}).get("recent_filings_all") or _all_filings(symbol, as_of)
+        if "guidance" in want:
+            say("guidance", "Reading management's outlook from the earnings release")
+            from .guidance import build_guidance
+            rep["guidance"] = timed("guidance", lambda: build_guidance(symbol, st, _fl))
+        if "segments" in want:
+            say("segments", "Revenue by segment, product and geography")
+            from .segments import build_segments
+            rep["segments"] = timed("segments", lambda: build_segments(symbol, _fl))
     if "street" in want:
         say("street", "Analysts, earnings surprises and insider trades")
         from .street import build_street

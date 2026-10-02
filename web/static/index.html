@@ -4867,6 +4867,8 @@ function renderStockAnalysis(d) {
   h += renderSaValuation(d.valuation, f.currency);
   h += renderSaPeers(d.peers);
   h += renderSaStreet(d.street);
+  h += renderSaGuidance(d.guidance);
+  h += renderSaSegments(d.segments);
   h += renderSaStatements(st);
   h += renderSaTechnicals(d.technicals);
   h += `<div class="muted" style="font-size:11px;margin-top:10px">Source: SEC EDGAR (XBRL company facts and filed documents). `
@@ -4978,6 +4980,29 @@ function renderSaStreet(w) {
   }
   if ((w.vendor_peers || []).length) b += `<div class="muted sa-small">Vendor peer list: ${w.vendor_peers.map(esc).join(', ')}</div>`;
   return saSection('Analysts & insiders <span class="muted">— Finnhub free tier</span>', b);
+}
+
+function renderSaGuidance(g) {
+  if (!g) return '';
+  if (!g.available) return saSection('Management guidance', `<div class="sa-small muted">${esc(g.reason || 'not available')}</div>`);
+  const lt = g.latest || {}, cr = g.credibility || {};
+  let b = `<div class="sa-small muted">From the earnings release filed ${esc(lt.filed || '')} <a href="${esc(lt.url || '')}" target="_blank" rel="noopener">↗</a> — ${esc(g.note || '')}</div>`;
+  if ((lt.statements || []).length) b += '<ul class="sa-list">' + lt.statements.map(x => `<li><b>${esc(x.metric.replace('_', ' '))}</b>: ${x.unit === 'USD' ? saBig(x.low) + (x.high !== x.low ? ' – ' + saBig(x.high) : '') : num(x.low, 1) + (x.high !== x.low ? '–' + num(x.high, 1) : '') + '%'}<span class="sa-quote">“${esc(x.quote)}”</span></li>`).join('') + '</ul>';
+  else if (lt.found) b += `<div class="sa-quote">“${esc(lt.excerpt || '')}…”</div>`;
+  if (cr.n) b += `<div class="sa-small">Credibility: actual revenue beat the guided midpoint in <b>${cr.beat_midpoint} of ${cr.n}</b> quarters (average ${saPct(cr.avg_vs_midpoint)} vs midpoint).</div>`;
+  return saSection('Management guidance', b);
+}
+
+function renderSaSegments(sg) {
+  if (!sg) return '';
+  if (!sg.available) return saSection('Segments', `<div class="sa-small muted">${esc(sg.reason || 'not available')}</div>`);
+  let b = `<div class="sa-small muted">${esc(sg.form)} for the ${esc(sg.period)} ended ${esc(sg.period_end)} — revenue by line, growth vs the same period a year earlier</div>`;
+  for (const [axis, rows] of Object.entries(sg.breakdowns || {})) {
+    b += `<div class="sa-small" style="margin-top:6px"><b>By ${esc(axis)}</b></div><div class="sa-scroll"><table class="sa-table"><thead><tr><th>Line</th><th>Revenue</th><th>Growth</th><th>Share</th></tr></thead><tbody>`
+      + rows.map(r => `<tr${r.subtotal ? ' class="muted"' : ''}><td class="l">${r.subtotal ? '' : '&nbsp;&nbsp;'}${esc(r.line)}${r.subtotal ? ' <i>(subtotal)</i>' : ''}</td><td>${saBig(r.revenue)}</td><td style="color:${(r.growth || 0) >= 0 ? 'var(--green)' : 'var(--red)'}">${saPct(r.growth)}</td><td>${saPct(r.share, 0)}</td></tr>`).join('')
+      + '</tbody></table></div>';
+  }
+  return saSection('Segments', b);
 }
 
 function renderSaStatements(st) {
