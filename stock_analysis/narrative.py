@@ -83,3 +83,43 @@ def summarize_mdna(mdna: str, filing: Dict[str, Any], client: Any = None) -> Dic
                "source": {"accession": filing["accession"], "url": filing.get("url")}})
     cache.put("stock-analysis", "mdna", key, result)
     return result
+
+
+def summarize_transcript(text: str, source: Dict[str, Any], client: Any = None) -> Dict[str, Any]:
+    """An earnings-call summary held to the same two checks as the MD&A one:
+    every quote verbatim from the transcript, every number in its text."""
+    from financial_data import cache
+    from financial_data.keys import has_key, get_key
+    if len(text) < 2000:
+        return {"status": "UNAVAILABLE", "reason": "transcript too short to summarize"}
+    key = f"call_{source.get('document') or source.get('quarter')}"
+    cached = cache.get("stock-analysis", "calls", key)
+    if cached is not None:
+        return cached
+    if client is None:
+        if not has_key("DEEPSEEK_API_KEY"):
+            return {"status": "UNAVAILABLE", "reason": "DEEPSEEK_API_KEY is not set"}
+        from openai import OpenAI
+        client = OpenAI(api_key=get_key("DEEPSEEK_API_KEY", "stock_analysis call summary"),
+                        base_url="https://api.deepseek.com", timeout=180.0, max_retries=1)
+    body = text[:_MAX_CHARS]
+    system = ("You summarize an earnings call for an investor. Use ONLY the transcript provided. Return JSON: "
+              "{\"bullets\": [{\"topic\": one of \"results\"|\"outlook\"|\"risks\"|\"analyst_concerns\", "
+              "\"point\": one plain-English sentence, \"quote\": one sentence copied EXACTLY from the transcript}]}. "
+              "6 to 8 bullets; include what analysts pressed management on. No number that is not in the text, "
+              "no advice, no predictions of your own.")
+    try:
+        resp = client.chat.completions.create(
+            model=_MODEL, max_tokens=6000, response_format={"type": "json_object"},
+            messages=[{"role": "system", "content": system}, {"role": "user", "content": body}])
+        summary = json.loads(resp.choices[0].message.content or "")
+    except Exception as e:
+        code = getattr(e, "status_code", None)
+        return {"status": "UNAVAILABLE", "reason": f"LLM call failed ({'HTTP ' + str(code) if code else type(e).__name__})"}
+    check = validate(summary, body)
+    result = ({"status": "OK", "bullets": summary.get("bullets", []), "validation": check, "source": source}
+              if check["ok"] else
+              {"status": "WITHHELD", "reason": "the summary did not hold to the transcript", "validation": check,
+               "source": source})
+    cache.put("stock-analysis", "calls", key, result)
+    return result

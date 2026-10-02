@@ -22,7 +22,7 @@ _CACHE: Dict[tuple, tuple] = {}
 _TTL = 6 * 3600
 
 SECTIONS = ("statements", "quality", "filings", "valuation", "peers", "technicals", "street", "guidance",
-            "segments", "score")
+            "segments", "transcript", "score")
 
 
 def _trim_statements(st: Dict[str, Any]) -> Dict[str, Any]:
@@ -255,6 +255,10 @@ def build_report(symbol: str, as_of: Optional[str] = None, include: Optional[Lis
             say("segments", "Revenue by segment, product and geography")
             from .segments import build_segments
             rep["segments"] = timed("segments", lambda: build_segments(symbol, _fl))
+    if "transcript" in want:
+        say("transcript", "Latest earnings call")
+        from .transcripts import build_transcript
+        rep["transcript"] = timed("transcript", lambda: build_transcript(symbol, st, summarize=mdna_summary))
     if "street" in want:
         say("street", "Analysts, earnings surprises and insider trades")
         from .street import build_street

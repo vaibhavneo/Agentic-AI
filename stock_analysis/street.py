@@ -27,16 +27,31 @@ OPEN_MARKET = {"P": "purchase", "S": "sale"}
 WINDOW_DAYS = 180
 
 
-def _get(kind: str, symbol: str, concept: str) -> Dict[str, Any]:
+def _get(kind: str, symbol: str, concept: str, provider: str = PROVIDER) -> Dict[str, Any]:
     from financial_data import gateway as gw
     try:
-        res = gw.get(kind, symbol, provider=PROVIDER, concepts=[concept])
-        return {"data": res["data"], "unavailable": res.get("unavailable") or []}
+        res = gw.get(kind, symbol, provider=provider, concepts=[concept])
+        return {"data": res["data"], "unavailable": res.get("unavailable") or [], "provider": provider}
     except Exception as e:
         msg = str(e)
-        if "FINNHUB_API_KEY" in msg:
-            msg = "waiting for FINNHUB_API_KEY (free at finnhub.io)"
-        return {"data": [], "error": msg}
+        for var, site in (("FINNHUB_API_KEY", "finnhub.io"), ("ALPHAVANTAGE_API_KEY", "alphavantage.co"),
+                          ("FMP_API_KEY", "financialmodelingprep.com")):
+            if var in msg:
+                msg = f"waiting for {var} (free at {site})"
+        return {"data": [], "error": msg, "provider": provider}
+
+
+def _surprise_source(symbol: str) -> Dict[str, Any]:
+    """The longest consensus history available: Alpha Vantage (every quarter
+    on record), then FMP, then Finnhub's free four quarters."""
+    tried = []
+    for prov in ("alphavantage", "fmp", PROVIDER):
+        r = _get("events", symbol, "earnings_surprise", prov)
+        if r["data"]:
+            r["tried"] = tried
+            return r
+        tried.append(f"{prov}: {r.get('error') or 'no data'}")
+    return {"data": [], "error": "; ".join(tried), "tried": tried}
 
 
 def surprises(data: List[Dict[str, Any]]) -> Dict[str, Any]:
@@ -101,16 +116,16 @@ def insiders(data: List[Dict[str, Any]], as_of: Optional[str] = None) -> Dict[st
 
 def build_street(symbol: str, as_of: Optional[str] = None) -> Dict[str, Any]:
     out: Dict[str, Any] = {"symbol": symbol.upper(), "source": "finnhub (free tier)"}
-    e = _get("events", symbol, "earnings_surprise")
+    e = _surprise_source(symbol)
     r = _get("sentiment", symbol, "analyst_recommendation")
     i = _get("filings", symbol, "insider_transaction")
     p = _get("universe", symbol, "peers")
     errs = {x.get("error") for x in (e, r, i, p) if x.get("error")}
-    if errs and all(x.get("error") for x in (e, r, i, p)):
+    if errs and not e["data"] and all(x.get("error") for x in (r, i, p)):
         return {**out, "available": False, "reason": sorted(errs)[0]}
     out["available"] = True
-    out["earnings_surprises"] = surprises(e["data"]) if not e.get("error") else {"available": False,
-                                                                                    "reason": e["error"]}
+    out["earnings_surprises"] = (dict(surprises(e["data"]), source=e.get("provider")) if e["data"] else
+                                 {"available": False, "reason": e.get("error")})
     out["analysts"] = recommendations(r["data"]) if not r.get("error") else {"available": False, "reason": r["error"]}
     out["insiders"] = insiders(i["data"], as_of) if not i.get("error") else {"available": False, "reason": i["error"]}
     out["vendor_peers"] = [d["value"] for d in p["data"]][:12] if not p.get("error") else []

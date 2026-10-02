@@ -237,6 +237,44 @@
         "sentiment": "Recommendation counts are the vendor's current tally per month, not a frozen history.",
         "events": "available_at is the fiscal quarter end; the earnings release comes weeks later, so as_of cuts on these are approximate."
       }
+    },
+    "alphavantage": {
+      "id": "alphavantage",
+      "name": "Alpha Vantage (free tier)",
+      "module": "financial_data.providers.alphavantage",
+      "kinds": [
+        "events",
+        "filings"
+      ],
+      "pit_capable": [
+        "events"
+      ],
+      "reliability": 0.75,
+      "priority": 70,
+      "rate_limit_per_sec": 0.2,
+      "requires_key": "ALPHAVANTAGE_API_KEY",
+      "cost": "free tier (25 requests/day, alphavantage.co)",
+      "notes": "Full quarterly history of reported vs estimated EPS with report dates (a point-in-time consensus record), and earnings-call transcripts where the plan allows. Name explicitly.",
+      "caveats": {}
+    },
+    "fmp": {
+      "id": "fmp",
+      "name": "Financial Modeling Prep (free tier)",
+      "module": "financial_data.providers.fmp",
+      "kinds": [
+        "events",
+        "filings"
+      ],
+      "pit_capable": [
+        "events"
+      ],
+      "reliability": 0.75,
+      "priority": 75,
+      "rate_limit_per_sec": 1,
+      "requires_key": "FMP_API_KEY",
+      "cost": "free tier (~250 requests/day, financialmodelingprep.com)",
+      "notes": "Earnings actual vs estimate (EPS and revenue) by report date; call transcripts on plans that include them (HTTP 402 otherwise, reported as such). Name explicitly.",
+      "caveats": {}
     }
   }
 }

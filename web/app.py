@@ -1699,7 +1699,7 @@ def research_stream_endpoint():
 
 _SA_TICKER = re.compile(r"^[A-Za-z0-9.\-^=]{1,12}$")
 _SA_SECTIONS = ("statements", "quality", "filings", "valuation", "peers", "technicals", "street", "guidance",
-                "segments", "score")
+                "segments", "transcript", "score")
 
 
 def _sa_args(ticker: str):

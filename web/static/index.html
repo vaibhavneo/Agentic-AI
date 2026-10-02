@@ -4869,6 +4869,7 @@ function renderStockAnalysis(d) {
   h += renderSaStreet(d.street);
   h += renderSaGuidance(d.guidance);
   h += renderSaSegments(d.segments);
+  h += renderSaTranscript(d.transcript);
   h += renderSaStatements(st);
   h += renderSaTechnicals(d.technicals);
   h += `<div class="muted" style="font-size:11px;margin-top:10px">Source: SEC EDGAR (XBRL company facts and filed documents). `
@@ -5003,6 +5004,16 @@ function renderSaSegments(sg) {
       + '</tbody></table></div>';
   }
   return saSection('Segments', b);
+}
+
+function renderSaTranscript(t) {
+  if (!t) return '';
+  if (!t.available) return saSection('Earnings call', `<div class="sa-small muted">${esc(t.reason || 'not available')}</div>`);
+  const sm = t.summary || {};
+  let b = `<div class="sa-small muted">${esc(t.fiscal_quarter)} call · ${esc(t.provider)} · ${t.chars.toLocaleString()} characters</div>`;
+  if (sm.status === 'OK') b += '<ul class="sa-list">' + sm.bullets.map(x => `<li><b>${esc(x.topic || '')}</b> ${esc(x.point)} <span class="sa-quote">“${esc(x.quote)}”</span></li>`).join('') + '</ul>';
+  else b += `<div class="sa-small muted">Summary: ${esc(sm.reason || 'add ?mdna=1 to request the validated summary')}</div>`;
+  return saSection('Earnings call', b);
 }
 
 function renderSaStatements(st) {
