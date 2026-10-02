@@ -76,8 +76,13 @@ def history(st: Dict[str, Any], symbol: str, kind: str, as_of: Optional[str] = N
             ads_ratio: float = 1.0, fx_rate: float = 1.0) -> Dict[str, Any]:
     """P/E, EV/Sales, P/FCF at each fiscal year-end, from the price that day
     and the figures for that year."""
-    from .market import price_history
-    df = price_history(symbol, years=8, as_of=as_of)
+    from .market import price_history, splits
+    # Both sides on today's split basis: the split-adjusted (not dividend-
+    # adjusted) close, and each year's share count scaled by any split after
+    # the filing that reported it. Mixing an as-traded price with a later,
+    # split-adjusted share count put Nvidia's FY2024 P/E at 511.
+    df = price_history(symbol, years=8, as_of=as_of, split_only=True)
+    split_list = splits(symbol)
     if df.empty:
         return {"available": False, "reason": "no price history"}
     rows: List[Dict[str, Any]] = []
@@ -87,6 +92,10 @@ def history(st: Dict[str, Any], symbol: str, kind: str, as_of: Optional[str] = N
         sh = value(a, "shares_diluted")
         if px.empty or not sh or (df.index[0].strftime("%Y-%m-%d") > end):
             continue
+        filed = (a["values"].get("shares_diluted") or {}).get("filed") or end
+        for d, r in split_list:
+            if d > filed[:10] and (not as_of or d <= as_of[:10]):
+                sh *= r
         mc = float(px.iloc[-1]) * sh / ads_ratio
         g = lambda c: (value(a, c) * fx_rate) if value(a, c) is not None else None  # noqa: E731
         ni, rev = g("net_income"), g("revenue")
@@ -94,7 +103,7 @@ def history(st: Dict[str, Any], symbol: str, kind: str, as_of: Optional[str] = N
         debt = (g("long_term_debt") or 0.0) + (g("short_term_debt") or 0.0)
         cash = (g("cash") or 0.0) + (g("short_term_investments") or 0.0)
         fcf = ocf - (capex or 0.0) if ocf is not None else None
-        row = {"fiscal_year": a["label"], "end": end, "price": round(float(px.iloc[-1]), 2),
+        row = {"fiscal_year": a["label"], "end": end, "price_split_adjusted": round(float(px.iloc[-1]), 2),
                "pe": round(mc / ni, 2) if ni and ni > 0 else None,
                "p_fcf": round(mc / fcf, 2) if fcf and fcf > 0 else None}
         if kind not in FINANCIAL_KINDS:

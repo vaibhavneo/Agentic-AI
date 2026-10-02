@@ -19,7 +19,7 @@ with where it came from:
 from __future__ import annotations
 
 import re
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 # FRED daily FX series: currency -> (series, quoted as units-per-USD?)
 FX_SERIES = {
@@ -39,19 +39,70 @@ _WORDS = {"one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6, "seven
 def price_on(symbol: str, as_of: Optional[str] = None) -> Dict[str, Any]:
     from financial_data import gateway as gw
     try:
-        df = gw.get_bars_df(symbol, period="1mo" if not as_of else "6y", as_of=as_of)
+        if as_of:
+            # A window AROUND the date: "6y back from today" ends before an
+            # as_of of 2019 and returns nothing.
+            from datetime import date, timedelta
+            d = date.fromisoformat(as_of[:10])
+            df = gw.get_bars_df(symbol, start=(d - timedelta(days=20)).isoformat(),
+                                end=(d + timedelta(days=1)).isoformat(), as_of=as_of,
+                                price_basis="split_adjusted_only")
+        else:
+            df = gw.get_bars_df(symbol, period="1mo")
     except Exception as e:
         return {"available": False, "reason": f"no price: {type(e).__name__}"}
     if df.empty:
         return {"available": False, "reason": "no price history for this symbol"}
-    return {"available": True, "price": float(df["Close"].iloc[-1]), "date": str(df.index[-1])[:10],
-            "provider": df.attrs.get("provider"), "as_of_honored": df.attrs.get("as_of_honored")}
+    date_ = str(df.index[-1])[:10]
+    px = float(df["Close"].iloc[-1])
+    factor = split_factor_after(symbol, date_) if as_of else 1.0
+    return {"available": True, "price": px * factor, "date": date_,
+            "provider": df.attrs.get("provider"), "as_of_honored": df.attrs.get("as_of_honored"),
+            "basis": "as traded (split-adjusted close × later splits)" if as_of else "latest close",
+            "split_factor": factor}
 
 
-def price_history(symbol: str, years: int = 7, as_of: Optional[str] = None):
+def split_factor_after(symbol: str, day: str) -> float:
+    """Product of every split after `day`: turns a split-adjusted historical
+    close back into the price that traded then (Nvidia, Feb 2020: $6.81 × 4 × 10)."""
     from financial_data import gateway as gw
     try:
-        return gw.get_bars_df(symbol, period=f"{years + (0 if not as_of else 6)}y", as_of=as_of)
+        res = gw.get("corporate_actions", symbol)
+    except Exception:
+        return 1.0
+    f = 1.0
+    for d in res["data"]:
+        if d.get("concept") == "split" and str(d["available_at"])[:10] > day[:10] and d["value"]:
+            f *= float(d["value"])
+    return f
+
+
+def splits(symbol: str) -> List[Tuple[str, float]]:
+    from financial_data import gateway as gw
+    try:
+        res = gw.get("corporate_actions", symbol)
+    except Exception:
+        return []
+    return [(str(d["available_at"])[:10], float(d["value"])) for d in res["data"]
+            if d.get("concept") == "split" and d["value"]]
+
+
+def price_history(symbol: str, years: int = 7, as_of: Optional[str] = None, as_traded: bool = False,
+                  split_only: bool = False):
+    """Closes. Default: fully adjusted (for returns). split_only=True: not
+    dividend-adjusted, on TODAY's split basis. as_traded=True: the price that
+    actually traded each day (splits undone too)."""
+    from financial_data import gateway as gw
+    try:
+        df = gw.get_bars_df(symbol, period=f"{years + (0 if not as_of else 6)}y", as_of=as_of,
+                            **({"price_basis": "split_adjusted_only"} if (as_traded or split_only) else {}))
+        if as_traded and not df.empty:
+            res = gw.get("corporate_actions", symbol)
+            for d in res["data"]:
+                if d.get("concept") == "split" and d["value"]:
+                    cut = str(d["available_at"])[:10]
+                    df.loc[df.index < cut, "Close"] = df.loc[df.index < cut, "Close"] * float(d["value"])
+        return df
     except Exception:
         import pandas as pd
         return pd.DataFrame()
@@ -131,11 +182,17 @@ def adr_ratio(text: str) -> Optional[Dict[str, Any]]:
 
 
 def market_inputs(symbol: str, statements: Dict[str, Any], as_of: Optional[str] = None,
-                  annual_text: Optional[str] = None) -> Dict[str, Any]:
-    """Market cap and EV in USD, with every input and its source."""
+                  annual_text: Optional[str] = None, price: Optional[float] = None) -> Dict[str, Any]:
+    """Market cap and EV in USD, with every input and its source. `price`
+    lets a caller that already holds the quote (the live pillar) skip a fetch."""
     from .statements import value
     out: Dict[str, Any] = {"available": False, "warnings": []}
-    px = price_on(symbol, as_of)
+    if price:
+        from datetime import date
+        px = {"available": True, "price": float(price), "date": (as_of or date.today().isoformat())[:10],
+              "provider": "caller"}
+    else:
+        px = price_on(symbol, as_of)
     if not px.get("available"):
         out["reason"] = px.get("reason")
         return out

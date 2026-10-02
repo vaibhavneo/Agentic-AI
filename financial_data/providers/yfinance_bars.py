@@ -22,7 +22,7 @@ from typing import Any, Dict, List, Optional
 from .. import cache
 from ..schemas import make_datum, make_source
 
-KINDS = ("bars",)
+KINDS = ("bars", "corporate_actions")
 
 
 class ProviderError(RuntimeError):
@@ -43,6 +43,14 @@ def fetch(kind: str, symbols: List[str], start: Optional[str] = None,
         import yfinance as yf
     except ImportError as e:
         raise ProviderError("yfinance not installed") from e
+    if kind == "corporate_actions":
+        return _splits(yf, symbols, reliability)
+
+    # price_basis="split_adjusted_only": closes NOT adjusted for dividends.
+    # The default (fully adjusted) is right for returns and wrong for a
+    # market cap: Kraft Heinz traded at $48.26 on 2019-02-20, and the
+    # dividend-adjusted close is $32.67. Market-value callers ask for this.
+    split_only = kwargs.get("price_basis") == "split_adjusted_only"
 
     # Was the only uncached provider in the gateway - every analysis re-hit
     # yfinance fresh, and every new SPY/QQQ/regime fetch this session adds
@@ -57,7 +65,7 @@ def fetch(kind: str, symbols: List[str], start: Optional[str] = None,
     warnings: List[str] = []
 
     for sym in symbols:
-        cache_key = _cache_key(sym, period, start, end)
+        cache_key = _cache_key(sym, period, start, end) + ("_splitonly" if split_only else "")
         bars = cache.get("yfinance", "bars", cache_key, max_age_sec=max_age_sec)
 
         if bars is None:
@@ -68,8 +76,9 @@ def fetch(kind: str, symbols: List[str], start: Optional[str] = None,
                 # is to preserve its behavior exactly. Leaving it to yfinance's
                 # shifting default would silently change adjusted prices across a
                 # version bump.
-                hist = (t.history(start=start, end=end, auto_adjust=True) if (start or end)
-                        else t.history(period=period, auto_adjust=True))
+                adj = not split_only
+                hist = (t.history(start=start, end=end, auto_adjust=adj) if (start or end)
+                        else t.history(period=period, auto_adjust=adj))
             except Exception as e:
                 unavailable.append({"symbol": sym, "reason": f"fetch_failed: {e}"})
                 continue
@@ -98,7 +107,7 @@ def fetch(kind: str, symbols: List[str], start: Optional[str] = None,
                 value=bar["Close"],
                 available_at=ts,
                 source=make_source(provider="yfinance", document=f"{sym}:{ts.date()}",
-                                   ref="history.Close"),
+                                   ref="history.Close(split-adjusted only)" if split_only else "history.Close"),
                 symbol=sym,
                 concept="close",
                 unit="USD",
@@ -109,3 +118,28 @@ def fetch(kind: str, symbols: List[str], start: Optional[str] = None,
                        "low": bar["Low"], "volume": bar["Volume"]},
             ))
     return {"data": data, "unavailable": unavailable, "warnings": warnings}
+
+
+def _splits(yf, symbols: List[str], reliability: float) -> Dict[str, Any]:
+    """Stock splits as corporate_actions: value = the split ratio (4.0 for
+    4-for-1), available_at = the split date."""
+    data: List[Dict[str, Any]] = []
+    unavailable: List[Dict[str, Any]] = []
+    for sym in symbols:
+        rows = cache.get("yfinance", "splits", sym, max_age_sec=86400)
+        if rows is None:
+            try:
+                sp = yf.Ticker(sym).splits
+                rows = [{"date": ts.isoformat(), "ratio": float(v)} for ts, v in sp.items() if v]
+            except Exception as e:
+                unavailable.append({"symbol": sym, "reason": f"fetch_failed: {e}"})
+                continue
+            cache.put("yfinance", "splits", sym, rows)
+        for r in rows:
+            ts = datetime.fromisoformat(r["date"])
+            data.append(make_datum(
+                kind="corporate_actions", value=r["ratio"], available_at=ts,
+                source=make_source(provider="yfinance", document=f"{sym}:{ts.date()}", ref="splits"),
+                symbol=sym, concept="split", unit="ratio", period_end=ts, confidence=reliability,
+                status="actual"))
+    return {"data": data, "unavailable": unavailable, "warnings": []}
