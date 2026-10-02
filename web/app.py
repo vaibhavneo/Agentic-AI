@@ -1842,6 +1842,42 @@ def screener_refresh_endpoint():
     return jsonify(_m.run_job(_m.SCREENER_REFRESH, force=True))
 
 
+@app.route("/mcp", methods=["GET", "POST", "DELETE"])
+def mcp_endpoint():
+    """The stock analysis as an MCP server (Streamable HTTP, JSON responses,
+    read-only tools — see stock_analysis/mcp_server.py). With MCP_TOKEN set,
+    requests must carry `Authorization: Bearer <MCP_TOKEN>`."""
+    import hmac
+    from urllib.parse import urlparse
+    from stock_analysis import mcp_server
+    token = os.environ.get("MCP_TOKEN")
+    if token:
+        given = request.headers.get("Authorization", "")
+        if not hmac.compare_digest(given.encode(), f"Bearer {token}".encode()):
+            return jsonify({"error": "unauthorized"}), 401, {"WWW-Authenticate": "Bearer"}
+    # A browser page on another site must not drive the server (DNS rebinding).
+    origin = request.headers.get("Origin")
+    if origin and urlparse(origin).netloc != request.host:
+        return jsonify({"error": "origin not allowed"}), 403
+    if request.method != "POST":
+        return jsonify({"error": "POST JSON-RPC messages; this server opens no event stream"}), 405, \
+            {"Allow": "POST"}
+    try:
+        body = json.loads(request.get_data(as_text=True) or "null")
+    except ValueError:
+        return jsonify({"jsonrpc": "2.0", "id": None, "error": {"code": -32700, "message": "parse error"}}), 400
+    if isinstance(body, list):
+        out = [r for r in (mcp_server.handle(m) for m in body) if r is not None]
+        return (jsonify(out), 200) if out else ("", 202)
+    resp = mcp_server.handle(body)
+    if resp is None:
+        return "", 202
+    headers = {}
+    if isinstance(body, dict) and body.get("method") == "initialize" and "result" in resp:
+        headers["MCP-Protocol-Version"] = resp["result"]["protocolVersion"]
+    return jsonify(resp), 200, headers
+
+
 def stock_analysis_stream(ticker):
     """Server-sent progress for the full report (the peer table takes seconds)."""
     args, err = _sa_args(ticker)

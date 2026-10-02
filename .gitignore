@@ -34,3 +34,7 @@ logs/
 # Verified ledger backups (timestamped SQLite snapshots). Local durability
 # artefacts, not source; regenerated on every heartbeat run.
 data/backups/
+
+# Filing-watcher / screener state (stock_analysis/watcher.py); lives on the volume in production.
+data/stock_analysis_state.db
+data/stock_analysis_state.db-*
