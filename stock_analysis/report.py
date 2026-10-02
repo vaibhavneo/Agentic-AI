@@ -21,7 +21,7 @@ from typing import Any, Callable, Dict, List, Optional
 _CACHE: Dict[tuple, tuple] = {}
 _TTL = 6 * 3600
 
-SECTIONS = ("statements", "quality", "filings", "valuation", "peers", "technicals", "score")
+SECTIONS = ("statements", "quality", "filings", "valuation", "peers", "technicals", "street", "score")
 
 
 def _trim_statements(st: Dict[str, Any]) -> Dict[str, Any]:
@@ -123,6 +123,21 @@ def summarize(rep: Dict[str, Any]) -> List[str]:
                      + (f", {'+' if r12 >= 0 else ''}{_pct(r12, 0)} over 12 months" if r12 is not None else "")
                      + (f" ({'+' if rel >= 0 else ''}{_pct(rel, 0)} vs the market)" if rel is not None else "")
                      + ". Descriptive only.")
+    sw = rep.get("street") or {}
+    if sw.get("available"):
+        bits = []
+        es, an, ins = sw.get("earnings_surprises") or {}, sw.get("analysts") or {}, sw.get("insiders") or {}
+        if es.get("available"):
+            bits.append(f"beat consensus EPS in {round(es['beat_rate'] * es['n'])} of the last {es['n']} quarters")
+        if an.get("available") and an.get("buy_share") is not None:
+            bits.append(f"{_pct(an['buy_share'], 0)} of {an['analysts']} analysts rate it a buy"
+                        + (f" ({'+' if an['change_3m'] >= 0 else ''}{_pct(an['change_3m'], 0)} in 3 months)"
+                           if an.get("change_3m") is not None else ""))
+        if ins.get("available"):
+            bits.append("insider cluster buying" if ins.get("cluster_buying") else
+                        f"insiders: {ins['purchases']} open-market buy(s), {ins['sales']} sale(s) in 180 days")
+        if bits:
+            lines.append("Street & insiders: " + "; ".join(bits) + ".")
     sc = rep.get("score") or {}
     if sc.get("available"):
         lines.append(f"Fundamentals score: {sc['score']:.0f}/100 ({sc['version']})"
@@ -219,6 +234,10 @@ def build_report(symbol: str, as_of: Optional[str] = None, include: Optional[Lis
         say("peers", "Building the peer comparison")
         rep["peers"] = timed("peers", lambda: build_peers(symbol, prof, st, mkt, as_of,
                                                           override=peers_override))
+    if "street" in want:
+        say("street", "Analysts, earnings surprises and insider trades")
+        from .street import build_street
+        rep["street"] = timed("street", lambda: build_street(symbol, as_of))
     if "technicals" in want:
         say("technicals", "Price context around the filing calendar")
         rep["technicals"] = timed("technicals", lambda: build_technicals(symbol, prof, (fil or {}).get(

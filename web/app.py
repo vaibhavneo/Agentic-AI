@@ -1698,7 +1698,7 @@ def research_stream_endpoint():
 # ── Stock Analysis Agent: fundamentals from the SEC filings ──────────────
 
 _SA_TICKER = re.compile(r"^[A-Za-z0-9.\-^=]{1,12}$")
-_SA_SECTIONS = ("statements", "quality", "filings", "valuation", "peers", "technicals", "score")
+_SA_SECTIONS = ("statements", "quality", "filings", "valuation", "peers", "technicals", "street", "score")
 
 
 def _sa_args(ticker: str):

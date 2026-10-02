@@ -4866,6 +4866,7 @@ function renderStockAnalysis(d) {
   h += renderSaFilings(d.filings);
   h += renderSaValuation(d.valuation, f.currency);
   h += renderSaPeers(d.peers);
+  h += renderSaStreet(d.street);
   h += renderSaStatements(st);
   h += renderSaTechnicals(d.technicals);
   h += `<div class="muted" style="font-size:11px;margin-top:10px">Source: SEC EDGAR (XBRL company facts and filed documents). `
@@ -4958,6 +4959,25 @@ function renderSaPeers(p) {
     <tbody>${row(p.company, true)}${(p.peers || []).map(r => row(r)).join('')}${med}</tbody></table></div>
     <div class="sa-small">${esc((p.comparison || {}).reading || '')}</div>
     ${(p.excluded || []).length ? `<div class="muted sa-small">Excluded: ${p.excluded.map(x => esc(x.ticker + ' (' + x.reason + ')')).join('; ')}</div>` : ''}`);
+}
+
+function renderSaStreet(w) {
+  if (!w) return '';
+  if (!w.available) return saSection('Analysts & insiders', `<div class="sa-small muted">${esc(w.reason || 'not available')}</div>`);
+  const es = w.earnings_surprises || {}, an = w.analysts || {}, ins = w.insiders || {};
+  let b = '';
+  if (es.available) b += `<div class="sa-small">Earnings vs consensus: beat in ${Math.round(es.beat_rate * es.n)} of ${es.n} quarters · average surprise ${num(es.avg_surprise_pct, 1)}%</div>`
+    + '<div class="sa-scroll"><table class="sa-table"><thead><tr><th>Quarter</th><th>Actual EPS</th><th>Consensus</th><th>Surprise</th></tr></thead><tbody>'
+    + (es.quarters || []).slice(0, 6).map(q => `<tr><td>${esc(q.period)}</td><td>${num(q.actual, 2)}</td><td>${num(q.estimate, 2)}</td><td style="color:${(q.surprise_pct || 0) >= 0 ? 'var(--green)' : 'var(--red)'}">${num(q.surprise_pct, 1)}%</td></tr>`).join('')
+    + '</tbody></table></div>';
+  else if (es.reason) b += `<div class="sa-small muted">Earnings surprises: ${esc(es.reason)}</div>`;
+  if (an.available) b += `<div class="sa-small">Analysts (${an.analysts}, ${esc(an.period)}): ${saPct(an.buy_share, 0)} buy-rated${an.change_3m != null ? `, ${an.change_3m >= 0 ? '+' : ''}${saPct(an.change_3m, 0)} vs 3 months ago` : ''}</div>`;
+  if (ins.available) {
+    b += `<div class="sa-small">Insiders, last ${ins.window_days} days: ${ins.purchases} open-market buy(s) (${saBig(ins.purchase_value)} USD), ${ins.sales} sale(s) (${saBig(ins.sale_value)} USD)${ins.cluster_buying ? ' · <b style="color:var(--green)">cluster buying: ' + ins.distinct_buyers + ' insiders</b>' : ''}</div>`;
+    b += `<div class="muted sa-small">${esc(ins.note || '')}</div>`;
+  }
+  if ((w.vendor_peers || []).length) b += `<div class="muted sa-small">Vendor peer list: ${w.vendor_peers.map(esc).join(', ')}</div>`;
+  return saSection('Analysts & insiders <span class="muted">— Finnhub free tier</span>', b);
 }
 
 function renderSaStatements(st) {

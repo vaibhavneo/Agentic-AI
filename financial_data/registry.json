@@ -213,6 +213,30 @@
       "caveats": {
         "option_chain": "A chain is a live snapshot and no free vendor serves a historical one, so as_of_honored is always false. Implied vol is solver-dependent: this feed read 80.35% on a contract where a broker feed read 79.19% from identical quotes."
       }
+    },
+    "finnhub-research": {
+      "id": "finnhub-research",
+      "name": "Finnhub research (free tier)",
+      "module": "financial_data.providers.finnhub_research",
+      "kinds": [
+        "events",
+        "sentiment",
+        "filings",
+        "universe"
+      ],
+      "pit_capable": [
+        "filings"
+      ],
+      "reliability": 0.8,
+      "priority": 60,
+      "rate_limit_per_sec": 1,
+      "requires_key": "FINNHUB_API_KEY",
+      "cost": "free tier (finnhub.io)",
+      "notes": "Earnings surprises (EPS vs consensus), analyst recommendation trends, parsed Form 4 insider trades, peers. Name this provider explicitly: sec-edgar also serves filings. Insider trades are PIT by filing date; recommendation counts and peers are current vintage.",
+      "caveats": {
+        "sentiment": "Recommendation counts are the vendor's current tally per month, not a frozen history.",
+        "events": "available_at is the fiscal quarter end; the earnings release comes weeks later, so as_of cuts on these are approximate."
+      }
     }
   }
 }

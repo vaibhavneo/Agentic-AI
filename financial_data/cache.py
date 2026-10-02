@@ -22,7 +22,14 @@ import time
 from pathlib import Path
 from typing import Any, Optional
 
-CACHE_DIR = Path(__file__).parent / ".cache"
+# FIL_CACHE_DIR moves the cache off the repo checkout — on Railway, onto the
+# persistent volume, so a deploy stops throwing away every SEC fetch. Entries
+# there are gzip-compressed (FIL_CACHE_COMPRESS, on by default whenever the
+# directory is overridden): SEC company-facts files run ~5 MB as JSON and the
+# volume is 500 MB. The in-repo cache stays plain JSON, as the tracked
+# snapshots and tests expect.
+CACHE_DIR = Path(os.environ["FIL_CACHE_DIR"]) if os.environ.get("FIL_CACHE_DIR") else Path(__file__).parent / ".cache"
+COMPRESS = os.environ.get("FIL_CACHE_COMPRESS", "1" if os.environ.get("FIL_CACHE_DIR") else "0") == "1"
 
 _SAFE = re.compile(r"[^A-Za-z0-9._-]")
 
@@ -44,14 +51,21 @@ def get(provider: str, kind: str, key: str, max_age_sec: Optional[int] = None) -
     optimization, and a bad file should cost a re-fetch, never an outage.
     """
     p = path_for(provider, kind, key)
+    gz = p.with_name(p.name + ".gz")
+    if gz.exists() and (not p.exists() or gz.stat().st_mtime >= p.stat().st_mtime):
+        p = gz
     if not p.exists():
         return None
     if max_age_sec is not None and (time.time() - p.stat().st_mtime) > max_age_sec:
         return None
     try:
+        if p.suffix == ".gz":
+            import gzip
+            with gzip.open(p, "rt") as fh:
+                return json.load(fh)
         with p.open() as fh:
             return json.load(fh)
-    except (json.JSONDecodeError, OSError):
+    except (json.JSONDecodeError, OSError, EOFError):
         return None
 
 
@@ -60,9 +74,16 @@ def put(provider: str, kind: str, key: str, payload: Any) -> Path:
     truncated file that poisons the next run."""
     p = path_for(provider, kind, key)
     p.parent.mkdir(parents=True, exist_ok=True)
-    tmp = p.with_suffix(".tmp")
-    with tmp.open("w") as fh:
-        json.dump(payload, fh)
+    if COMPRESS:
+        import gzip
+        p = p.with_name(p.name + ".gz")
+        tmp = p.with_suffix(".tmp")
+        with gzip.open(tmp, "wt") as fh:
+            json.dump(payload, fh)
+    else:
+        tmp = p.with_suffix(".tmp")
+        with tmp.open("w") as fh:
+            json.dump(payload, fh)
     os.replace(tmp, p)
     return p
 
@@ -74,7 +95,8 @@ def clear(provider: Optional[str] = None) -> int:
     if not root.exists():
         return 0
     n = 0
-    for f in root.rglob("*.json"):
-        f.unlink()
-        n += 1
+    for pattern in ("*.json", "*.json.gz"):
+        for f in root.rglob(pattern):
+            f.unlink()
+            n += 1
     return n
