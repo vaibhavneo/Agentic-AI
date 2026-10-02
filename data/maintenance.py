@@ -52,6 +52,11 @@ DEFAULT_INTERVAL_SEC = 6 * 60 * 60
 # the tests all refer to one string.
 SELF_IMPROVE = "self_improve"
 GRADE_OPTIONS = "grade_options"
+FILING_WATCH = "filing_watch"
+SCREENER_REFRESH = "screener_refresh"
+# Per-job cadence where the shared interval is wrong: a filing alert six hours
+# late is six hours late.
+JOB_INTERVALS = {FILING_WATCH: 60 * 60}
 
 # How long a claimed-but-unfinished run is assumed live before another worker
 # may take it. A worker killed mid-run must not lock the job out forever.
@@ -227,10 +232,26 @@ def grade_options() -> Dict[str, Any]:
     return grade()
 
 
+def filing_watch() -> Dict[str, Any]:
+    """New SEC filings for every watched name, turned into alerts
+    (stock_analysis/watcher.py)."""
+    from stock_analysis.watcher import check
+    res = check()
+    return {"checked": res["checked"], "new_alerts": len(res["new_alerts"]), "errors": len(res["errors"])}
+
+
+def screener_refresh() -> Dict[str, Any]:
+    """Rebuild the fundamentals screener table (stock_analysis/screener.py)."""
+    from stock_analysis.screener import refresh
+    return refresh()
+
+
 JOBS: Dict[str, Callable[[], Dict[str, Any]]] = {
     GRADE_OUTCOMES: grade_outcomes,
     GRADE_OPTIONS: grade_options,
     SELF_IMPROVE: self_improve,
+    FILING_WATCH: filing_watch,
+    SCREENER_REFRESH: screener_refresh,
 }
 
 
@@ -267,7 +288,7 @@ def _loop(interval_sec: float, tick_sec: float) -> None:
     while True:
         try:
             for job in JOBS:
-                run_job(job, min_interval_sec=interval_sec)
+                run_job(job, min_interval_sec=JOB_INTERVALS.get(job, interval_sec))
         except Exception:
             # A scheduler that can die is worse than one that logs and retries:
             # its absence is silent, and the record simply stops accumulating.

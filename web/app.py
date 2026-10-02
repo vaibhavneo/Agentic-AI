@@ -1120,8 +1120,19 @@ def _build_decision_intelligence(ticker: str, period: str = "5y", deep: bool = F
     except Exception:
         prior = None
 
+    # The Stock Analysis Agent's findings (cached six hours) enter as evidence:
+    # filing red flags and a low earnings-quality grade are risk the decision
+    # must weigh, not a separate tab it can ignore. Never blocks the decision.
+    fundamentals_report = None
+    try:
+        from stock_analysis.report import build_report as _sa_report
+        fundamentals_report = _sa_report(ticker, include=["quality", "filings", "score"])
+    except Exception:
+        fundamentals_report = None
+
     decision = _build(
         ticker, rec,
+        fundamentals_report=fundamentals_report,
         indicators=ind, algo_signals=algo, historical_context=hist_ctx, regime=regime,
         xsec_interp=_interpret_xsec(ticker, xsec_ranking),
         calibration_interp=_interpret_calibration(calibration, None),
@@ -1744,6 +1755,92 @@ def stock_analysis_section_endpoint(ticker, section):
                     "profile": rep.get("profile"), "data_lag": rep.get("data_lag")})
 
 
+@app.route("/api/alerts")
+def alerts_endpoint():
+    """Filing alerts for watched names, unread and most severe first."""
+    from stock_analysis.watcher import alerts
+    try:
+        limit = max(1, min(500, int(request.args.get("limit", 100))))
+    except ValueError:
+        limit = 100
+    rows = alerts(limit=limit, unread_only=request.args.get("unread") == "1")
+    return jsonify({"alerts": rows, "unread": sum(1 for r in rows if not r.get("read"))})
+
+
+@app.route("/api/alerts/read", methods=["POST"])
+def alerts_read_endpoint():
+    from stock_analysis.watcher import mark_read
+    aid = (request.json or {}).get("id")
+    try:
+        aid = int(aid) if aid is not None else None
+    except (TypeError, ValueError):
+        return jsonify({"error": "id must be an integer"}), 400
+    return jsonify({"marked": mark_read(aid)})
+
+
+@app.route("/api/alerts/check", methods=["POST"])
+def alerts_check_endpoint():
+    """Run the filing watcher now (optionally for given tickers)."""
+    from stock_analysis.watcher import check
+    tickers = (request.json or {}).get("tickers")
+    if tickers is not None and (not isinstance(tickers, list) or not all(_SA_TICKER.match(str(t)) for t in tickers)
+                                or len(tickers) > 150):
+        return jsonify({"error": "tickers must be a list of up to 150 symbols"}), 400
+    return jsonify(check([str(t).upper() for t in tickers] if tickers else None))
+
+
+@app.route("/api/watch", methods=["GET", "POST", "DELETE"])
+def watch_endpoint():
+    """Names the filing watcher and screener follow (beyond watchlist.txt)."""
+    from stock_analysis import watcher
+    if request.method == "GET":
+        return jsonify({"watched": watcher.watched()})
+    t = str((request.json or {}).get("ticker") or "").upper()
+    if not _SA_TICKER.match(t):
+        return jsonify({"error": "invalid ticker"}), 400
+    (watcher.add if request.method == "POST" else watcher.remove)(t)
+    return jsonify({"ok": True, "watched": watcher.watched()})
+
+
+@app.route("/api/screener")
+def screener_endpoint():
+    """The fundamentals screen over the watched universe (refreshed by the
+    maintenance scheduler). Filters: min_score, grades=A,B, max_pe,
+    min_fcf_yield, min_revenue_growth, no_filing_concerns=1, sort, asc=1."""
+    from stock_analysis.screener import latest, screen, CAVEAT
+
+    def num(k):
+        v = request.args.get(k)
+        try:
+            return float(v) if v not in (None, "") else None
+        except ValueError:
+            return None
+    snap = latest()
+    if not snap:
+        return jsonify({"available": False, "reason": "the screener has not been built yet — the maintenance "
+                                                      "scheduler builds it, or POST /api/screener/refresh",
+                        "caveat": CAVEAT}), 404
+    sort = request.args.get("sort") or "score"
+    rows = screen(snap["rows"], min_score=num("min_score"),
+                  grades=[g for g in (request.args.get("grades") or "").upper().split(",") if g] or None,
+                  max_pe=num("max_pe"), min_fcf_yield=num("min_fcf_yield"),
+                  no_filing_concerns=request.args.get("no_filing_concerns") == "1",
+                  min_revenue_growth=num("min_revenue_growth"), sort=sort,
+                  descending=request.args.get("asc") != "1")
+    return jsonify({"available": True, "generated_at": snap["generated_at"], "universe": snap["n"],
+                    "scored": snap["n_available"], "rows": rows, "caveat": CAVEAT,
+                    "not_scored": [{"ticker": r["ticker"], "reason": r.get("reason")}
+                                   for r in snap["rows"] if not r.get("available")]})
+
+
+@app.route("/api/screener/refresh", methods=["POST"])
+def screener_refresh_endpoint():
+    """Rebuild the screener now through the maintenance job (claims the job
+    lock, so it never races the scheduled run)."""
+    from data import maintenance as _m
+    return jsonify(_m.run_job(_m.SCREENER_REFRESH, force=True))
+
+
 def stock_analysis_stream(ticker):
     """Server-sent progress for the full report (the peer table takes seconds)."""
     args, err = _sa_args(ticker)
@@ -2168,6 +2265,16 @@ def portfolio_brief_endpoint():
 
         result = build_portfolio_brief(enriched, max_weight_pct=max_weight,
                                        returns=returns or None)
+        # Red-flag sweep: what each holding's SEC filings say, from the cached
+        # Stock Analysis reports. Attached beside the brief, never blocking it.
+        try:
+            from stock_analysis.sweep import sweep as _sweep, red_flags as _red_flags
+            reads = _sweep([h["ticker"] for h in enriched])
+            for hb in result.get("holdings", []):
+                hb["fundamentals"] = reads.get(str(hb.get("ticker", "")).upper())
+            result["portfolio"]["fundamental_red_flags"] = _red_flags(reads)
+        except Exception as _e:
+            result["portfolio"]["fundamental_red_flags_error"] = f"{type(_e).__name__}"
         return jsonify(result)
     except Exception as e:
         return jsonify({"error": str(e)}), 500

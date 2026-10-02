@@ -463,10 +463,11 @@ def _rows(block: Dict[str, Any]) -> List[Dict[str, Any]]:
     return [{k: (block[k][i] if i < len(block[k]) else None) for k in keys} for i in range(n)]
 
 
-def filing_rows(cik: int, since: Optional[str] = None) -> List[Dict[str, Any]]:
+def filing_rows(cik: int, since: Optional[str] = None, max_age_sec: int = 86400) -> List[Dict[str, Any]]:
     """Every filing on record, newest first, paging back until `since`
-    (default: ten years) is covered for the core forms."""
-    sub = _submissions(cik)
+    (default: ten years) is covered for the core forms. The filing watcher
+    passes a short max_age: a day-old index delays every alert by a day."""
+    sub = _submissions(cik, max_age_sec=max_age_sec)
     rows = _rows((sub.get("filings") or {}).get("recent") or {})
     since = since or f"{int(time.strftime('%Y')) - 10}-01-01"
     for page in (sub.get("filings") or {}).get("files") or []:
@@ -685,7 +686,8 @@ def _filings_fetch(symbols: List[str], concepts: Optional[List[str]], reliabilit
                     extra={"documents": docs, "cik": cik}))
             else:
                 forms = set(kwargs.get("forms") or CORE_FORMS)
-                rows = [dict(r, _cik=cik) for r in filing_rows(cik, since=kwargs.get("since"))]
+                age = 3600 if kwargs.get("fresh") else 86400
+                rows = [dict(r, _cik=cik) for r in filing_rows(cik, since=kwargs.get("since"), max_age_sec=age)]
                 for pred in PREDECESSOR_CIKS.get(cik, []):
                     rows.extend(dict(r, _cik=pred) for r in filing_rows(pred, since=kwargs.get("since")))
                 for r in rows:

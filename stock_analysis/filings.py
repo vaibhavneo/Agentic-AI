@@ -61,9 +61,9 @@ def _years_before(as_of: Optional[str], n: int) -> str:
 
 # ── 1. the filing index ─────────────────────────────────────────────────────
 
-def filing_index(symbol: str, as_of: Optional[str] = None) -> Dict[str, Any]:
+def filing_index(symbol: str, as_of: Optional[str] = None, fresh: bool = False) -> Dict[str, Any]:
     from financial_data import gateway as gw
-    res = gw.get("filings", symbol, as_of=as_of, concepts=["filing"])
+    res = gw.get("filings", symbol, as_of=as_of, concepts=["filing"], fresh=fresh)
     rows = []
     for d in res["data"]:
         ex = d.get("extra") or {}

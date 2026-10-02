@@ -214,7 +214,10 @@ def test_the_scheduler_can_be_disabled_by_environment():
 # that quietly grows an expensive job starves the thing it was built for.
 # Both current jobs are seconds. Adding a name here should mean someone
 # checked that.
-SCHEDULED_JOBS = {"grade_outcomes", "grade_options", "self_improve"}
+# filing_watch and screener_refresh reviewed 2026-10-02: both READ public SEC
+# data and write only their own state (stock_analysis_state.db) — neither
+# touches the prediction ledger or any weight.
+SCHEDULED_JOBS = {"grade_outcomes", "grade_options", "self_improve", "filing_watch", "screener_refresh"}
 
 
 def test_the_scheduled_job_set_is_the_reviewed_one():

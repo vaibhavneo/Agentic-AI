@@ -567,6 +567,7 @@ def build_decision_evidence(
     cal_interp: Optional[Dict[str, Any]] = None,
     position_context: Optional[Dict[str, Any]] = None,
     catalysts: Optional[Dict[str, Any]] = None,
+    fundamentals_report: Optional[Dict[str, Any]] = None,
 ) -> List[DecisionEvidence]:
     """The full normalized evidence set for one security.
 
@@ -611,6 +612,10 @@ def build_decision_evidence(
     if catalysts:
         from decision.catalysts import evidence_from_catalysts
         items.extend(evidence_from_catalysts(catalysts))
+
+    if fundamentals_report:
+        from decision.filings_evidence import evidence_from_fundamentals
+        items.extend(evidence_from_fundamentals(fundamentals_report))
 
     return items
 

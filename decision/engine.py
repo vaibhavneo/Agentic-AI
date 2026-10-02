@@ -82,6 +82,7 @@ def build_decision_intelligence(
     max_portfolio_risk_pct: Optional[float] = None,
     llm_prose: Optional[Dict[str, Any]] = None,
     fetch_catalysts: bool = False,
+    fundamentals_report: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     """Assemble the full Decision Intelligence object.
 
@@ -132,7 +133,8 @@ def build_decision_intelligence(
         rec, regime=regime, historical_context=historical_context, forecast=forecast,
         xsec_interp=xsec_interp, cal_interp=calibration_interp,
         position_context=(position_context if position_context.get("status") == "PROVIDED" else None),
-        catalysts=(catalysts if catalysts.get("status") == "OK" else None))
+        catalysts=(catalysts if catalysts.get("status") == "OK" else None),
+        fundamentals_report=fundamentals_report)
 
     # ── 4. Horizon partition, then conflicts over the same items ─────────
     horizon_read = synthesize_by_horizon(items)
@@ -171,6 +173,9 @@ def build_decision_intelligence(
                               catalysts, mind_changers, algo_signals, horizon_days)
     monitoring = build_monitoring_plan(playbook, mind_changers, catalysts,
                                        algo_signals, level_map)
+    if fundamentals_report and isinstance(monitoring, dict):
+        from decision.filings_evidence import monitoring_checks
+        monitoring.setdefault("checks", []).extend(monitoring_checks(fundamentals_report))
 
     # ── 9. Confidence and quality ────────────────────────────────────────
     confidence = decompose_confidence(rec, items, thesis, edge, conflict, scenarios,
@@ -243,6 +248,14 @@ def build_decision_intelligence(
 
         "evidence": to_dicts(items),
         "evidence_count": len(items),
+        # The Stock Analysis Agent's read, compact: the same object the tab shows.
+        "fundamentals": (None if not fundamentals_report or not fundamentals_report.get("available") else {
+            "summary": fundamentals_report.get("summary"),
+            "score": (fundamentals_report.get("score") or {}).get("score"),
+            "quality_grade": (fundamentals_report.get("quality") or {}).get("grade"),
+            "filing_flags": [{k: f.get(k) for k in ("severity", "title", "detail")}
+                             for f in ((fundamentals_report.get("filings") or {}).get("flags") or [])[:6]],
+            "data_lag": fundamentals_report.get("data_lag")}),
         "horizon_read": horizon_read,
         "horizon_plans": horizon_plans,
         "conflict": conflict,

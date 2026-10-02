@@ -307,6 +307,7 @@
     <div class="badge live">● LIVE</div>
     <div class="badge agents">5 AI Agents</div>
     <div class="badge quant">Quant + Social</div>
+    <div class="badge" id="alertsBadge" onclick="toggleAlertsCard()" style="cursor:pointer" title="Filing alerts for watched names">🔔 <span id="alertsCount">0</span></div>
   </div>
 </div>
 
@@ -326,6 +327,9 @@
     <button class="btn-analyze" id="masToggleBtn" onclick="toggleMasCard()"
       style="background:var(--bg3);color:var(--yellow);border:1px solid var(--border)"
       title="Any asset class — equities, crypto, currencies, indices, commodities. Routes to whichever specialist can answer.">🌐 Any Asset</button>
+    <button class="btn-analyze" id="screenerToggleBtn" onclick="toggleScreenerCard()"
+      style="background:var(--bg3);color:var(--green);border:1px solid var(--border)"
+      title="Filter the watched universe on fundamentals from SEC filings">🔎 Screener</button>
     <button class="btn-analyze" id="portfolioToggleBtn" onclick="togglePortfolioCard()"
       style="background:var(--bg3);color:var(--accent2);border:1px solid var(--border)"
       title="Track your holdings and get a signal on each">💼 My Portfolio</button>
@@ -437,6 +441,30 @@
   <div id="masBody"></div>
 </div>
 
+<div class="card" id="alertsCard" style="display:none;margin:16px 24px;max-width:1400px;margin-left:auto;margin-right:auto">
+  <div class="card-title" style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">
+    <span>🔔 Filing alerts <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--muted)">— new SEC filings for watched names</span></span>
+    <span><button class="tab-btn" id="alertsCheckBtn" onclick="checkAlertsNow()">Check now</button>
+      <button class="tab-btn" onclick="markAlertsRead()">Mark all read</button></span>
+  </div>
+  <div id="alertsBody"></div>
+</div>
+
+<div class="card" id="screenerCard" style="display:none;margin:16px 24px;max-width:1400px;margin-left:auto;margin-right:auto">
+  <div class="card-title">🔎 Screener <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--muted)">— fundamentals from SEC filings across the watched universe</span></div>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;font-size:12px;margin-bottom:8px">
+    <label>Min score <input id="scrMinScore" type="number" min="0" max="100" style="width:60px" class="ticker-input"></label>
+    <label>Max P/E <input id="scrMaxPe" type="number" min="0" style="width:60px" class="ticker-input"></label>
+    <label>Grades <input id="scrGrades" placeholder="A,B" style="width:60px" class="ticker-input"></label>
+    <label><input id="scrNoConcerns" type="checkbox"> no filing concerns</label>
+    <label>Sort <select id="scrSort"><option value="score">score</option><option value="quality_score">quality</option>
+      <option value="fcf_yield">FCF yield</option><option value="revenue_growth">revenue growth</option>
+      <option value="roic">ROIC</option><option value="market_cap_usd">market cap</option></select></label>
+    <button class="tab-btn" onclick="loadScreener()">Apply</button>
+  </div>
+  <div id="screenerBody"></div>
+</div>
+
 <div class="card" id="portfolioCard" style="display:none;margin:16px 24px;max-width:1400px;margin-left:auto;margin-right:auto">
   <div class="card-title" style="display:flex;justify-content:space-between;align-items:center">
     <span>💼 My Portfolio <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--muted)">— track holdings, get a signal on each</span></span>
@@ -511,6 +539,7 @@
         <div style="font-size:16px;font-weight:800" id="pfTotalPct">—</div></div>
     </div>
     <!-- Portfolio Brief summary: Stance · Concentration · Top 3 Actions · Evidence -->
+    <div id="pfRedFlags"></div>
     <div id="pfBriefSummary" style="display:none;grid-template-columns:1fr 1fr;gap:12px">
       <div style="padding:12px;background:var(--bg3);border-radius:10px" id="pfStanceBox">
         <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Portfolio Stance</div>
@@ -1392,6 +1421,7 @@ async function buildPortfolioBrief() {
     _pfBrief = {};
     (result.holdings || []).forEach(b => { _pfBrief[b.ticker] = b; });
     _pfBriefPortfolio = result.portfolio;
+    renderPfRedFlags(result.portfolio);
     document.getElementById('pfBriefSummary').style.display = 'grid';
     document.getElementById('pfTiltFallback').style.display = 'none';
     renderPortfolioTable();
@@ -4972,6 +5002,107 @@ function renderSaTechnicals(t) {
   b += `<div class="muted sa-small">${esc(t.note || '')}</div>`;
   return saSection('Price context', b);
 }
+
+// ── Filing alerts and the fundamentals screener ──────────────────────────
+// /api/alerts comes from the filing watcher (stock_analysis/watcher.py, run
+// hourly by the maintenance scheduler); /api/screener from the screener table
+// it rebuilds every few hours. Both keyless.
+
+async function refreshAlertsBadge() {
+  try {
+    const d = await (await fetch(API_BASE + '/api/alerts?unread=1&limit=200')).json();
+    const n = (d.alerts || []).length;
+    const el = document.getElementById('alertsCount');
+    if (el) el.textContent = n;
+    const b = document.getElementById('alertsBadge');
+    if (b) b.style.borderColor = (d.alerts || []).some(a => a.severity === 'CONCERN') ? 'var(--red)' : '';
+  } catch (e) { /* badge is optional */ }
+}
+
+function toggleAlertsCard() {
+  const card = document.getElementById('alertsCard');
+  if (card.style.display !== 'none') { card.style.display = 'none'; return; }
+  card.style.display = 'block';
+  loadAlerts();
+}
+
+async function loadAlerts() {
+  const el = document.getElementById('alertsBody');
+  el.innerHTML = '<span class="muted">Loading…</span>';
+  const d = await (await fetch(API_BASE + '/api/alerts?limit=100')).json();
+  const rows = d.alerts || [];
+  el.innerHTML = rows.length ? '<div class="sa-scroll"><table class="sa-table"><thead><tr><th></th><th>Ticker</th><th>Filed</th><th>What</th><th></th></tr></thead><tbody>'
+    + rows.map(a => `<tr style="${a.read ? 'opacity:.55' : ''}"><td>${saChip(a.severity)}</td>
+        <td class="l"><a href="#" onclick="quickAnalyze('${esc(a.ticker)}');return false">${esc(a.ticker)}</a></td>
+        <td>${esc(a.filed || '')}</td><td class="l"><b>${esc(a.title)}</b> <span class="muted">${esc(a.detail || '')}</span></td>
+        <td>${a.url ? `<a href="${esc(a.url)}" target="_blank" rel="noopener">filing ↗</a>` : ''}</td></tr>`).join('')
+    + '</tbody></table></div>'
+    : '<span class="muted">No filing alerts yet. The watcher checks every watched name hourly; alerts appear for new late-filing notices, restatement notices, auditor changes and new quarterly reports.</span>';
+}
+
+async function markAlertsRead() {
+  await fetch(API_BASE + '/api/alerts/read', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: '{}'});
+  loadAlerts(); refreshAlertsBadge();
+}
+
+async function checkAlertsNow() {
+  const btn = document.getElementById('alertsCheckBtn');
+  btn.disabled = true; btn.textContent = '⏳ Checking filings…';
+  try {
+    const d = await (await fetch(API_BASE + '/api/alerts/check', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: '{}'})).json();
+    btn.textContent = `✓ ${d.checked || 0} names checked, ${(d.new_alerts || []).length} new`;
+  } catch (e) { btn.textContent = 'Check failed'; }
+  setTimeout(() => { btn.disabled = false; btn.textContent = 'Check now'; }, 4000);
+  loadAlerts(); refreshAlertsBadge();
+}
+
+function toggleScreenerCard() {
+  const card = document.getElementById('screenerCard');
+  if (card.style.display !== 'none') { card.style.display = 'none'; return; }
+  document.getElementById('emptyState').style.display = 'none';
+  card.style.display = 'block';
+  loadScreener();
+}
+
+async function loadScreener() {
+  const el = document.getElementById('screenerBody');
+  const q = new URLSearchParams();
+  const v = id => document.getElementById(id).value;
+  if (v('scrMinScore')) q.set('min_score', v('scrMinScore'));
+  if (v('scrMaxPe')) q.set('max_pe', v('scrMaxPe'));
+  if (v('scrGrades')) q.set('grades', v('scrGrades'));
+  if (document.getElementById('scrNoConcerns').checked) q.set('no_filing_concerns', '1');
+  q.set('sort', v('scrSort'));
+  el.innerHTML = '<span class="muted">Loading…</span>';
+  const r = await fetch(API_BASE + '/api/screener?' + q.toString());
+  const d = await r.json();
+  if (!d.available) { el.innerHTML = `<span class="muted">${esc(d.reason || 'Screener not built yet.')}</span>`; return; }
+  const rows = d.rows || [];
+  el.innerHTML = `<div class="sa-small muted">${rows.length} of ${d.scored} scored names · universe ${d.universe} · built ${esc(d.generated_at)}</div>
+    <div class="sa-scroll"><table class="sa-table"><thead><tr><th>Ticker</th><th>Score</th><th>Quality</th><th>Filing concerns</th>
+    <th>Mkt cap</th><th>P/E</th><th>FCF yield</th><th>Rev growth</th><th>Op margin</th><th>ROIC</th><th>Implied FCF growth</th></tr></thead><tbody>`
+    + rows.map(x => `<tr><td class="l"><a href="#" onclick="quickAnalyze('${esc(x.ticker)}');return false"><b>${esc(x.ticker)}</b></a>
+        <div class="muted sa-small">${esc((x.name || '').slice(0, 28))}</div></td>
+        <td>${num(x.score, 0)}</td><td>${esc(x.quality_grade || '—')}</td>
+        <td style="color:${x.filing_concerns ? 'var(--red)' : 'var(--muted)'}" title="${esc((x.concern_titles || []).join('; '))}">${x.filing_concerns || 0}</td>
+        <td>${saBig(x.market_cap_usd)}</td><td>${num(x.pe, 1)}</td><td>${saPct(x.fcf_yield)}</td><td>${saPct(x.revenue_growth)}</td>
+        <td>${saPct(x.operating_margin, 0)}</td><td>${saPct(x.roic, 0)}</td><td>${saPct(x.implied_fcf_growth)}</td></tr>`).join('')
+    + '</tbody></table></div>'
+    + `<div class="muted sa-small" style="margin-top:6px">${esc(d.caveat)}</div>`;
+}
+
+function renderPfRedFlags(port) {
+  const el = document.getElementById('pfRedFlags');
+  if (!el) return;
+  const rf = (port || {}).fundamental_red_flags || [];
+  el.innerHTML = rf.length
+    ? '<div class="sa-h" style="margin-top:12px">📑 What the filings say about your holdings</div><ul class="sa-list">'
+      + rf.map(x => `<li><b>${esc(x.ticker)}</b> — ${x.concerns.length ? esc(x.concerns.slice(0, 3).join('; ')) : ''}${x.quality_grade ? ` · earnings quality ${esc(x.quality_grade)}` : ''}${x.score != null ? ` · fundamentals score ${num(x.score, 0)}` : ''}</li>`).join('')
+      + '</ul>'
+    : '<div class="sa-small muted" style="margin-top:10px">📑 No filing red flags or low earnings-quality grades among your holdings.</div>';
+}
+
+refreshAlertsBadge();
 </script>
 </body>
 </html>
