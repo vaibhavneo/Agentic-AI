@@ -207,6 +207,8 @@ def build_recommendation(
         # to the weights: attribution that assumed the shipped weights would
         # mis-assign credit for every decision made under a loop override.
         "algo_scorer_version": snap.get("algo_scorer_version"),
+        "fundamentals_scorer_version": snap.get("fundamentals_scorer_version"),
+        "fundamentals_scorer_mode": snap.get("fundamentals_scorer_mode"),
         "algo_legs": snap.get("algo_legs"),
         "algo_breadth": snap.get("algo_breadth"),
         "algo_leg_weights": snap.get("algo_leg_weights"),

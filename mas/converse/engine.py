@@ -160,7 +160,13 @@ def turn(text: str, session_id: Optional[str] = None,
     # composite score while add_analysis, the entry plan and the invalidation
     # sat unreachable — the defect the baseline audit named.
     research_out = None
-    if parsed.get("kind") == "QUERY" and subject:
+    # A question routed to the filings agent and not to the desk's verdict
+    # ("quality of earnings for SMCI") is answered by that agent. The research
+    # pipeline read "earnings" as an earnings-EVENT question and its reply
+    # replaced the fundamentals answer entirely.
+    _caps = parsed.get("capabilities") or []
+    _fundamentals_only = "fundamental_analysis" in _caps and "equity_research" not in _caps
+    if parsed.get("kind") == "QUERY" and subject and not _fundamentals_only:
         try:
             from ..research.orchestrator import research as _research
             from ..research.plan import SPECS as _SPECS
@@ -183,6 +189,14 @@ def turn(text: str, session_id: Optional[str] = None,
 
     if research_out is None or research_out.get("error"):
         answer = reply_mod.compose(parsed, results, subject)
+    else:
+        # The research reply is the frame; the filings agent's answer, when it
+        # was asked for too, is added to it rather than lost.
+        fa = (results.get("fundamental_analysis") or {}).get("result") or {}
+        if fa.get("status") == "OK" and isinstance(answer, dict):
+            answer.setdefault("blocks", []).append(
+                {"capability": "fundamental_analysis",
+                 "lines": reply_mod.COMPOSERS["fundamental_analysis"](fa.get("data") or {}, subject)})
     session_mod.record(sess, text, parsed, answer)
 
     trace: List[Dict[str, Any]] = []

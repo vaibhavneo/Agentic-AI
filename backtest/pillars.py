@@ -44,6 +44,45 @@ import pandas as pd
 
 # ── Fixed v1 weights (see module docstring before touching these) ──────────
 CORE_WEIGHTS = {"technical": 0.40, "algo": 0.40, "fundamentals": 0.20}
+
+# ── Fundamentals scorer (Stock Analysis Agent) ─────────────────────────────
+# v1     the four ratio bands below, from the latest value of each line item
+# shadow v1 scores; v2 is computed alongside and recorded, never weighed
+# v2     stock_analysis/scoring.py scores the pillar, with CORE_WEIGHTS_V2
+#
+# v2 earns a larger core weight than v1 on evidence, not preference: the
+# self-improvement loop measured fundamentals as the only pillar with a
+# positive forward correlation at every horizon, and the algo leg as negative
+# at every horizon with no out-of-sample edge in any re-weighting
+# (backtest/algo_legs.py). Promotion from shadow is governed by
+# backtest/fundamentals_v2_eval.py's pre-stated rule; see
+# docs/FUNDAMENTALS_V2_EVALUATION.md for the run that decided it.
+FUNDAMENTALS_SCORER_DEFAULT = "shadow"
+CORE_WEIGHTS_V2 = {"technical": 0.30, "algo": 0.30, "fundamentals": 0.40}
+
+
+def fundamentals_scorer() -> str:
+    """v1 | shadow | v2. FUNDAMENTALS_SCORER overrides the shipped default.
+    Under pytest v2 is never computed unless a test asks for it — it reads
+    live SEC data, and a suite must not depend on the network."""
+    import os
+    import sys
+    mode = (os.getenv("FUNDAMENTALS_SCORER") or FUNDAMENTALS_SCORER_DEFAULT).strip().lower()
+    if mode not in ("v1", "shadow", "v2"):
+        mode = "v1"
+    if ("pytest" in sys.modules or os.getenv("PYTEST_CURRENT_TEST")) and \
+            not os.getenv("STOCK_ANALYSIS_SCORER_IN_TESTS"):
+        return "v1"
+    return mode
+
+
+def _v2_fundamentals(ticker: str, pit: Optional[Dict[str, Any]], price: Optional[float]) -> Optional[Dict[str, Any]]:
+    try:
+        from stock_analysis.scoring import fundamental_score
+        r = fundamental_score(ticker, as_of=(pit or {}).get("as_of"), price=price)
+        return r if r.get("available") else None
+    except Exception:
+        return None
 MODIFIER_MAX_PTS = 5.0          # per modifier pillar, max tilt in points
 
 # Which modifier pillars actually TILT the composite.
@@ -295,15 +334,41 @@ def compute_pillar_scores(
         flags.append("fundamentals_no_sec_source")
 
     fund_score = sum(subs.values()) / len(subs) if subs else None
+    fund_conf = min(1.0, len(subs) / (4.0 if strict_fundamentals else 5.0))
+    fund_formula = ("mean(EDGAR PIT margin/roe/de/op_margin) — SEC-sourced, stated priors"
+                    if strict_fundamentals else
+                    "mean(pe/pb/fcf_yield + margin/roe/de/growth) — stated priors")
+    fund_inputs: Dict[str, Any] = {"subs": {k: round(v, 1) for k, v in subs.items()}, "coverage": len(subs),
+                                   "source": fundamentals_source}
+    scorer = fundamentals_scorer() if (strict_fundamentals and asset_class == "EQUITY") else "v1"
+    fund_version = "fundamentals-v1"
+    if scorer in ("shadow", "v2"):
+        v2 = _v2_fundamentals(ticker, pit, indicators.get("current_price"))
+        if v2 is not None:
+            record = {"score": v2["score"], "subs": v2["subs"], "penalty": v2["penalty"],
+                      "coverage": v2["coverage"], "version": v2["version"], "quality_grade": v2.get("quality_grade"),
+                      "period_end": v2.get("period_end")}
+            if scorer == "v2":
+                fund_inputs = {"subs": v2["subs"], "coverage": v2["coverage"], "penalty": v2["penalty"],
+                               "working": v2.get("working"), "source": "sec-edgar (stock_analysis)",
+                               "v1_shadow": None if fund_score is None else round(fund_score, 1)}
+                fund_score, fund_conf = v2["score"], v2["coverage"]
+                fund_formula = ("fundamentals-v2: 0.30 earnings quality + 0.25 profitability + 0.20 cash return "
+                                "+ 0.15 growth + 0.10 balance sheet − filing penalty (stock_analysis/scoring.py)")
+                fund_version = v2["version"]
+                flags = [f for f in flags if f != "fundamentals_no_sec_source"] + ["fundamentals_v2"]
+                if fundamentals_source == "unavailable":
+                    fundamentals_source = "sec-edgar"
+            else:
+                fund_inputs["v2_shadow"] = record
+                flags = flags + ["fundamentals_v2_shadow"]
+        elif scorer == "v2":
+            flags = flags + ["fundamentals_v2_unavailable_fell_back_to_v1"]
     pillars["fundamentals"] = _pillar(
-        fund_score, min(1.0, len(subs) / (4.0 if strict_fundamentals else 5.0)),
-        bool(pit_ratios),      # backtestable only when EDGAR-sourced (PIT)
-        ("mean(EDGAR PIT margin/roe/de/op_margin) — SEC-sourced, stated priors"
-         if strict_fundamentals else
-         "mean(pe/pb/fcf_yield + margin/roe/de/growth) — stated priors"),
-        {"subs": {k: round(v, 1) for k, v in subs.items()}, "coverage": len(subs),
-         "source": fundamentals_source},
-        flags if subs else flags + ["no_fundamental_data"])
+        fund_score, fund_conf,
+        bool(pit_ratios) or fund_version != "fundamentals-v1",      # backtestable only when EDGAR-sourced (PIT)
+        fund_formula, fund_inputs,
+        flags if fund_score is not None else flags + ["no_fundamental_data"])
 
     # 5. RESEARCH — deterministic analyst-consensus proxy. The LLM's actual news
     # reading stays prose. NOT backtestable from free data: tracked forward.
@@ -363,9 +428,15 @@ def compute_pillar_scores(
     # weights tuned for one, and every existing caller keeps today's behaviour
     # exactly. Absent an override this returns CORE_WEIGHTS unchanged, so a
     # system that has never promoted anything scores as it always did.
-    _base = dict(CORE_WEIGHTS)
-    _weight_source = "CORE_WEIGHTS"
-    if horizon_days is not None:
+    if fund_version != "fundamentals-v1":
+        _base = dict(CORE_WEIGHTS_V2)
+        _weight_source = "CORE_WEIGHTS_V2"
+    else:
+        _base = dict(CORE_WEIGHTS)
+        _weight_source = "CORE_WEIGHTS"
+    # Weights the loop learned were learned against the v1 fundamentals score;
+    # they do not carry over to a different scorer, so v2 runs on its own.
+    if horizon_days is not None and fund_version == "fundamentals-v1":
         try:
             from selfimprove.config import active as _active_weights
             from selfimprove.surface import PILLAR_WEIGHTS as _PW
@@ -429,6 +500,10 @@ def compute_pillar_scores(
         # by the vote-ratio from rows scored by the fixed denominator — and
         # calibration would average two different scorers into one number.
         "algo_scorer_version": _algo_scorer_version,
+        # Which fundamentals scorer, and in which mode. A v2 row and a v1 row
+        # are different measurements and must stay separable in the ledger.
+        "fundamentals_scorer_version": fund_version,
+        "fundamentals_scorer_mode": scorer,
         "algo_legs": _algo_leg_votes,
         "algo_breadth": _algo_breadth,
         "algo_leg_weights": {k: round(float(v), 4)

@@ -283,3 +283,26 @@ python3 web/app.py                        # → http://localhost:5051
 `/api/quick` works with no key at all (pure yfinance + math). The full 5-agent `/api/analyze/stream` pipeline needs the DeepSeek key.
 
 Run the backtest test suite: `python3 tests/test_backtest_engine.py && python3 tests/test_strategies.py`.
+
+---
+
+## `stock_analysis/` — Stock Analysis Agent (fundamentals from SEC filings)
+
+Full write-up: [docs/STOCK_ANALYSIS_AGENT.md](docs/STOCK_ANALYSIS_AGENT.md). Statements, earnings quality,
+filing review, valuation, peers, price context and the v2 fundamentals score; every number from a
+10-K/10-Q/20-F/40-F with its accession, point-in-time via `as_of`. Agent `mas/agents/stock_analysis.py`
+(capability `fundamental_analysis`), API `GET /api/stock-analysis/<ticker>[/<section>|/stream]`, the
+"📑 Stock Analysis" tab.
+
+Traps that cost real debugging (read before editing):
+- A period is `(start, end)`, never end alone; tag priority is resolved AFTER the PIT cut
+  (`gw.get(..., all_tags=True, collapse_restatements=False)` then `statements.collapse`).
+- Only statement forms count (`STATEMENT_FORMS`) — DEF 14A carries XBRL net income.
+- Market values use `price_basis="split_adjusted_only"` (+ `corporate_actions` splits); the default
+  bars are dividend-adjusted and still split-adjusted.
+- `backtest/pillars.py` `FUNDAMENTALS_SCORER` (env) = `v1 | shadow | v2`; never v2 under pytest unless
+  `STOCK_ANALYSIS_SCORER_IN_TESTS=1`. v2 uses `CORE_WEIGHTS_V2` and skips weights the self-improvement
+  loop learned for v1. Promotion rule and evidence: `backtest/fundamentals_v2_eval.py`.
+- Tests: `tests/test_stock_analysis_*.py` (offline). `tests/test_options_link.py::
+  test_a_chain_failure_falls_back_to_a_model_answer_not_an_error` fails independently of this work
+  (date-dependent fixture; fails on the pre-session commit too).
