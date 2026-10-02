@@ -57,7 +57,10 @@ CORE_WEIGHTS = {"technical": 0.40, "algo": 0.40, "fundamentals": 0.20}
 # (backtest/algo_legs.py). Promotion from shadow is governed by
 # backtest/fundamentals_v2_eval.py's pre-stated rule; see
 # docs/FUNDAMENTALS_V2_EVALUATION.md for the run that decided it.
-FUNDAMENTALS_SCORER_DEFAULT = "shadow"
+# Promoted to v2 on 2026-10-02: the pre-stated rule passed (v2's mean IC beat
+# v1 at 63 and 126 days and was positive at both) — by margins that are NOT
+# statistically significant; see the evaluation document for what that means.
+FUNDAMENTALS_SCORER_DEFAULT = "v2"
 CORE_WEIGHTS_V2 = {"technical": 0.30, "algo": 0.30, "fundamentals": 0.40}
 
 

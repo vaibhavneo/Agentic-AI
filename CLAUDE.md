@@ -304,5 +304,5 @@ Traps that cost real debugging (read before editing):
   `STOCK_ANALYSIS_SCORER_IN_TESTS=1`. v2 uses `CORE_WEIGHTS_V2` and skips weights the self-improvement
   loop learned for v1. Promotion rule and evidence: `backtest/fundamentals_v2_eval.py`.
 - Tests: `tests/test_stock_analysis_*.py` (offline). `tests/test_options_link.py::
-  test_a_chain_failure_falls_back_to_a_model_answer_not_an_error` fails independently of this work
-  (date-dependent fixture; fails on the pre-session commit too).
+  test_a_chain_failure_falls_back_to_a_model_answer_not_an_error` is intermittent and predates this
+  work (it failed on the pre-session commit too, and passes on reruns).
