@@ -498,7 +498,7 @@ def html_to_text(html: str) -> str:
     t = re.sub(r"(?i)</(p|div|tr|li|h[1-6]|table)>", "\n", t)
     t = re.sub(r"(?i)</t[dh]>", " | ", t)
     t = re.sub(r"(?s)<[^>]+>", " ", t)
-    t = _html.unescape(t).replace("\xa0", " ")
+    t = re.sub(r"[\u00a0\u2000-\u200b\u202f\u205f\u3000]", " ", _html.unescape(t))
     t = re.sub(r"[ \t\r\f\v]+", " ", t)
     t = re.sub(r" *\n[ \n]*", "\n", t)
     return t.strip()
