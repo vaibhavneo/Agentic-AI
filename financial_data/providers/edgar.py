@@ -250,11 +250,18 @@ class ProviderError(RuntimeError):
     "SEC is down" and "this company reports nothing" must stay distinguishable."""
 
 
+import threading as _threading
+_throttle_mutex = _threading.Lock()
+
+
 def _throttle() -> None:
-    delta = time.time() - _last_call[0]
-    if delta < _MIN_INTERVAL:
-        time.sleep(_MIN_INTERVAL - delta)
-    _last_call[0] = time.time()
+    # Peer statements are fetched in parallel; SEC's 10 requests/second limit
+    # is per client, so the spacing is enforced across threads.
+    with _throttle_mutex:
+        delta = time.time() - _last_call[0]
+        if delta < _MIN_INTERVAL:
+            time.sleep(_MIN_INTERVAL - delta)
+        _last_call[0] = time.time()
 
 
 def _fetch_json(url: str, timeout: int = 20) -> Any:
@@ -545,6 +552,59 @@ def filing_documents(cik: int, accession: str) -> List[Dict[str, Any]]:
     return docs
 
 
+# ── Industry membership and cross-company frames (peer selection) ──────────
+
+_SIC_LIST_URL = ("https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&SIC={sic}&type=10-K"
+                 "&owner=include&count=100&start={start}&output=atom")
+FRAME_URL = "https://data.sec.gov/api/xbrl/frames/{taxonomy}/{tag}/{unit}/{period}.json"
+
+
+def cik_ticker_map() -> Dict[int, str]:
+    """CIK -> primary ticker (the first listed), from SEC's ticker file."""
+    payload = cache.get("sec-edgar", "_meta", "ticker_map", max_age_sec=86400 * 7)
+    if payload is None:
+        payload = _fetch_json(TICKER_MAP_URL)
+        cache.put("sec-edgar", "_meta", "ticker_map", payload)
+    out: Dict[int, str] = {}
+    for row in payload.values():
+        out.setdefault(int(row["cik_str"]), str(row["ticker"]).upper())
+    return out
+
+
+def industry_members(sic: str, pages: int = 3) -> List[int]:
+    """CIKs of every registrant SEC lists under an SIC code (10-K filers;
+    20-F filers are added by the caller from the same code where needed)."""
+    import re
+    key = f"sic_{sic}"
+    cached = cache.get("sec-edgar", "_meta", key, max_age_sec=86400 * 7)
+    if cached is not None:
+        return cached
+    ciks: List[int] = []
+    for page in range(pages):
+        xml = _fetch_text(_SIC_LIST_URL.format(sic=sic, start=page * 100))
+        found = [int(c) for c in re.findall(r"<cik>(\d+)</cik>", xml)]
+        ciks.extend(found)
+        if len(found) < 100:
+            break
+    ciks = list(dict.fromkeys(ciks))
+    cache.put("sec-edgar", "_meta", key, ciks)
+    return ciks
+
+
+def frame(taxonomy: str, tag: str, unit: str, period: str) -> Dict[int, float]:
+    """One concept for every filer for one period: {cik: value}. Used only to
+    SIZE candidate peers; the peers' own figures come from their own filings."""
+    key = f"frame_{taxonomy}_{tag}_{unit}_{period}"
+    cached = cache.get("sec-edgar", "frames", key, max_age_sec=86400 * 7)
+    if cached is None:
+        try:
+            cached = _fetch_json(FRAME_URL.format(taxonomy=taxonomy, tag=tag, unit=unit, period=period))
+        except ProviderError:
+            cached = {"data": []}
+        cache.put("sec-edgar", "frames", key, cached)
+    return {int(r["cik"]): float(r["val"]) for r in cached.get("data") or [] if r.get("val") is not None}
+
+
 def _filings_fetch(symbols: List[str], concepts: Optional[List[str]], reliability: float,
                    **kwargs: Any) -> Dict[str, Any]:
     """kind="filings". concepts selects what:
@@ -588,6 +648,31 @@ def _filings_fetch(symbols: List[str], concepts: Optional[List[str]], reliabilit
                                        url=ARCHIVE_URL.format(cik=cik, acc=acc.replace("-", ""), doc=doc)),
                     symbol=sym, concept="document", unit="text", confidence=reliability,
                     extra={"cik": cik, "document": doc, "chars": len(text)}))
+            elif what == "industry_members":
+                sic = kwargs.get("sic")
+                if not sic:
+                    raise ProviderError("industry_members requires sic=")
+                tickers = cik_ticker_map()
+                for member in industry_members(str(sic)):
+                    data.append(make_datum(
+                        kind="filings", value=tickers.get(member) or f"CIK{member}",
+                        available_at=kwargs.get("as_of_label") or "1994-01-01",
+                        source=make_source("sec-edgar", document=f"SIC{sic}", ref="browse-edgar:sic",
+                                           url=_SIC_LIST_URL.format(sic=sic, start=0)),
+                        symbol=sym, concept="industry_member", confidence=reliability,
+                        extra={"cik": member, "ticker": tickers.get(member), "sic": str(sic),
+                               "note": "current SEC classification, not point-in-time"}))
+            elif what == "frame":
+                vals = frame(kwargs.get("taxonomy", "us-gaap"), kwargs["tag"], kwargs.get("unit", "USD"),
+                             kwargs["period"])
+                data.append(make_datum(
+                    kind="filings", value=len(vals), available_at=kwargs.get("period_end") or "1994-01-01",
+                    source=make_source("sec-edgar", document=kwargs["period"], ref=f"frame:{kwargs['tag']}",
+                                       url=FRAME_URL.format(taxonomy=kwargs.get("taxonomy", "us-gaap"),
+                                                            tag=kwargs["tag"], unit=kwargs.get("unit", "USD"),
+                                                            period=kwargs["period"])),
+                    symbol=sym, concept="frame", confidence=reliability,
+                    extra={"values": vals, "note": "frames carry no filing date: used only to size peers"}))
             elif what == "filing_documents":
                 acc = kwargs.get("accession")
                 docs = filing_documents(cik, acc) if acc else []
