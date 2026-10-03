@@ -57,6 +57,18 @@ def test_surprises_and_recommendations():
     check("change vs three months earlier", r["change_3m"] == round(7 / 12 - 3 / 8, 3))
 
 
+def test_fiscal_quarter_label_not_vendor_calendar_date():
+    print("=== fiscal label ===")
+    from stock_analysis.street import surprises
+    r = surprises([{"value": 2.22, "period_end": "2026-09-30",
+                    "extra": {"estimate": 2.14, "surprise_pct": 3.8, "year": 2027, "quarter": 2}}])
+    q = r["quarters"][0]
+    check("Nvidia's Jul-2026 quarter shows as FY2027 Q2, not 2026-09-30", q["fiscal"] == "FY2027 Q2"
+          and q["period"] == "2026-09-30")
+    r = surprises([{"value": 1.0, "period_end": "2026-06-30", "extra": {"estimate": 0.9}}])
+    check("no fiscal fields -> no invented label", r["quarters"][0]["fiscal"] is None)
+
+
 def test_no_key_says_so():
     print("=== 3. no key: waiting for the named variable ===")
     import os

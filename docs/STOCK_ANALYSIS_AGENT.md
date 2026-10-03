@@ -118,8 +118,12 @@ returns, not just outcomes), `DEEPSEEK_API_KEY` with credit (MD&A and call summa
 - Peers are chosen by SIC code (SEC's classification, current not historical)
   and sized by SEC frames; the largest company in a code may have no peer
   within 10× of its size — the report says so.
-- Banks, insurers and REITs: most earnings-quality tests do not apply; those
-  companies are shown the applicable tests, ungraded.
+- Banks and insurers: most earnings-quality tests do not apply; they are shown the
+  applicable tests, ungraded (coverage < 0.5). REITs pass the coverage bar and ARE
+  graded — read their cash conversion with care, since heavy depreciation flatters it.
+- Market cap uses weighted diluted shares, then basic (Exxon tags no diluted count
+  since 2013 and reports one EPS for both), then the cover-page count. Berkshire
+  reports none usable, so it gets no multiples rather than wrong ones.
 - See `docs/FUNDAMENTALS_V2_EVALUATION.md` for the scoring evaluation. Every evaluation here
   replays today's tickers; `docs/SURVIVORSHIP_AUDIT.md` measures what that hides. The v2
   weights were fixed before the evaluation, not fitted — any future re-weighting must be

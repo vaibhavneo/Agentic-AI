@@ -92,10 +92,12 @@ def history(st: Dict[str, Any], symbol: str, kind: str, as_of: Optional[str] = N
     for a in (st.get("annual") or [])[:7]:
         end = a["end"]
         px = df[df.index <= end]["Close"]
-        sh = value(a, "shares_diluted")
-        if px.empty or not sh or (df.index[0].strftime("%Y-%m-%d") > end):
+        from .market import share_count
+        found = share_count(a)
+        if px.empty or not found or (df.index[0].strftime("%Y-%m-%d") > end):
             continue
-        filed = (a["values"].get("shares_diluted") or {}).get("filed") or end
+        sh, concept, _ = found
+        filed = (a["values"].get(concept) or {}).get("filed") or end
         for d, r in split_list:
             if d > filed[:10] and (not as_of or d <= as_of[:10]):
                 sh *= r

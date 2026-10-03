@@ -72,6 +72,19 @@ def test_staleness_named():
     check("one quarter apart → none", staleness("2026-06-30", "2026-10-02") is None)
 
 
+def test_share_count_fallback_order():
+    print("=== share count: diluted, then basic, then cover ===")
+    from stock_analysis.market import share_count
+
+    def blk(**v):
+        return {"values": {k: {"value": x, "accession": "A"} for k, x in v.items()}}
+    check("diluted first", share_count(blk(shares_diluted=12.3e9, shares_basic=12.1e9))[1] == "shares_diluted")
+    xom = share_count(blk(shares_basic=4.174e9, shares_outstanding_cover=4.11e9))
+    check("Exxon: no diluted tag -> basic, and says so", xom[0] == 4.174e9 and "no separate diluted" in xom[2])
+    check("cover count last", share_count(blk(shares_outstanding_cover=4.11e9))[1] == "shares_outstanding_cover")
+    check("nothing -> None (Berkshire: no valuation rather than a wrong one)", share_count(blk()) is None)
+
+
 if __name__ == "__main__":
     for fn in [v for k, v in dict(globals()).items() if k.startswith("test_")]:
         fn()

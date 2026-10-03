@@ -181,6 +181,23 @@ def adr_ratio(text: str) -> Optional[Dict[str, Any]]:
     return None
 
 
+# Exxon reports one EPS "basic and assuming dilution" and has tagged no
+# diluted share count since 2013; its basic count IS its diluted count.
+SHARE_SOURCES = (("shares_diluted", "weighted diluted shares"),
+                 ("shares_basic", "weighted basic shares (the filing reports no separate diluted count)"),
+                 ("shares_outstanding_cover", "shares outstanding on the filing's cover"))
+
+
+def share_count(blk: Dict[str, Any]) -> Optional[tuple]:
+    """(shares, concept, label) from one statement block, best source first."""
+    from .statements import value
+    for concept, label in SHARE_SOURCES:
+        v = value(blk, concept)
+        if v:
+            return v, concept, label
+    return None
+
+
 def market_inputs(symbol: str, statements: Dict[str, Any], as_of: Optional[str] = None,
                   annual_text: Optional[str] = None, price: Optional[float] = None) -> Dict[str, Any]:
     """Market cap and EV in USD, with every input and its source. `price`
@@ -200,12 +217,13 @@ def market_inputs(symbol: str, statements: Dict[str, Any], as_of: Optional[str] 
     qs = statements.get("quarters") or []
     shares, shares_src = None, None
     for blk in qs[:2] + statements.get("annual", [])[:1]:
-        v = value(blk, "shares_diluted")
-        if v:
-            shares, shares_src = v, f"weighted diluted shares, {blk['label']} ({blk['values']['shares_diluted'].get('accession')})"
+        found = share_count(blk)
+        if found:
+            shares, concept, label = found
+            shares_src = f"{label}, {blk['label']} ({blk['values'][concept].get('accession')})"
             break
     if not shares:
-        out["reason"] = "no diluted share count in the filings"
+        out["reason"] = "no share count in the filings"
         return out
     ratio = 1.0
     ratio_src = None

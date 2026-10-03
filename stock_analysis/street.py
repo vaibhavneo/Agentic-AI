@@ -54,8 +54,17 @@ def _surprise_source(symbol: str) -> Dict[str, Any]:
     return {"data": [], "error": "; ".join(tried), "tried": tried}
 
 
+def _fiscal(x: Dict[str, Any]) -> Optional[str]:
+    """Finnhub labels a fiscal quarter with a calendar date rounded UP (Nvidia's
+    quarter ended 2026-07-26 is '2026-09-30' — it reads as an unreported
+    quarter), so its fiscal year/quarter is what a reader is shown."""
+    y, q = x.get("year"), x.get("quarter")
+    return f"FY{y} Q{q}" if y and q else None
+
+
 def surprises(data: List[Dict[str, Any]]) -> Dict[str, Any]:
-    rows = sorted(({"period": d.get("period_end"), "actual": d["value"],
+    rows = sorted(({"period": d.get("period_end"), "fiscal": _fiscal(d.get("extra") or {}),
+                    "reported": (d.get("extra") or {}).get("reported_date"), "actual": d["value"],
                     "estimate": (d.get("extra") or {}).get("estimate"),
                     "surprise_pct": (d.get("extra") or {}).get("surprise_pct")} for d in data),
                   key=lambda r: r["period"] or "", reverse=True)

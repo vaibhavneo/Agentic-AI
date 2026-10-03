@@ -4971,7 +4971,7 @@ function renderSaStreet(w) {
   let b = '';
   if (es.available) b += `<div class="sa-small">Earnings vs consensus: beat in ${Math.round(es.beat_rate * es.n)} of ${es.n} quarters · average surprise ${num(es.avg_surprise_pct, 1)}%</div>`
     + '<div class="sa-scroll"><table class="sa-table"><thead><tr><th>Quarter</th><th>Actual EPS</th><th>Consensus</th><th>Surprise</th></tr></thead><tbody>'
-    + (es.quarters || []).slice(0, 6).map(q => `<tr><td>${esc(q.period)}</td><td>${num(q.actual, 2)}</td><td>${num(q.estimate, 2)}</td><td style="color:${(q.surprise_pct || 0) >= 0 ? 'var(--green)' : 'var(--red)'}">${num(q.surprise_pct, 1)}%</td></tr>`).join('')
+    + (es.quarters || []).slice(0, 6).map(q => `<tr><td title="${esc(q.reported ? 'reported ' + q.reported : 'vendor period ' + (q.period || ''))}">${esc(q.fiscal || q.period)}</td><td>${num(q.actual, 2)}</td><td>${num(q.estimate, 2)}</td><td style="color:${(q.surprise_pct || 0) >= 0 ? 'var(--green)' : 'var(--red)'}">${num(q.surprise_pct, 1)}%</td></tr>`).join('')
     + '</tbody></table></div>';
   else if (es.reason) b += `<div class="sa-small muted">Earnings surprises: ${esc(es.reason)}</div>`;
   if (an.available) b += `<div class="sa-small">Analysts (${an.analysts}, ${esc(an.period)}): ${saPct(an.buy_share, 0)} buy-rated${an.change_3m != null ? `, ${an.change_3m >= 0 ? '+' : ''}${saPct(an.change_3m, 0)} vs 3 months ago` : ''}</div>`;
