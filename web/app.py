@@ -2231,17 +2231,29 @@ def portfolio_brief_endpoint():
     holding plus a structural portfolio stance.
 
     Request: {"holdings": [{"ticker","shares","avg_cost","recommendation"?}, ...],
-              "max_weight_pct"?: 25}. If a holding omits "recommendation", it is
-      built server-side (keyless), same as /api/recommendation. Supplying the
-      recommendation (e.g. cached from an earlier per-ticker analysis) is the fast
-      path and avoids re-fetching."""
+              "max_weight_pct"?: 25, "max_sector_pct"?: 40,
+              "cash_usd"?, "crypto_usd"?, "cash_target_pct"?}. If a holding omits
+      "recommendation", it is built server-side (keyless), same as
+      /api/recommendation. Supplying the recommendation (e.g. cached from an
+      earlier per-ticker analysis) is the fast path and avoids re-fetching.
+
+    The response also carries "plan" (agents/portfolio_plan.py): overview,
+    plain-language diagnosis, a risk-based rebalance and screener ideas."""
     data = request.json or {}
     raw = data.get("holdings") or []
-    max_weight = data.get("max_weight_pct", 25.0)
+
+    def _pct(key, default):
+        try:
+            v = float(data.get(key, default))
+            return v if 0 < v <= 100 else default
+        except (TypeError, ValueError):
+            return default
+    max_weight = _pct("max_weight_pct", 25.0)
+    max_sector = _pct("max_sector_pct", 40.0)
     try:
-        max_weight = float(max_weight)
+        cash_target = float(data["cash_target_pct"]) if data.get("cash_target_pct") not in (None, "") else None
     except (TypeError, ValueError):
-        max_weight = 25.0
+        cash_target = None
     if not raw:
         return jsonify({"error": "No holdings"}), 400
 
@@ -2301,7 +2313,7 @@ def portfolio_brief_endpoint():
                 continue
 
         result = build_portfolio_brief(enriched, max_weight_pct=max_weight,
-                                       returns=returns or None)
+                                       returns=returns or None, max_sector_pct=max_sector)
         # Red-flag sweep: what each holding's SEC filings say, from the cached
         # Stock Analysis reports. Attached beside the brief, never blocking it.
         try:
@@ -2312,6 +2324,37 @@ def portfolio_brief_endpoint():
             result["portfolio"]["fundamental_red_flags"] = _red_flags(reads)
         except Exception as _e:
             result["portfolio"]["fundamental_red_flags_error"] = f"{type(_e).__name__}"
+
+        # The plan: overview, diagnosis, risk-based rebalance, screener ideas.
+        # Prices for the idea candidates are fetched here (the plan module is a
+        # pure consumer, like the brief) so their correlation with the book can
+        # be measured. Attached beside the brief, never blocking it.
+        try:
+            from concurrent.futures import ThreadPoolExecutor
+            from agents.portfolio_plan import build_plan, idea_candidates
+            try:
+                from stock_analysis.screener import latest as _screener_latest
+                screener = _screener_latest()
+            except Exception:
+                screener = None
+            held = {h["ticker"] for h in enriched}
+
+            def _rets(t):
+                try:
+                    hist = fetch_price_history(t, period="1y")
+                    if hist is not None and not hist.empty:
+                        return t, hist["Close"].astype(float).pct_change().dropna()
+                except Exception:
+                    pass
+                return t, None
+            with ThreadPoolExecutor(max_workers=4) as ex:
+                cand = dict(ex.map(_rets, [c["ticker"] for c in idea_candidates(screener, held)]))
+            result["plan"] = build_plan(
+                result, returns, cash_usd=data.get("cash_usd"), crypto_usd=data.get("crypto_usd"),
+                max_weight_pct=max_weight, max_sector_pct=max_sector, cash_target_pct=cash_target,
+                screener=screener, candidate_returns={t: r for t, r in cand.items() if r is not None})
+        except Exception as _e:
+            result["plan"] = {"available": False, "reason": f"plan failed: {type(_e).__name__}: {_e}"}
         return jsonify(result)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
