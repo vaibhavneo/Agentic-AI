@@ -4969,7 +4969,7 @@ function renderSaStreet(w) {
   if (!w.available) return saSection('Analysts & insiders', `<div class="sa-small muted">${esc(w.reason || 'not available')}</div>`);
   const es = w.earnings_surprises || {}, an = w.analysts || {}, ins = w.insiders || {};
   let b = '';
-  if (es.available) b += `<div class="sa-small">Earnings vs consensus: beat in ${Math.round(es.beat_rate * es.n)} of ${es.n} quarters · average surprise ${num(es.avg_surprise_pct, 1)}%</div>`
+  if (es.available) b += `<div class="sa-small">Earnings vs consensus, ${esc(es.window || 'recent quarters')}: beat in ${Math.round(es.beat_rate * es.n)} of ${es.n} · average surprise ${num(es.avg_surprise_pct, 1)}%<span class="muted"> · ${esc(es.source || '')}${es.n_history > es.n ? ` · ${es.n_history} quarters on record` : ''}</span></div>`
     + '<div class="sa-scroll"><table class="sa-table"><thead><tr><th>Quarter</th><th>Actual EPS</th><th>Consensus</th><th>Surprise</th></tr></thead><tbody>'
     + (es.quarters || []).slice(0, 6).map(q => `<tr><td title="${esc(q.reported ? 'reported ' + q.reported : 'vendor period ' + (q.period || ''))}">${esc(q.fiscal || q.period)}</td><td>${num(q.actual, 2)}</td><td>${num(q.estimate, 2)}</td><td style="color:${(q.surprise_pct || 0) >= 0 ? 'var(--green)' : 'var(--red)'}">${num(q.surprise_pct, 1)}%</td></tr>`).join('')
     + '</tbody></table></div>';
@@ -4980,7 +4980,7 @@ function renderSaStreet(w) {
     b += `<div class="muted sa-small">${esc(ins.note || '')}</div>`;
   }
   if ((w.vendor_peers || []).length) b += `<div class="muted sa-small">Vendor peer list: ${w.vendor_peers.map(esc).join(', ')}</div>`;
-  return saSection('Analysts & insiders <span class="muted">— Finnhub free tier</span>', b);
+  return saSection('Analysts & insiders <span class="muted">— Finnhub / Alpha Vantage free tiers</span>', b);
 }
 
 function renderSaGuidance(g) {
@@ -5011,6 +5011,7 @@ function renderSaTranscript(t) {
   if (!t.available) return saSection('Earnings call', `<div class="sa-small muted">${esc(t.reason || 'not available')}</div>`);
   const sm = t.summary || {};
   let b = `<div class="sa-small muted">${esc(t.fiscal_quarter)} call · ${esc(t.provider)} · ${t.chars.toLocaleString()} characters</div>`;
+  if (t.note) b += `<div class="sa-small" style="color:var(--yellow)">${esc(t.note)}</div>`;
   if (sm.status === 'OK') b += '<ul class="sa-list">' + sm.bullets.map(x => `<li><b>${esc(x.topic || '')}</b> ${esc(x.point)} <span class="sa-quote">“${esc(x.quote)}”</span></li>`).join('') + '</ul>';
   else b += `<div class="sa-small muted">Summary: ${esc(sm.reason || 'add ?mdna=1 to request the validated summary')}</div>`;
   return saSection('Earnings call', b);

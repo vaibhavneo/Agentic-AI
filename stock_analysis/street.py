@@ -25,6 +25,7 @@ from typing import Any, Dict, List, Optional
 PROVIDER = "finnhub-research"
 OPEN_MARKET = {"P": "purchase", "S": "sale"}
 WINDOW_DAYS = 180
+RECENT_QUARTERS = 8
 
 
 def _get(kind: str, symbol: str, concept: str, provider: str = PROVIDER) -> Dict[str, Any]:
@@ -71,9 +72,14 @@ def surprises(data: List[Dict[str, Any]]) -> Dict[str, Any]:
     scored = [r for r in rows if r["estimate"] is not None]
     if not scored:
         return {"available": False, "reason": "no consensus estimates returned"}
-    beats = sum(1 for r in scored if r["actual"] > r["estimate"])
-    pcts = [r["surprise_pct"] for r in scored if r["surprise_pct"] is not None]
-    return {"available": True, "quarters": rows[:8], "beat_rate": round(beats / len(scored), 2), "n": len(scored),
+    # Alpha Vantage returns every quarter since the 1990s; a 27-year average is
+    # dominated by tiny early EPS (a 1-cent beat on 2 cents is +50%). The read
+    # is the last two years.
+    recent = scored[:RECENT_QUARTERS]
+    beats = sum(1 for r in recent if r["actual"] > r["estimate"])
+    pcts = [r["surprise_pct"] for r in recent if r["surprise_pct"] is not None]
+    return {"available": True, "quarters": rows[:8], "beat_rate": round(beats / len(recent), 2), "n": len(recent),
+            "n_history": len(scored), "window": f"last {len(recent)} quarters",
             "avg_surprise_pct": None if not pcts else round(sum(pcts) / len(pcts), 2)}
 
 
@@ -124,7 +130,7 @@ def insiders(data: List[Dict[str, Any]], as_of: Optional[str] = None) -> Dict[st
 
 
 def build_street(symbol: str, as_of: Optional[str] = None) -> Dict[str, Any]:
-    out: Dict[str, Any] = {"symbol": symbol.upper(), "source": "finnhub (free tier)"}
+    out: Dict[str, Any] = {"symbol": symbol.upper(), "source": "finnhub + alpha vantage (free tiers)"}
     e = _surprise_source(symbol)
     r = _get("sentiment", symbol, "analyst_recommendation")
     i = _get("filings", symbol, "insider_transaction")

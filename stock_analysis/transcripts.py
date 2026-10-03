@@ -22,30 +22,44 @@ def _fiscal_quarter(statements: Dict[str, Any]) -> Optional[tuple]:
         return None
 
 
+def _previous(year: int, q: int) -> tuple:
+    return (year, q - 1) if q > 1 else (year - 1, 4)
+
+
 def build_transcript(symbol: str, statements: Dict[str, Any], summarize: bool = True) -> Dict[str, Any]:
+    """The latest call on file; when the vendor does not have it yet (Alpha
+    Vantage lags weeks), the one before, saying so."""
     from financial_data import gateway as gw
     fq = _fiscal_quarter(statements)
     if not fq:
         return {"available": False, "reason": "no quarterly statements to locate the latest call"}
-    year, q = fq
     tried = []
-    for prov, kw in (("alphavantage", {"quarter": f"{year}Q{q}"}), ("fmp", {"year": year, "quarter": q})):
-        try:
-            res = gw.get("filings", symbol, provider=prov, concepts=["call_transcript"], **kw)
-        except Exception as e:
-            msg = str(e)
-            for var in ("ALPHAVANTAGE_API_KEY", "FMP_API_KEY"):
-                if var in msg:
-                    msg = f"waiting for {var}"
-            tried.append(f"{prov}: {msg[:140]}")
-            continue
-        if res["data"]:
-            d = res["data"][0]
-            out = {"available": True, "provider": prov, "fiscal_quarter": f"FY{year} Q{q}",
-                   "chars": len(d["value"]), "source": d["source"]}
-            if summarize:
-                from .narrative import summarize_transcript
-                out["summary"] = summarize_transcript(d["value"], {**d["source"], "quarter": f"{year}Q{q}"})
-            return out
-        tried.append(f"{prov}: " + ((res.get("unavailable") or [{}])[0].get("reason") or "no transcript"))
+    waiting = set()
+    for year, q in (fq, _previous(*fq)):
+        for prov, kw in (("alphavantage", {"quarter": f"{year}Q{q}"}), ("fmp", {"year": year, "quarter": q})):
+            if prov in waiting:
+                continue
+            try:
+                res = gw.get("filings", symbol, provider=prov, concepts=["call_transcript"], **kw)
+            except Exception as e:
+                msg = str(e)
+                for var in ("ALPHAVANTAGE_API_KEY", "FMP_API_KEY"):
+                    if var in msg:
+                        msg = f"waiting for {var}"
+                        waiting.add(prov)
+                tried.append(f"{prov}: {msg[:140]}")
+                continue
+            if res["data"]:
+                d = res["data"][0]
+                out = {"available": True, "provider": prov, "fiscal_quarter": f"FY{year} Q{q}",
+                       "chars": len(d["value"]), "source": d["source"]}
+                if (year, q) != fq:
+                    out["note"] = (f"the FY{fq[0]} Q{fq[1]} call is not available from the vendor yet; "
+                                   f"this is the call before it")
+                if summarize:
+                    from .narrative import summarize_transcript
+                    out["summary"] = summarize_transcript(d["value"], {**d["source"], "quarter": f"{year}Q{q}"})
+                return out
+            tried.append(f"{prov} FY{year} Q{q}: " +
+                         ((res.get("unavailable") or [{}])[0].get("reason") or "no transcript"))
     return {"available": False, "reason": "; ".join(tried)}

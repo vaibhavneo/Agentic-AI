@@ -6,7 +6,9 @@ requests/day, so every response is cached for a day or more).
                                          every quarter on record, with the report
                                          date: a consensus history Finnhub's free
                                          tier (four quarters) cannot give
-  filings   concept call_transcript      EARNINGS_CALL_TRANSCRIPT (quarter=YYYYQn)
+  filings   concept call_transcript      EARNINGS_CALL_TRANSCRIPT (quarter=YYYYQn, the
+                                         COMPANY'S fiscal quarter: Nvidia's May 2026
+                                         call is 2027Q1). Recent calls can lag weeks.
 
 Alpha Vantage signals limits and plan restrictions in-band ("Note"/
 "Information" keys with HTTP 200); those become a ProviderError naming the
@@ -15,10 +17,12 @@ reason, never an empty success. Callers name this provider explicitly.
 from __future__ import annotations
 
 import json
+import threading
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
-from typing import Any, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional
 
 from .. import cache
 from ..keys import get_key
@@ -28,16 +32,39 @@ KINDS = ("events", "filings")
 BASE = "https://www.alphavantage.co/query"
 
 
+# The free tier refuses a second request within a second (in-band
+# "Information" body); one report makes two calls back to back.
+MIN_SPACING_SEC = 1.1
+_lock = threading.Lock()
+_last = [0.0]
+
+
 class ProviderError(RuntimeError):
     pass
 
 
-def _get(params: Dict[str, str], max_age: int) -> Dict[str, Any]:
+def _throttle() -> None:
+    with _lock:
+        wait = _last[0] + MIN_SPACING_SEC - time.monotonic()
+        if wait > 0:
+            time.sleep(wait)
+        _last[0] = time.monotonic()
+
+
+def _get(params: Dict[str, str], max_age: int, keep: Optional[Callable[[Dict[str, Any]], bool]] = None,
+         empty_max_age: int = 86400) -> Dict[str, Any]:
+    """`keep` says whether a response is worth the long cache: an empty answer
+    ("no transcript yet") is held for a day only, so it is asked again."""
     key = "_".join(f"{k}-{v}" for k, v in sorted(params.items()))
     hit = cache.get("alphavantage", "api", key, max_age_sec=max_age)
-    if hit is not None:
+    if hit is not None and (keep is None or keep(hit)):
         return hit
+    if keep is not None:
+        miss = cache.get("alphavantage", "api", key + "__empty", max_age_sec=empty_max_age)
+        if miss is not None:
+            return miss
     token = get_key("ALPHAVANTAGE_API_KEY", "alphavantage")
+    _throttle()
     url = BASE + "?" + urllib.parse.urlencode(dict(params, apikey=token))
     try:
         with urllib.request.urlopen(urllib.request.Request(url, headers={"User-Agent": "AIOS-StockAgent/1.0"}),
@@ -48,7 +75,7 @@ def _get(params: Dict[str, str], max_age: int) -> Dict[str, Any]:
     for k in ("Note", "Information", "Error Message"):
         if isinstance(payload, dict) and k in payload and len(payload) <= 2:
             raise ProviderError(f"alphavantage: {payload[k][:160]}")
-    cache.put("alphavantage", "api", key, payload)
+    cache.put("alphavantage", "api", key if keep is None or keep(payload) else key + "__empty", payload)
     return payload
 
 
@@ -88,7 +115,8 @@ def fetch(kind: str, symbols: List[str], start: Optional[str] = None, end: Optio
                 q = kwargs.get("quarter")
                 if not q:
                     raise ProviderError("call_transcript needs quarter='YYYYQn'")
-                p = _get({"function": "EARNINGS_CALL_TRANSCRIPT", "symbol": sym, "quarter": q}, 30 * 86400)
+                p = _get({"function": "EARNINGS_CALL_TRANSCRIPT", "symbol": sym, "quarter": q}, 30 * 86400,
+                         keep=lambda x: bool(x.get("transcript")))
                 parts = p.get("transcript") or []
                 if not parts:
                     raise ProviderError(f"no transcript for {sym} {q}")

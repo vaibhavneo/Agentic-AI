@@ -135,6 +135,67 @@ def test_cache_ceiling():
     check("no ceiling -> nothing deleted", cache.prune(max_bytes=0, root=root)["pruned"] == 0)
 
 
+def test_alphavantage_empty_transcript_is_retried_and_calls_are_spaced():
+    print("=== 7. an empty transcript is held a day, not a month; calls are spaced ===")
+    import time as _t
+    from financial_data import cache
+    import financial_data.providers.alphavantage as av
+    calls = []
+
+    def fake(req, timeout=30):
+        calls.append(_t.monotonic())
+        return _Resp(json.dumps({"symbol": "NVDA", "quarter": "2027Q2", "transcript": []}).encode())
+    root = Path(tempfile.mkdtemp())
+    with patch.object(cache, "CACHE_DIR", root), _with_key("ALPHAVANTAGE_API_KEY"), \
+            patch("urllib.request.urlopen", fake), patch.object(av, "MIN_SPACING_SEC", 0.3):
+        r = av.fetch("filings", ["NVDA"], concepts=["call_transcript"], quarter="2027Q2")
+        check("empty answer is a named 'no transcript', not data", not r["data"] and "no transcript" in
+              r["unavailable"][0]["reason"])
+        key = "function-EARNINGS_CALL_TRANSCRIPT_quarter-2027Q2_symbol-NVDA"
+        check("held under the short-lived key only", cache.get("alphavantage", "api", key) is None
+              and cache.get("alphavantage", "api", key + "__empty") is not None)
+        av.fetch("filings", ["NVDA"], concepts=["call_transcript"], quarter="2027Q2")
+        check("within the day: served from the short cache (no new call)", len(calls) == 1)
+        cache.put("alphavantage", "api", key, {"transcript": []})        # what the old code cached for 30 days
+        p = cache.path_for("alphavantage", "api", key + "__empty")
+        os.utime(p, (_t.time() - 2 * 86400, _t.time() - 2 * 86400))      # the day has passed
+        av.fetch("filings", ["NVDA"], concepts=["call_transcript"], quarter="2027Q2")
+        check("a month-cached empty answer is not trusted; asked again", len(calls) == 2)
+        check("second call waited for the spacing", calls[1] - calls[0] >= 0.3, round(calls[1] - calls[0], 2))
+
+
+def test_transcript_falls_back_to_the_previous_call():
+    print("=== 8. latest call not out yet -> the one before, saying so ===")
+    import stock_analysis.transcripts as tr
+    seen = []
+
+    def fake_get(kind, symbol, provider=None, concepts=None, **kw):
+        seen.append((provider, kw.get("quarter")))
+        if provider == "alphavantage" and kw.get("quarter") == "2027Q1":
+            return {"data": [{"value": "Operator: welcome", "source": {"provider": "alphavantage"}}]}
+        if provider == "fmp":
+            raise RuntimeError("FMP_API_KEY is not set")
+        return {"data": [], "unavailable": [{"reason": "no transcript for NVDA " + kw.get("quarter", "")}]}
+    with patch("financial_data.gateway.get", fake_get):
+        t = tr.build_transcript("NVDA", {"quarters": [{"label": "FY2027 Q2"}]}, summarize=False)
+    check("FY2027 Q1 shown", t["available"] and t["fiscal_quarter"] == "FY2027 Q1", t)
+    check("and the reader is told why", "FY2027 Q2 call is not available" in t.get("note", ""))
+    check("a provider waiting for its key is asked once", sum(1 for p, _ in seen if p == "fmp") == 1, seen)
+    check("Q1 of a year falls back to Q4 of the year before", tr._previous(2027, 1) == (2026, 4))
+
+
+def test_surprise_stats_use_recent_quarters():
+    print("=== 9. beat rate over the last two years, not since 1999 ===")
+    from stock_analysis.street import surprises
+    old = [{"value": 0.03, "period_end": f"{1999 + i}-03-31", "extra": {"estimate": 0.02, "surprise_pct": 50.0}}
+           for i in range(20)]
+    new = [{"value": 1.0, "period_end": f"2025-{m:02d}-28", "extra": {"estimate": 1.02, "surprise_pct": -2.0}}
+           for m in range(1, 9)]
+    r = surprises(old + new)
+    check("window is the last 8", r["n"] == 8 and r["n_history"] == 28 and r["window"] == "last 8 quarters")
+    check("old outliers do not move the average", r["avg_surprise_pct"] == -2.0 and r["beat_rate"] == 0.0)
+
+
 if __name__ == "__main__":
     for fn in [v for k, v in dict(globals()).items() if k.startswith("test_")]:
         fn()
