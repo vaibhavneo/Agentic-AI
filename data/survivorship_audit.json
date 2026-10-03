@@ -1,0 +1,5657 @@
+{
+ "generated": "2026-10-02",
+ "period": "CY2017",
+ "grade_date": "2018-04-30",
+ "n_candidates": 300,
+ "n_public_equity": 246,
+ "n_graded": 209,
+ "n_errors": 0,
+ "outcomes": {
+  "STILL_FILING": 232,
+  "REORGANIZED": 0,
+  "ACQUIRED": 12,
+  "BANKRUPTCY": 2,
+  "OTHER_STOPPED": 0
+ },
+ "share_gone": 0.057,
+ "eval_universe_overlap": 38,
+ "gone_before_start": [
+  "Accenture Holdings plc",
+  "WARNER MEDIA, LLC",
+  "BNSF RAILWAY CO",
+  "Broadcom Pte. Ltd.",
+  "WHOLE FOODS MARKET INC"
+ ],
+ "duplicates": [
+  {
+   "name": "TWDC Enterprises 18 Corp.",
+   "successor": "Walt Disney Co (DIS)"
+  },
+  {
+   "name": "BUNGELTD",
+   "successor": "Bunge Global SA (BG)"
+  },
+  {
+   "name": "Cigna Holding Co",
+   "successor": "Cigna Group (CI)"
+  },
+  {
+   "name": "Baker Hughes Holdings LLC",
+   "successor": "Baker Hughes Co (BKR)"
+  },
+  {
+   "name": "WRKCo Inc.",
+   "successor": "WestRock Co"
+  }
+ ],
+ "reorganized": [],
+ "grade_counts": {
+  "A": 151,
+  "B": 46,
+  "C": 7,
+  "D": 2,
+  "F": 3
+ },
+ "by_grade": {
+  "A/B": {
+   "n": 197,
+   "STILL_FILING": 186,
+   "REORGANIZED": 0,
+   "ACQUIRED": 10,
+   "BANKRUPTCY": 1,
+   "OTHER_STOPPED": 0,
+   "STILL_FILING_rate": 0.944,
+   "REORGANIZED_rate": 0.0,
+   "ACQUIRED_rate": 0.051,
+   "BANKRUPTCY_rate": 0.005,
+   "OTHER_STOPPED_rate": 0.0
+  },
+  "C": {
+   "n": 7,
+   "STILL_FILING": 7,
+   "REORGANIZED": 0,
+   "ACQUIRED": 0,
+   "BANKRUPTCY": 0,
+   "OTHER_STOPPED": 0,
+   "STILL_FILING_rate": 1.0,
+   "REORGANIZED_rate": 0.0,
+   "ACQUIRED_rate": 0.0,
+   "BANKRUPTCY_rate": 0.0,
+   "OTHER_STOPPED_rate": 0.0
+  },
+  "D/F": {
+   "n": 5,
+   "STILL_FILING": 4,
+   "REORGANIZED": 0,
+   "ACQUIRED": 0,
+   "BANKRUPTCY": 1,
+   "OTHER_STOPPED": 0,
+   "STILL_FILING_rate": 0.8,
+   "REORGANIZED_rate": 0.0,
+   "ACQUIRED_rate": 0.0,
+   "BANKRUPTCY_rate": 0.2,
+   "OTHER_STOPPED_rate": 0.0
+  }
+ },
+ "gone": [
+  {
+   "name": "Walgreens Boots Alliance, Inc.",
+   "outcome": "ACQUIRED",
+   "last_periodic": "2025-06-26",
+   "grade": "A",
+   "revenue_2017": 118214000000.0,
+   "bankruptcy_8k": null,
+   "merger_filing": "2025-06-06"
+  },
+  {
+   "name": "Express Scripts Holding Co.",
+   "outcome": "ACQUIRED",
+   "last_periodic": "2018-10-31",
+   "grade": "A",
+   "revenue_2017": 100064600000.0,
+   "bankruptcy_8k": null,
+   "merger_filing": "2018-08-16"
+  },
+  {
+   "name": "AETNA INC /PA/",
+   "outcome": "ACQUIRED",
+   "last_periodic": "2018-10-30",
+   "grade": null,
+   "revenue_2017": 60535000000.0,
+   "bankruptcy_8k": null,
+   "merger_filing": "2018-11-26"
+  },
+  {
+   "name": "TECH DATA CORP",
+   "outcome": "ACQUIRED",
+   "last_periodic": "2020-06-03",
+   "grade": "B",
+   "revenue_2017": 33597841000.0,
+   "bankruptcy_8k": null,
+   "merger_filing": "2020-01-10"
+  },
+  {
+   "name": "SPRINT LLC",
+   "outcome": "ACQUIRED",
+   "last_periodic": "2020-01-27",
+   "grade": "B",
+   "revenue_2017": 32406000000.0,
+   "bankruptcy_8k": null,
+   "merger_filing": "2020-03-19"
+  },
+  {
+   "name": "TWENTY-FIRST CENTURY FOX, INC.",
+   "outcome": "ACQUIRED",
+   "last_periodic": "2019-02-06",
+   "grade": "B",
+   "revenue_2017": 28500000000.0,
+   "bankruptcy_8k": null,
+   "merger_filing": "2018-07-19"
+  },
+  {
+   "name": "RAYTHEON CO/",
+   "outcome": "ACQUIRED",
+   "last_periodic": "2020-02-12",
+   "grade": "A",
+   "revenue_2017": 25348000000.0,
+   "bankruptcy_8k": null,
+   "merger_filing": "2020-03-31"
+  },
+  {
+   "name": "NEW RITE AID, LLC",
+   "outcome": "BANKRUPTCY",
+   "last_periodic": "2023-10-18",
+   "grade": "A",
+   "revenue_2017": 21528968000.0,
+   "bankruptcy_8k": "2023-12-27",
+   "merger_filing": "2018-08-07"
+  },
+  {
+   "name": "WELLCARE HEALTH PLANS, INC.",
+   "outcome": "ACQUIRED",
+   "last_periodic": "2019-10-30",
+   "grade": null,
+   "revenue_2017": 17007200000.0,
+   "bankruptcy_8k": null,
+   "merger_filing": "2020-01-22"
+  },
+  {
+   "name": "SEARS HOLDINGS CORP",
+   "outcome": "BANKRUPTCY",
+   "last_periodic": "2018-12-13",
+   "grade": "F",
+   "revenue_2017": 16702000000.0,
+   "bankruptcy_8k": "2019-11-04",
+   "merger_filing": null
+  },
+  {
+   "name": "Allergan plc",
+   "outcome": "ACQUIRED",
+   "last_periodic": "2020-05-07",
+   "grade": "B",
+   "revenue_2017": 15940700000.0,
+   "bankruptcy_8k": null,
+   "merger_filing": "2019-09-16"
+  },
+  {
+   "name": "Core-Mark Holding Company, LLC",
+   "outcome": "ACQUIRED",
+   "last_periodic": "2021-08-05",
+   "grade": "B",
+   "revenue_2017": 15687600000.0,
+   "bankruptcy_8k": null,
+   "merger_filing": "2021-08-25"
+  },
+  {
+   "name": "NORDSTROM INC",
+   "outcome": "ACQUIRED",
+   "last_periodic": "2025-03-21",
+   "grade": "A",
+   "revenue_2017": 15478000000.0,
+   "bankruptcy_8k": null,
+   "merger_filing": "2025-04-10"
+  },
+  {
+   "name": "WestRock Co",
+   "outcome": "ACQUIRED",
+   "last_periodic": "2024-05-03",
+   "grade": "B",
+   "revenue_2017": 14859700000.0,
+   "bankruptcy_8k": null,
+   "merger_filing": "2024-07-05"
+  }
+ ],
+ "rows": [
+  {
+   "cik": 1018724,
+   "revenue_2017": 716924000000.0,
+   "name": "AMAZON COM INC",
+   "ticker_now": "AMZN",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-07-31",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": "2026-04-14",
+   "sic": "5961",
+   "names": [
+    "AMAZON COM INC"
+   ],
+   "grade": "B",
+   "quality_score": 79.5
+  },
+  {
+   "cik": 104169,
+   "revenue_2017": 706413000000.0,
+   "name": "Walmart Inc.",
+   "ticker_now": "WMT",
+   "in_eval_universe": true,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-08-28",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": null,
+   "sic": "5331",
+   "names": [
+    "Walmart Inc.",
+    "Walmart Inc.",
+    "WAL MART STORES INC"
+   ],
+   "grade": "A",
+   "quality_score": 92.8
+  },
+  {
+   "cik": 320193,
+   "revenue_2017": 416161000000.0,
+   "name": "Apple Inc.",
+   "ticker_now": "AAPL",
+   "in_eval_universe": true,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-07-31",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": null,
+   "sic": "3571",
+   "names": [
+    "Apple Inc.",
+    "APPLE INC"
+   ],
+   "grade": "B",
+   "quality_score": 71.5
+  },
+  {
+   "cik": 927653,
+   "revenue_2017": 403430000000.0,
+   "name": "MCKESSON CORP",
+   "ticker_now": "MCK",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-08-05",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": "2020-11-30",
+   "sic": "5122",
+   "names": [
+    "MCKESSON CORP"
+   ],
+   "grade": "B",
+   "quality_score": 73.8
+  },
+  {
+   "cik": 789019,
+   "revenue_2017": 281724000000.0,
+   "name": "MICROSOFT CORP",
+   "ticker_now": "MSFT",
+   "in_eval_universe": true,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-07-29",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": null,
+   "sic": "7372",
+   "names": [
+    "MICROSOFT CORP"
+   ],
+   "grade": "A",
+   "quality_score": 91.4
+  },
+  {
+   "cik": 909832,
+   "revenue_2017": 275235000000.0,
+   "name": "COSTCO WHOLESALE CORP /NEW",
+   "ticker_now": "COST",
+   "in_eval_universe": true,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-06-03",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": null,
+   "sic": "5331",
+   "names": [
+    "COSTCO WHOLESALE CORP /NEW"
+   ],
+   "grade": "A",
+   "quality_score": 90.6
+  },
+  {
+   "cik": 1067983,
+   "revenue_2017": 247244000000.0,
+   "name": "BERKSHIRE HATHAWAY INC",
+   "ticker_now": "BRK-B",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-08-10",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": null,
+   "sic": "6331",
+   "names": [
+    "BERKSHIRE HATHAWAY INC"
+   ],
+   "grade": null,
+   "quality_score": null
+  },
+  {
+   "cik": 34088,
+   "revenue_2017": 244363000000.0,
+   "name": "EXXON MOBIL CORP",
+   "ticker_now": null,
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-08-03",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": "2024-02-02",
+   "sic": "2911",
+   "names": [
+    "EXXON MOBIL CORP"
+   ],
+   "grade": "A",
+   "quality_score": 90.8
+  },
+  {
+   "cik": 731766,
+   "revenue_2017": 201159000000.0,
+   "name": "UNITEDHEALTH GROUP INC",
+   "ticker_now": "UNH",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-08-10",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": "2020-01-09",
+   "sic": "6324",
+   "names": [
+    "UNITEDHEALTH GROUP INC"
+   ],
+   "grade": null,
+   "quality_score": null
+  },
+  {
+   "cik": 1326801,
+   "revenue_2017": 200966000000.0,
+   "name": "Meta Platforms, Inc.",
+   "ticker_now": "META",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-07-30",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": null,
+   "sic": "7370",
+   "names": [
+    "Meta Platforms, Inc.",
+    "Facebook Inc"
+   ],
+   "grade": "A",
+   "quality_score": 82.3
+  },
+  {
+   "cik": 37996,
+   "revenue_2017": 187267000000.0,
+   "name": "FORD MOTOR CO",
+   "ticker_now": "F",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-07-29",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": null,
+   "sic": "3711",
+   "names": [
+    "FORD MOTOR CO"
+   ],
+   "grade": "A",
+   "quality_score": 86.4
+  },
+  {
+   "cik": 1549802,
+   "revenue_2017": 187197000000.0,
+   "name": "JD.com, Inc.",
+   "ticker_now": "JD",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-04-16",
+   "had_public_equity": false,
+   "bankruptcy_8k": null,
+   "merger_filing": null,
+   "sic": "5990",
+   "names": [
+    "JD.com, Inc."
+   ]
+  },
+  {
+   "cik": 64803,
+   "revenue_2017": 184786000000.0,
+   "name": "CVS HEALTH Corp",
+   "ticker_now": "CVS",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-08-05",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": "2018-11-26",
+   "sic": "5912",
+   "names": [
+    "CVS HEALTH Corp"
+   ],
+   "grade": "A",
+   "quality_score": 92.0
+  },
+  {
+   "cik": 93410,
+   "revenue_2017": 184432000000.0,
+   "name": "CHEVRON CORP",
+   "ticker_now": "CVX",
+   "in_eval_universe": true,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-08-06",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": "2024-05-28",
+   "sic": "2911",
+   "names": [
+    "CHEVRON CORP"
+   ],
+   "grade": "A",
+   "quality_score": 93.6
+  },
+  {
+   "cik": 1071739,
+   "revenue_2017": 174581000000.0,
+   "name": "CENTENE CORP",
+   "ticker_now": "CNC",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-07-28",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": "2020-01-22",
+   "sic": "6324",
+   "names": [
+    "CENTENE CORP"
+   ],
+   "grade": null,
+   "quality_score": null
+  },
+  {
+   "cik": 1467858,
+   "revenue_2017": 167971000000.0,
+   "name": "General Motors Co",
+   "ticker_now": "GM",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-07-21",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": null,
+   "sic": "3711",
+   "names": [
+    "General Motors Co"
+   ],
+   "grade": "B",
+   "quality_score": 66.2
+  },
+  {
+   "cik": 354950,
+   "revenue_2017": 164683000000.0,
+   "name": "HOME DEPOT, INC.",
+   "ticker_now": "HD",
+   "in_eval_universe": true,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-08-25",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": "2025-07-14",
+   "sic": "5211",
+   "names": [
+    "HOME DEPOT, INC.",
+    "HOME DEPOT INC"
+   ],
+   "grade": "A",
+   "quality_score": 97.5
+  },
+  {
+   "cik": 732717,
+   "revenue_2017": 160546000000.0,
+   "name": "AT&T INC.",
+   "ticker_now": "T",
+   "in_eval_universe": true,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-07-22",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": "2022-02-01",
+   "sic": "4813",
+   "names": [
+    "AT&T INC."
+   ],
+   "grade": "A",
+   "quality_score": 82.0
+  },
+  {
+   "cik": 1140859,
+   "revenue_2017": 153143826000.0,
+   "name": "Cencora, Inc.",
+   "ticker_now": "COR",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-08-05",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": null,
+   "sic": "5122",
+   "names": [
+    "Cencora, Inc.",
+    "AMERISOURCEBERGEN CORP"
+   ],
+   "grade": "A",
+   "quality_score": 86.4
+  },
+  {
+   "cik": 56873,
+   "revenue_2017": 147642000000.0,
+   "name": "KROGER CO",
+   "ticker_now": "KR",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-09-18",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": null,
+   "sic": "5411",
+   "names": [
+    "KROGER CO"
+   ],
+   "grade": "A",
+   "quality_score": 89.6
+  },
+  {
+   "cik": 1510295,
+   "revenue_2017": 132699000000.0,
+   "name": "Marathon Petroleum Corp",
+   "ticker_now": "MPC",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-08-04",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": "2019-06-26",
+   "sic": "2911",
+   "names": [
+    "Marathon Petroleum Corp"
+   ],
+   "grade": "A",
+   "quality_score": 96.1
+  },
+  {
+   "cik": 1534701,
+   "revenue_2017": 132376000000.0,
+   "name": "Phillips 66",
+   "ticker_now": "PSX",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-08-05",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": "2022-01-07",
+   "sic": "2911",
+   "names": [
+    "Phillips 66"
+   ],
+   "grade": "A",
+   "quality_score": 85.4
+  },
+  {
+   "cik": 721371,
+   "revenue_2017": 129976000000.0,
+   "name": "CARDINAL HEALTH INC",
+   "ticker_now": "CAH",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-08-11",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": null,
+   "sic": "5122",
+   "names": [
+    "CARDINAL HEALTH INC",
+    "CARDINAL HEALTH INC"
+   ],
+   "grade": "A",
+   "quality_score": 89.4
+  },
+  {
+   "cik": 732712,
+   "revenue_2017": 126034000000.0,
+   "name": "VERIZON COMMUNICATIONS INC",
+   "ticker_now": "VZ",
+   "in_eval_universe": true,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-07-31",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": null,
+   "sic": "4813",
+   "names": [
+    "VERIZON COMMUNICATIONS INC"
+   ],
+   "grade": "B",
+   "quality_score": 70.2
+  },
+  {
+   "cik": 1166691,
+   "revenue_2017": 123707000000.0,
+   "name": "COMCAST CORP",
+   "ticker_now": "CMCSA",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-07-23",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": null,
+   "sic": "4841",
+   "names": [
+    "COMCAST CORP"
+   ],
+   "grade": "B",
+   "quality_score": 78.0
+  },
+  {
+   "cik": 1618921,
+   "revenue_2017": 118214000000.0,
+   "name": "Walgreens Boots Alliance, Inc.",
+   "ticker_now": null,
+   "in_eval_universe": false,
+   "outcome": "ACQUIRED",
+   "last_periodic": "2025-06-26",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": "2025-06-06",
+   "sic": "5912",
+   "names": [
+    "Walgreens Boots Alliance, Inc."
+   ],
+   "grade": "A",
+   "quality_score": 87.0
+  },
+  {
+   "cik": 40545,
+   "revenue_2017": 113192000000.0,
+   "name": "GENERAL ELECTRIC CO",
+   "ticker_now": "GE",
+   "in_eval_universe": true,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-07-16",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": "2019-02-15",
+   "sic": "3600",
+   "names": [
+    "GENERAL ELECTRIC CO"
+   ],
+   "grade": "B",
+   "quality_score": 79.9
+  },
+  {
+   "cik": 1652044,
+   "revenue_2017": 110855000000.0,
+   "name": "Alphabet Inc.",
+   "ticker_now": "GOOGL",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-07-23",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": null,
+   "sic": "7370",
+   "names": [
+    "Alphabet Inc."
+   ],
+   "grade": "A",
+   "quality_score": 80.9
+  },
+  {
+   "cik": 27419,
+   "revenue_2017": 104780000000.0,
+   "name": "TARGET CORP",
+   "ticker_now": "TGT",
+   "in_eval_universe": true,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-08-28",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": null,
+   "sic": "5331",
+   "names": [
+    "TARGET CORP"
+   ],
+   "grade": null,
+   "quality_score": null
+  },
+  {
+   "cik": 1855447,
+   "revenue_2017": 103536000000.0,
+   "name": "TIGO ENERGY, INC.",
+   "ticker_now": "TYGO",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-08-04",
+   "had_public_equity": false,
+   "bankruptcy_8k": null,
+   "merger_filing": "2023-05-11",
+   "sic": "3674",
+   "names": [
+    "TIGO ENERGY, INC.",
+    "Roth CH Acquisition IV Co."
+   ]
+  },
+  {
+   "cik": 19617,
+   "revenue_2017": 100705000000.0,
+   "name": "JPMORGAN CHASE & CO",
+   "ticker_now": "JPM",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-08-06",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": null,
+   "sic": "6021",
+   "names": [
+    "JPMORGAN CHASE & CO",
+    "JPMORGAN CHASE & CO"
+   ],
+   "grade": null,
+   "quality_score": null
+  },
+  {
+   "cik": 1532063,
+   "revenue_2017": 100064600000.0,
+   "name": "Express Scripts Holding Co.",
+   "ticker_now": null,
+   "in_eval_universe": false,
+   "outcome": "ACQUIRED",
+   "last_periodic": "2018-10-31",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": "2018-08-16",
+   "sic": "5912",
+   "names": [
+    "Express Scripts Holding Co."
+   ],
+   "grade": "A",
+   "quality_score": 90.8
+  },
+  {
+   "cik": 1318605,
+   "revenue_2017": 94827000000.0,
+   "name": "Tesla, Inc.",
+   "ticker_now": "TSLA",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-07-23",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": "2019-05-13",
+   "sic": "3711",
+   "names": [
+    "Tesla, Inc.",
+    "TESLA MOTORS INC"
+   ],
+   "grade": "C",
+   "quality_score": 58.0
+  },
+  {
+   "cik": 1048911,
+   "revenue_2017": 94720000000.0,
+   "name": "FEDEX CORP",
+   "ticker_now": "FDX",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-07-20",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": null,
+   "sic": "4513",
+   "names": [
+    "FEDEX CORP"
+   ],
+   "grade": "A",
+   "quality_score": 82.8
+  },
+  {
+   "cik": 200406,
+   "revenue_2017": 94193000000.0,
+   "name": "JOHNSON & JOHNSON",
+   "ticker_now": "JNJ",
+   "in_eval_universe": true,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-07-23",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": "2023-08-23",
+   "sic": "2834",
+   "names": [
+    "JOHNSON & JOHNSON"
+   ],
+   "grade": "A",
+   "quality_score": 88.9
+  },
+  {
+   "cik": 12927,
+   "revenue_2017": 94005000000.0,
+   "name": "BOEING CO",
+   "ticker_now": "BA",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-07-28",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": "2024-07-31",
+   "sic": "3721",
+   "names": [
+    "BOEING CO"
+   ],
+   "grade": "A",
+   "quality_score": 99.2
+  },
+  {
+   "cik": 1156039,
+   "revenue_2017": 90040000000.0,
+   "name": "Elevance Health, Inc.",
+   "ticker_now": "ELV",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-07-15",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": null,
+   "sic": "6324",
+   "names": [
+    "Elevance Health, Inc.",
+    "Anthem, Inc."
+   ],
+   "grade": null,
+   "quality_score": null
+  },
+  {
+   "cik": 1090727,
+   "revenue_2017": 88661000000.0,
+   "name": "UNITED PARCEL SERVICE INC",
+   "ticker_now": "UPS",
+   "in_eval_universe": true,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-08-05",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": null,
+   "sic": "4210",
+   "names": [
+    "UNITED PARCEL SERVICE INC"
+   ],
+   "grade": "B",
+   "quality_score": 72.6
+  },
+  {
+   "cik": 101829,
+   "revenue_2017": 88603000000.0,
+   "name": "RTX Corp",
+   "ticker_now": "RTX",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-07-23",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": "2020-03-31",
+   "sic": "3724",
+   "names": [
+    "RTX Corp",
+    "RAYTHEON TECHNOLOGIES CORP",
+    "UNITED TECHNOLOGIES CORP /DE/"
+   ],
+   "grade": "A",
+   "quality_score": 94.5
+  },
+  {
+   "cik": 72971,
+   "revenue_2017": 88389000000.0,
+   "name": "WELLS FARGO & COMPANY/MN",
+   "ticker_now": "WFC",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-07-28",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": null,
+   "sic": "6021",
+   "names": [
+    "WELLS FARGO & COMPANY/MN"
+   ],
+   "grade": null,
+   "quality_score": null
+  },
+  {
+   "cik": 1283699,
+   "revenue_2017": 88309000000.0,
+   "name": "T-Mobile US, Inc.",
+   "ticker_now": "TMUS",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-07-23",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": "2020-03-19",
+   "sic": "4812",
+   "names": [
+    "T-Mobile US, Inc."
+   ],
+   "grade": "A",
+   "quality_score": 81.6
+  },
+  {
+   "cik": 70858,
+   "revenue_2017": 87126000000.0,
+   "name": "BANK OF AMERICA CORP /DE/",
+   "ticker_now": "BAC",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-07-31",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": null,
+   "sic": "6021",
+   "names": [
+    "BANK OF AMERICA CORP /DE/"
+   ],
+   "grade": null,
+   "quality_score": null
+  },
+  {
+   "cik": 60667,
+   "revenue_2017": 86286000000.0,
+   "name": "LOWES COMPANIES INC",
+   "ticker_now": "LOW",
+   "in_eval_universe": true,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-08-27",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": null,
+   "sic": "5211",
+   "names": [
+    "LOWES COMPANIES INC"
+   ],
+   "grade": "A",
+   "quality_score": 93.8
+  },
+  {
+   "cik": 96021,
+   "revenue_2017": 84553000000.0,
+   "name": "SYSCO CORP",
+   "ticker_now": "SYY",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-08-21",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": "2026-09-04",
+   "sic": "5140",
+   "names": [
+    "SYSCO CORP"
+   ],
+   "grade": null,
+   "quality_score": null
+  },
+  {
+   "cik": 1646972,
+   "revenue_2017": 83172500000.0,
+   "name": "Albertsons Companies, Inc.",
+   "ticker_now": "ACI",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-07-28",
+   "had_public_equity": false,
+   "bankruptcy_8k": null,
+   "merger_filing": "2023-04-21",
+   "sic": "5411",
+   "names": [
+    "Albertsons Companies, Inc."
+   ]
+  },
+  {
+   "cik": 51143,
+   "revenue_2017": 79139000000.0,
+   "name": "INTERNATIONAL BUSINESS MACHINES CORP",
+   "ticker_now": "IBM",
+   "in_eval_universe": true,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-07-23",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": null,
+   "sic": "3570",
+   "names": [
+    "INTERNATIONAL BUSINESS MACHINES CORP"
+   ],
+   "grade": "A",
+   "quality_score": 93.6
+  },
+  {
+   "cik": 1571996,
+   "revenue_2017": 79040000000.0,
+   "name": "Dell Technologies Inc.",
+   "ticker_now": "DELL",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-09-08",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": "2018-12-10",
+   "sic": "3571",
+   "names": [
+    "Dell Technologies Inc.",
+    "Dell Technologies Inc"
+   ],
+   "grade": "B",
+   "quality_score": 75.5
+  },
+  {
+   "cik": 1413329,
+   "revenue_2017": 78098000000.0,
+   "name": "Philip Morris International Inc.",
+   "ticker_now": "PM",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-07-24",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": null,
+   "sic": "2111",
+   "names": [
+    "Philip Morris International Inc."
+   ],
+   "grade": "A",
+   "quality_score": 93.2
+  },
+  {
+   "cik": 831001,
+   "revenue_2017": 72444000000.0,
+   "name": "CITIGROUP INC",
+   "ticker_now": "C",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-08-06",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": null,
+   "sic": "6021",
+   "names": [
+    "CITIGROUP INC",
+    "CITIGROUP INC"
+   ],
+   "grade": null,
+   "quality_score": null
+  },
+  {
+   "cik": 1341439,
+   "revenue_2017": 67357000000.0,
+   "name": "ORACLE CORP",
+   "ticker_now": "ORCL",
+   "in_eval_universe": true,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-09-11",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": "2022-01-19",
+   "sic": "7372",
+   "names": [
+    "ORACLE CORP"
+   ],
+   "grade": "A",
+   "quality_score": 88.5
+  },
+  {
+   "cik": 80424,
+   "revenue_2017": 65058000000.0,
+   "name": "PROCTER & GAMBLE Co",
+   "ticker_now": "PG",
+   "in_eval_universe": true,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-08-04",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": null,
+   "sic": "2840",
+   "names": [
+    "PROCTER & GAMBLE Co"
+   ],
+   "grade": "A",
+   "quality_score": 91.9
+  },
+  {
+   "cik": 1730168,
+   "revenue_2017": 63887000000.0,
+   "name": "Broadcom Inc.",
+   "ticker_now": "AVGO",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-09-10",
+   "had_public_equity": false,
+   "bankruptcy_8k": null,
+   "merger_filing": "2023-10-30",
+   "sic": "3674",
+   "names": [
+    "Broadcom Inc.",
+    "Broadcom Ltd"
+   ]
+  },
+  {
+   "cik": 77476,
+   "revenue_2017": 63525000000.0,
+   "name": "PEPSICO INC",
+   "ticker_now": "PEP",
+   "in_eval_universe": true,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-07-09",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": null,
+   "sic": "2080",
+   "names": [
+    "PEPSICO INC"
+   ],
+   "grade": "A",
+   "quality_score": 92.1
+  },
+  {
+   "cik": 27904,
+   "revenue_2017": 63364000000.0,
+   "name": "DELTA AIR LINES, INC.",
+   "ticker_now": "DAL",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-07-10",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": null,
+   "sic": "4512",
+   "names": [
+    "DELTA AIR LINES, INC.",
+    "DELTA AIR LINES INC /DE/"
+   ],
+   "grade": "A",
+   "quality_score": 89.0
+  },
+  {
+   "cik": 50863,
+   "revenue_2017": 62761000000.0,
+   "name": "INTEL CORP",
+   "ticker_now": "INTC",
+   "in_eval_universe": true,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-07-24",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": null,
+   "sic": "3674",
+   "names": [
+    "INTEL CORP"
+   ],
+   "grade": "A",
+   "quality_score": 93.8
+  },
+  {
+   "cik": 1177394,
+   "revenue_2017": 62508086000.0,
+   "name": "TD SYNNEX CORP",
+   "ticker_now": "SNX",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-10-01",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": "2021-06-09",
+   "sic": "5045",
+   "names": [
+    "TD SYNNEX CORP",
+    "SYNNEX CORP"
+   ],
+   "grade": "B",
+   "quality_score": 74.8
+  },
+  {
+   "cik": 1666700,
+   "revenue_2017": 62484000000.0,
+   "name": "DuPont de Nemours, Inc.",
+   "ticker_now": "DD",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-08-04",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": "2021-02-03",
+   "sic": "2821",
+   "names": [
+    "DuPont de Nemours, Inc.",
+    "DowDuPont Inc."
+   ],
+   "grade": "C",
+   "quality_score": 58.0
+  },
+  {
+   "cik": 1099219,
+   "revenue_2017": 62308000000.0,
+   "name": "METLIFE INC",
+   "ticker_now": "MET",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-08-06",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": null,
+   "sic": "6311",
+   "names": [
+    "METLIFE INC"
+   ],
+   "grade": null,
+   "quality_score": null
+  },
+  {
+   "cik": 1737806,
+   "revenue_2017": 61753116000.0,
+   "name": "PDD Holdings Inc.",
+   "ticker_now": "PDD",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-04-29",
+   "had_public_equity": false,
+   "bankruptcy_8k": null,
+   "merger_filing": null,
+   "sic": "7389",
+   "names": [
+    "PDD Holdings Inc.",
+    "Pinduoduo Inc.",
+    "Walnut Street Group Holding Ltd"
+   ]
+  },
+  {
+   "cik": 1551152,
+   "revenue_2017": 61160000000.0,
+   "name": "AbbVie Inc.",
+   "ticker_now": "ABBV",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-08-03",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": null,
+   "sic": "2834",
+   "names": [
+    "AbbVie Inc."
+   ],
+   "grade": "A",
+   "quality_score": 90.4
+  },
+  {
+   "cik": 7084,
+   "revenue_2017": 60828000000.0,
+   "name": "Archer-Daniels-Midland Co",
+   "ticker_now": "ADM",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-08-04",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": null,
+   "sic": "2070",
+   "names": [
+    "Archer-Daniels-Midland Co",
+    "Archer-Daniels-Midland Co",
+    "ARCHER DANIELS MIDLAND CO"
+   ],
+   "grade": "A",
+   "quality_score": 89.0
+  },
+  {
+   "cik": 1122304,
+   "revenue_2017": 60535000000.0,
+   "name": "AETNA INC /PA/",
+   "ticker_now": null,
+   "in_eval_universe": false,
+   "outcome": "ACQUIRED",
+   "last_periodic": "2018-10-30",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": "2018-11-26",
+   "sic": "6324",
+   "names": [
+    "AETNA INC /PA/"
+   ],
+   "grade": null,
+   "quality_score": null
+  },
+  {
+   "cik": 1859392,
+   "revenue_2017": 60243860000.0,
+   "name": "Galaxy Digital Inc.",
+   "ticker_now": "GLXY",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-08-10",
+   "had_public_equity": false,
+   "bankruptcy_8k": null,
+   "merger_filing": "2025-05-06",
+   "sic": "6211",
+   "names": [
+    "Galaxy Digital Inc.",
+    "Galaxy Digital Pubco Inc."
+   ]
+  },
+  {
+   "cik": 1137774,
+   "revenue_2017": 59689000000.0,
+   "name": "PRUDENTIAL FINANCIAL INC",
+   "ticker_now": "PRU",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-08-05",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": null,
+   "sic": "6311",
+   "names": [
+    "PRUDENTIAL FINANCIAL INC"
+   ],
+   "grade": null,
+   "quality_score": null
+  },
+  {
+   "cik": 100517,
+   "revenue_2017": 59070000000.0,
+   "name": "United Airlines Holdings, Inc.",
+   "ticker_now": "UAL",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-07-16",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": null,
+   "sic": "4512",
+   "names": [
+    "United Airlines Holdings, Inc.",
+    "United Continental Holdings, Inc."
+   ],
+   "grade": "A",
+   "quality_score": 89.0
+  },
+  {
+   "cik": 858877,
+   "revenue_2017": 56654000000.0,
+   "name": "CISCO SYSTEMS, INC.",
+   "ticker_now": "CSCO",
+   "in_eval_universe": true,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-09-02",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": "2023-09-21",
+   "sic": "3576",
+   "names": [
+    "CISCO SYSTEMS, INC.",
+    "CISCO SYSTEMS, INC."
+   ],
+   "grade": "B",
+   "quality_score": 73.0
+  },
+  {
+   "cik": 29915,
+   "revenue_2017": 55508000000.0,
+   "name": "DOW CHEMICAL CO /DE/",
+   "ticker_now": null,
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-07-24",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": null,
+   "sic": "2821",
+   "names": [
+    "DOW CHEMICAL CO /DE/"
+   ],
+   "grade": "A",
+   "quality_score": 87.2
+  },
+  {
+   "cik": 1744489,
+   "revenue_2017": 55137000000.0,
+   "name": "Walt Disney Co",
+   "ticker_now": "DIS",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-08-05",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": null,
+   "sic": "7990",
+   "names": [
+    "Walt Disney Co",
+    "TWDC Holdco 613 Corp",
+    "TWDC Holdco 613 Corp."
+   ],
+   "grade": "A",
+   "quality_score": 90.6,
+   "grade_from": "TWDC Enterprises 18 Corp."
+  },
+  {
+   "cik": 1001039,
+   "revenue_2017": 55137000000.0,
+   "name": "TWDC Enterprises 18 Corp.",
+   "ticker_now": null,
+   "in_eval_universe": false,
+   "outcome": "DUPLICATE",
+   "last_periodic": "2019-02-05",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": "2018-07-19",
+   "sic": "7990",
+   "names": [
+    "TWDC Enterprises 18 Corp.",
+    "WALT DISNEY CO/"
+   ],
+   "grade": "A",
+   "quality_score": 90.6,
+   "successor": "Walt Disney Co (DIS)"
+  },
+  {
+   "cik": 6201,
+   "revenue_2017": 54633000000.0,
+   "name": "American Airlines Group Inc.",
+   "ticker_now": "AAL",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-07-23",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": null,
+   "sic": "4512",
+   "names": [
+    "American Airlines Group Inc."
+   ],
+   "grade": "A",
+   "quality_score": 86.0
+  },
+  {
+   "cik": 100493,
+   "revenue_2017": 54441000000.0,
+   "name": "TYSON FOODS, INC.",
+   "ticker_now": "TSN",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-08-03",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": null,
+   "sic": "2015",
+   "names": [
+    "TYSON FOODS, INC.",
+    "TYSON FOODS INC"
+   ],
+   "grade": "A",
+   "quality_score": 85.6
+  },
+  {
+   "cik": 49071,
+   "revenue_2017": 53767000000.0,
+   "name": "HUMANA INC",
+   "ticker_now": "HUM",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-07-29",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": null,
+   "sic": "6324",
+   "names": [
+    "HUMANA INC"
+   ],
+   "grade": null,
+   "quality_score": null
+  },
+  {
+   "cik": 1897762,
+   "revenue_2017": 52556263000.0,
+   "name": "Ingram Micro Holding Corp",
+   "ticker_now": "INGM",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-07-30",
+   "had_public_equity": false,
+   "bankruptcy_8k": null,
+   "merger_filing": null,
+   "sic": "5045",
+   "names": [
+    "Ingram Micro Holding Corp"
+   ]
+  },
+  {
+   "cik": 40533,
+   "revenue_2017": 52550000000.0,
+   "name": "GENERAL DYNAMICS CORP",
+   "ticker_now": "GD",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-07-29",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": "2018-03-05",
+   "sic": "3730",
+   "names": [
+    "GENERAL DYNAMICS CORP"
+   ],
+   "grade": "A",
+   "quality_score": 88.8
+  },
+  {
+   "cik": 47217,
+   "revenue_2017": 52056000000.0,
+   "name": "HP INC",
+   "ticker_now": "HPQ",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-08-27",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": "2020-03-31",
+   "sic": "3570",
+   "names": [
+    "HP INC"
+   ],
+   "grade": "B",
+   "quality_score": 74.3
+  },
+  {
+   "cik": 1163165,
+   "revenue_2017": 51824000000.0,
+   "name": "CONOCOPHILLIPS",
+   "ticker_now": "COP",
+   "in_eval_universe": true,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-08-06",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": "2024-08-01",
+   "sic": "2911",
+   "names": [
+    "CONOCOPHILLIPS"
+   ],
+   "grade": "B",
+   "quality_score": 79.1
+  },
+  {
+   "cik": 936468,
+   "revenue_2017": 51048000000.0,
+   "name": "LOCKHEED MARTIN CORP",
+   "ticker_now": "LMT",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-07-23",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": null,
+   "sic": "3760",
+   "names": [
+    "LOCKHEED MARTIN CORP",
+    "LOCKHEED MARTIN CORP"
+   ],
+   "grade": "A",
+   "quality_score": 93.5
+  },
+  {
+   "cik": 5272,
+   "revenue_2017": 49520000000.0,
+   "name": "AMERICAN INTERNATIONAL GROUP, INC.",
+   "ticker_now": "AIG",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-08-07",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": null,
+   "sic": "6331",
+   "names": [
+    "AMERICAN INTERNATIONAL GROUP, INC.",
+    "AMERICAN INTERNATIONAL GROUP INC"
+   ],
+   "grade": null,
+   "quality_score": null
+  },
+  {
+   "cik": 320187,
+   "revenue_2017": 46398000000.0,
+   "name": "NIKE, Inc.",
+   "ticker_now": "NKE",
+   "in_eval_universe": true,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-10-02",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": null,
+   "sic": "3021",
+   "names": [
+    "NIKE, Inc.",
+    "NIKE INC"
+   ],
+   "grade": "A",
+   "quality_score": 95.1
+  },
+  {
+   "cik": 1144519,
+   "revenue_2017": 45794000000.0,
+   "name": "BUNGELTD",
+   "ticker_now": null,
+   "in_eval_universe": false,
+   "outcome": "DUPLICATE",
+   "last_periodic": "2023-10-26",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": "2023-08-07",
+   "sic": "2070",
+   "names": [
+    "BUNGELTD",
+    "BUNGE LTD",
+    "Bunge LTD"
+   ],
+   "grade": "A",
+   "quality_score": 93.6,
+   "successor": "Bunge Global SA (BG)"
+  },
+  {
+   "cik": 18230,
+   "revenue_2017": 45462000000.0,
+   "name": "CATERPILLAR INC",
+   "ticker_now": "CAT",
+   "in_eval_universe": true,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-08-05",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": null,
+   "sic": "3531",
+   "names": [
+    "CATERPILLAR INC"
+   ],
+   "grade": "A",
+   "quality_score": 92.5
+  },
+  {
+   "cik": 97745,
+   "revenue_2017": 44556000000.0,
+   "name": "THERMO FISHER SCIENTIFIC INC.",
+   "ticker_now": "TMO",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-07-31",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": "2023-10-31",
+   "sic": "3829",
+   "names": [
+    "THERMO FISHER SCIENTIFIC INC."
+   ],
+   "grade": null,
+   "quality_score": null
+  },
+  {
+   "cik": 1800,
+   "revenue_2017": 44328000000.0,
+   "name": "ABBOTT LABORATORIES",
+   "ticker_now": "ABT",
+   "in_eval_universe": true,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-07-28",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": null,
+   "sic": "2834",
+   "names": [
+    "ABBOTT LABORATORIES"
+   ],
+   "grade": "B",
+   "quality_score": 72.7
+  },
+  {
+   "cik": 29534,
+   "revenue_2017": 42724369000.0,
+   "name": "DOLLAR GENERAL CORP",
+   "ticker_now": "DG",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-08-27",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": null,
+   "sic": "5331",
+   "names": [
+    "DOLLAR GENERAL CORP"
+   ],
+   "grade": "A",
+   "quality_score": 94.0
+  },
+  {
+   "cik": 764478,
+   "revenue_2017": 42151000000.0,
+   "name": "BEST BUY CO INC",
+   "ticker_now": "BBY",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-09-04",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": null,
+   "sic": "5731",
+   "names": [
+    "BEST BUY CO INC"
+   ],
+   "grade": "A",
+   "quality_score": 95.4
+  },
+  {
+   "cik": 749098,
+   "revenue_2017": 42010000000.0,
+   "name": "MAGNA INTERNATIONAL INC",
+   "ticker_now": "MGA",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-03-27",
+   "had_public_equity": false,
+   "bankruptcy_8k": null,
+   "merger_filing": null,
+   "sic": "3714",
+   "names": [
+    "MAGNA INTERNATIONAL INC"
+   ]
+  },
+  {
+   "cik": 1739940,
+   "revenue_2017": 41806000000.0,
+   "name": "Cigna Group",
+   "ticker_now": "CI",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-07-30",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": null,
+   "sic": "6324",
+   "names": [
+    "Cigna Group",
+    "Cigna Corp",
+    "Halfmoon Parent, Inc."
+   ]
+  },
+  {
+   "cik": 701221,
+   "revenue_2017": 41616000000.0,
+   "name": "Cigna Holding Co",
+   "ticker_now": null,
+   "in_eval_universe": false,
+   "outcome": "DUPLICATE",
+   "last_periodic": "2018-11-01",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": "2018-09-27",
+   "sic": "6324",
+   "names": [
+    "Cigna Holding Co",
+    "CIGNA CORP"
+   ],
+   "grade": null,
+   "quality_score": null,
+   "successor": "Cigna Group (CI)"
+  },
+  {
+   "cik": 1091667,
+   "revenue_2017": 41581000000.0,
+   "name": "CHARTER COMMUNICATIONS, INC. /MO/",
+   "ticker_now": "CHTR",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-07-24",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": "2026-01-06",
+   "sic": "4841",
+   "names": [
+    "CHARTER COMMUNICATIONS, INC. /MO/"
+   ],
+   "grade": "B",
+   "quality_score": 79.9
+  },
+  {
+   "cik": 1271833,
+   "revenue_2017": 41578000000.0,
+   "name": "CCO HOLDINGS LLC",
+   "ticker_now": null,
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-07-24",
+   "had_public_equity": false,
+   "bankruptcy_8k": null,
+   "merger_filing": null,
+   "sic": "4841",
+   "names": [
+    "CCO HOLDINGS LLC"
+   ]
+  },
+  {
+   "cik": 1108524,
+   "revenue_2017": 41525000000.0,
+   "name": "Salesforce, Inc.",
+   "ticker_now": "CRM",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-08-27",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": "2021-07-19",
+   "sic": "7372",
+   "names": [
+    "Salesforce, Inc.",
+    "SALESFORCE.COM, INC.",
+    "SALESFORCE COM INC"
+   ],
+   "grade": "A",
+   "quality_score": 81.1
+  },
+  {
+   "cik": 4962,
+   "revenue_2017": 41304000000.0,
+   "name": "AMERICAN EXPRESS CO",
+   "ticker_now": "AXP",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-07-24",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": null,
+   "sic": "6199",
+   "names": [
+    "AMERICAN EXPRESS CO"
+   ],
+   "grade": null,
+   "quality_score": null
+  },
+  {
+   "cik": 773840,
+   "revenue_2017": 40534000000.0,
+   "name": "HONEYWELL INTERNATIONAL INC",
+   "ticker_now": "HON",
+   "in_eval_universe": true,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-07-23",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": null,
+   "sic": "3724",
+   "names": [
+    "HONEYWELL INTERNATIONAL INC"
+   ],
+   "grade": "A",
+   "quality_score": 92.1
+  },
+  {
+   "cik": 1161154,
+   "revenue_2017": 40523000000.0,
+   "name": "Energy Transfer Operating, L.P.",
+   "ticker_now": null,
+   "in_eval_universe": false,
+   "outcome": "ACQUIRED",
+   "last_periodic": "2021-02-19",
+   "had_public_equity": false,
+   "bankruptcy_8k": null,
+   "merger_filing": "2021-03-05",
+   "sic": "4610",
+   "names": [
+    "Energy Transfer Operating, L.P.",
+    "Energy Transfer Partners, L.P.",
+    "SUNOCO LOGISTICS PARTNERS L.P."
+   ]
+  },
+  {
+   "cik": 1276187,
+   "revenue_2017": 40523000000.0,
+   "name": "Energy Transfer LP",
+   "ticker_now": "ET",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-08-06",
+   "had_public_equity": false,
+   "bankruptcy_8k": null,
+   "merger_filing": "2023-11-01",
+   "sic": "4922",
+   "names": [
+    "Energy Transfer LP",
+    "Energy Transfer Equity, L.P."
+   ]
+  },
+  {
+   "cik": 310158,
+   "revenue_2017": 40122000000.0,
+   "name": "Merck & Co., Inc.",
+   "ticker_now": "MRK",
+   "in_eval_universe": true,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-08-07",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": "2026-04-07",
+   "sic": "2834",
+   "names": [
+    "Merck & Co., Inc."
+   ],
+   "grade": "A",
+   "quality_score": 95.1
+  },
+  {
+   "cik": 1403161,
+   "revenue_2017": 40000000000.0,
+   "name": "VISA INC.",
+   "ticker_now": "V",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-07-29",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": "2026-05-11",
+   "sic": "7389",
+   "names": [
+    "VISA INC."
+   ],
+   "grade": "A",
+   "quality_score": 97.7
+  },
+  {
+   "cik": 1138118,
+   "revenue_2017": 39900000000.0,
+   "name": "CBRE GROUP, INC.",
+   "ticker_now": "CBRE",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-07-29",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": null,
+   "sic": "6500",
+   "names": [
+    "CBRE GROUP, INC."
+   ],
+   "grade": "A",
+   "quality_score": 80.4
+  },
+  {
+   "cik": 1577552,
+   "revenue_2017": 39898000000.0,
+   "name": "Alibaba Group Holding Ltd",
+   "ticker_now": "BABA",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-05-20",
+   "had_public_equity": false,
+   "bankruptcy_8k": null,
+   "merger_filing": null,
+   "sic": "7389",
+   "names": [
+    "Alibaba Group Holding Ltd"
+   ]
+  },
+  {
+   "cik": 1665918,
+   "revenue_2017": 39424000000.0,
+   "name": "US Foods Holding Corp.",
+   "ticker_now": "USFD",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-08-06",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": null,
+   "sic": "5140",
+   "names": [
+    "US Foods Holding Corp."
+   ],
+   "grade": "A",
+   "quality_score": 86.6
+  },
+  {
+   "cik": 899051,
+   "revenue_2017": 39407000000.0,
+   "name": "ALLSTATE CORP",
+   "ticker_now": "ALL",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-08-05",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": null,
+   "sic": "6331",
+   "names": [
+    "ALLSTATE CORP"
+   ],
+   "grade": null,
+   "quality_score": null
+  },
+  {
+   "cik": 1996810,
+   "revenue_2017": 38068000000.0,
+   "name": "GE Vernova Inc.",
+   "ticker_now": "GEV",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-07-22",
+   "had_public_equity": false,
+   "bankruptcy_8k": null,
+   "merger_filing": null,
+   "sic": "3600",
+   "names": [
+    "GE Vernova Inc.",
+    "GE Vernova LLC"
+   ]
+  },
+  {
+   "cik": 1023128,
+   "revenue_2017": 37634900000.0,
+   "name": "LITHIA MOTORS INC",
+   "ticker_now": "LAD",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-07-29",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": null,
+   "sic": "5500",
+   "names": [
+    "LITHIA MOTORS INC"
+   ],
+   "grade": "C",
+   "quality_score": 61.4
+  },
+  {
+   "cik": 849395,
+   "revenue_2017": 37447000000.0,
+   "name": "CRH PUBLIC LTD CO",
+   "ticker_now": "CRH",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-07-30",
+   "had_public_equity": false,
+   "bankruptcy_8k": null,
+   "merger_filing": null,
+   "sic": "3241",
+   "names": [
+    "CRH PUBLIC LTD CO"
+   ]
+  },
+  {
+   "cik": 723125,
+   "revenue_2017": 37378000000.0,
+   "name": "MICRON TECHNOLOGY INC",
+   "ticker_now": "MU",
+   "in_eval_universe": true,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-06-25",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": null,
+   "sic": "3674",
+   "names": [
+    "MICRON TECHNOLOGY INC"
+   ],
+   "grade": "A",
+   "quality_score": 96.2
+  },
+  {
+   "cik": 1437107,
+   "revenue_2017": 37296000000.0,
+   "name": "Warner Bros. Discovery, Inc.",
+   "ticker_now": "WBD",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-08-06",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": "2026-03-26",
+   "sic": "4841",
+   "names": [
+    "Warner Bros. Discovery, Inc.",
+    "Discovery, Inc.",
+    "Discovery Communications, Inc."
+   ],
+   "grade": "B",
+   "quality_score": 76.6
+  },
+  {
+   "cik": 937834,
+   "revenue_2017": 37225000000.0,
+   "name": "METROPOLITAN LIFE INSURANCE CO",
+   "ticker_now": null,
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-08-11",
+   "had_public_equity": false,
+   "bankruptcy_8k": null,
+   "merger_filing": null,
+   "sic": "6311",
+   "names": [
+    "METROPOLITAN LIFE INSURANCE CO"
+   ]
+  },
+  {
+   "cik": 1647339,
+   "revenue_2017": 36765478000.0,
+   "name": "Accenture Holdings plc",
+   "ticker_now": null,
+   "in_eval_universe": false,
+   "outcome": "GONE_BEFORE_START",
+   "last_periodic": "2017-12-21",
+   "had_public_equity": false,
+   "bankruptcy_8k": null,
+   "merger_filing": null,
+   "sic": "7389",
+   "names": [
+    "Accenture Holdings plc"
+   ]
+  },
+  {
+   "cik": 318154,
+   "revenue_2017": 36751000000.0,
+   "name": "AMGEN INC",
+   "ticker_now": "AMGN",
+   "in_eval_universe": true,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-08-05",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": "2021-03-18",
+   "sic": "2836",
+   "names": [
+    "AMGEN INC"
+   ],
+   "grade": "A",
+   "quality_score": 93.2
+  },
+  {
+   "cik": 1613103,
+   "revenue_2017": 36364000000.0,
+   "name": "Medtronic plc",
+   "ticker_now": "MDT",
+   "in_eval_universe": true,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-09-03",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": "2026-10-01",
+   "sic": "3845",
+   "names": [
+    "Medtronic plc"
+   ],
+   "grade": "A",
+   "quality_score": 90.5
+  },
+  {
+   "cik": 21344,
+   "revenue_2017": 36212000000.0,
+   "name": "COCA COLA CO",
+   "ticker_now": "KO",
+   "in_eval_universe": true,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-07-29",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": null,
+   "sic": "2080",
+   "names": [
+    "COCA COLA CO"
+   ],
+   "grade": "A",
+   "quality_score": 90.8
+  },
+  {
+   "cik": 1467373,
+   "revenue_2017": 36176841000.0,
+   "name": "Accenture plc",
+   "ticker_now": "ACN",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-06-18",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": null,
+   "sic": "7389",
+   "names": [
+    "Accenture plc",
+    "Accenture plc"
+   ],
+   "grade": "A",
+   "quality_score": 93.8
+  },
+  {
+   "cik": 109198,
+   "revenue_2017": 35864664000.0,
+   "name": "TJX COMPANIES INC /DE/",
+   "ticker_now": "TJX",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-08-28",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": null,
+   "sic": "5651",
+   "names": [
+    "TJX COMPANIES INC /DE/",
+    "TJX COMPANIES INC /DE/"
+   ],
+   "grade": "A",
+   "quality_score": 92.9
+  },
+  {
+   "cik": 87347,
+   "revenue_2017": 35708000000.0,
+   "name": "SLB LIMITED/NV",
+   "ticker_now": "SLB",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-07-29",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": "2025-07-15",
+   "sic": "1389",
+   "names": [
+    "SLB LIMITED/NV",
+    "SCHLUMBERGER LIMITED/NV"
+   ],
+   "grade": "A",
+   "quality_score": 84.2
+  },
+  {
+   "cik": 823277,
+   "revenue_2017": 35462608000.0,
+   "name": "CHS INC",
+   "ticker_now": "CHSCP",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-07-08",
+   "had_public_equity": false,
+   "bankruptcy_8k": null,
+   "merger_filing": null,
+   "sic": "5150",
+   "names": [
+    "CHS INC"
+   ]
+  },
+  {
+   "cik": 81061,
+   "revenue_2017": 34836838000.0,
+   "name": "PUBLIX SUPER MARKETS INC",
+   "ticker_now": null,
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-08-03",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": null,
+   "sic": "5411",
+   "names": [
+    "PUBLIX SUPER MARKETS INC"
+   ],
+   "grade": "A",
+   "quality_score": 97.2
+  },
+  {
+   "cik": 2488,
+   "revenue_2017": 34639000000.0,
+   "name": "ADVANCED MICRO DEVICES INC",
+   "ticker_now": "AMD",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-08-05",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": "2021-06-30",
+   "sic": "3674",
+   "names": [
+    "ADVANCED MICRO DEVICES INC"
+   ],
+   "grade": "A",
+   "quality_score": 88.4
+  },
+  {
+   "cik": 1834584,
+   "revenue_2017": 34534000000.0,
+   "name": "Coupang, Inc.",
+   "ticker_now": "CPNG",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-08-04",
+   "had_public_equity": false,
+   "bankruptcy_8k": null,
+   "merger_filing": null,
+   "sic": "5961",
+   "names": [
+    "Coupang, Inc."
+   ]
+  },
+  {
+   "cik": 1489393,
+   "revenue_2017": 34484000000.0,
+   "name": "LyondellBasell Industries N.V.",
+   "ticker_now": "LYB",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-07-31",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": null,
+   "sic": "2860",
+   "names": [
+    "LyondellBasell Industries N.V."
+   ],
+   "grade": "A",
+   "quality_score": 94.1
+  },
+  {
+   "cik": 1707925,
+   "revenue_2017": 33986000000.0,
+   "name": "LINDE PLC",
+   "ticker_now": "LIN",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-07-31",
+   "had_public_equity": false,
+   "bankruptcy_8k": null,
+   "merger_filing": "2022-12-09",
+   "sic": "2810",
+   "names": [
+    "LINDE PLC",
+    "ZAMALIGHT PLC"
+   ]
+  },
+  {
+   "cik": 789460,
+   "revenue_2017": 33695500000.0,
+   "name": "WORLD KINECT CORP",
+   "ticker_now": "WKC",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-07-24",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": null,
+   "sic": "5172",
+   "names": [
+    "WORLD KINECT CORP",
+    "WORLD FUEL SERVICES CORP"
+   ],
+   "grade": "B",
+   "quality_score": 67.5
+  },
+  {
+   "cik": 1039684,
+   "revenue_2017": 33629000000.0,
+   "name": "ONEOK INC /NEW/",
+   "ticker_now": "OKE",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-08-04",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": "2025-01-30",
+   "sic": "4923",
+   "names": [
+    "ONEOK INC /NEW/",
+    "ONEOK INC /NEW/"
+   ],
+   "grade": "B",
+   "quality_score": 78.0
+  },
+  {
+   "cik": 790703,
+   "revenue_2017": 33597841000.0,
+   "name": "TECH DATA CORP",
+   "ticker_now": null,
+   "in_eval_universe": false,
+   "outcome": "ACQUIRED",
+   "last_periodic": "2020-06-03",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": "2020-01-10",
+   "sic": "5045",
+   "names": [
+    "TECH DATA CORP"
+   ],
+   "grade": "B",
+   "quality_score": 71.2
+  },
+  {
+   "cik": 1109357,
+   "revenue_2017": 33558000000.0,
+   "name": "EXELON CORP",
+   "ticker_now": "EXC",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-07-30",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": null,
+   "sic": "4931",
+   "names": [
+    "EXELON CORP"
+   ],
+   "grade": "A",
+   "quality_score": 82.0
+  },
+  {
+   "cik": 73309,
+   "revenue_2017": 32494000000.0,
+   "name": "NUCOR CORP",
+   "ticker_now": "NUE",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-08-12",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": null,
+   "sic": "3312",
+   "names": [
+    "NUCOR CORP"
+   ],
+   "grade": "B",
+   "quality_score": 78.4
+  },
+  {
+   "cik": 101830,
+   "revenue_2017": 32406000000.0,
+   "name": "SPRINT LLC",
+   "ticker_now": null,
+   "in_eval_universe": false,
+   "outcome": "ACQUIRED",
+   "last_periodic": "2020-01-27",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": "2020-03-19",
+   "sic": "4813",
+   "names": [
+    "SPRINT LLC",
+    "SPRINT CORP",
+    "SPRINT Corp"
+   ],
+   "grade": "B",
+   "quality_score": 77.3
+  },
+  {
+   "cik": 896159,
+   "revenue_2017": 32243000000.0,
+   "name": "Chubb Ltd",
+   "ticker_now": "CB",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-07-28",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": null,
+   "sic": "6331",
+   "names": [
+    "Chubb Ltd"
+   ],
+   "grade": null,
+   "quality_score": null
+  },
+  {
+   "cik": 1019849,
+   "revenue_2017": 31808500000.0,
+   "name": "PENSKE AUTOMOTIVE GROUP, INC.",
+   "ticker_now": "PAG",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-07-30",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": null,
+   "sic": "5500",
+   "names": [
+    "PENSKE AUTOMOTIVE GROUP, INC."
+   ],
+   "grade": "A",
+   "quality_score": 82.8
+  },
+  {
+   "cik": 1020859,
+   "revenue_2017": 31784000000.0,
+   "name": "UNITED NATURAL FOODS INC",
+   "ticker_now": "UNFI",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-09-14",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": null,
+   "sic": "5141",
+   "names": [
+    "UNITED NATURAL FOODS INC"
+   ],
+   "grade": "A",
+   "quality_score": 90.1
+  },
+  {
+   "cik": 66740,
+   "revenue_2017": 31657000000.0,
+   "name": "3M CO",
+   "ticker_now": "MMM",
+   "in_eval_universe": true,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-07-21",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": "2022-09-06",
+   "sic": "3841",
+   "names": [
+    "3M CO"
+   ],
+   "grade": "A",
+   "quality_score": 93.8
+  },
+  {
+   "cik": 1105705,
+   "revenue_2017": 31271000000.0,
+   "name": "WARNER MEDIA, LLC",
+   "ticker_now": null,
+   "in_eval_universe": false,
+   "outcome": "GONE_BEFORE_START",
+   "last_periodic": "2018-04-26",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": null,
+   "sic": "4841",
+   "names": [
+    "WARNER MEDIA, LLC",
+    "TIME WARNER LLC",
+    "TIME WARNER INC."
+   ]
+  },
+  {
+   "cik": 2005951,
+   "revenue_2017": 31179000000.0,
+   "name": "Smurfit Westrock plc",
+   "ticker_now": "SW",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-07-31",
+   "had_public_equity": false,
+   "bankruptcy_8k": null,
+   "merger_filing": "2024-07-05",
+   "sic": "2650",
+   "names": [
+    "Smurfit Westrock plc",
+    "Smurfit WestRock Ltd"
+   ]
+  },
+  {
+   "cik": 1013871,
+   "revenue_2017": 30347000000.0,
+   "name": "NRG ENERGY, INC.",
+   "ticker_now": "NRG",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-08-04",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": null,
+   "sic": "4911",
+   "names": [
+    "NRG ENERGY, INC.",
+    "NRG ENERGY, INC."
+   ],
+   "grade": "B",
+   "quality_score": 71.8
+  },
+  {
+   "cik": 833444,
+   "revenue_2017": 30172000000.0,
+   "name": "Johnson Controls International plc",
+   "ticker_now": "JCI",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-07-29",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": null,
+   "sic": "3585",
+   "names": [
+    "Johnson Controls International plc"
+   ],
+   "grade": "A",
+   "quality_score": 87.6
+  },
+  {
+   "cik": 898293,
+   "revenue_2017": 29802000000.0,
+   "name": "JABIL INC",
+   "ticker_now": "JBL",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-06-30",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": null,
+   "sic": "3672",
+   "names": [
+    "JABIL INC",
+    "JABIL CIRCUIT INC"
+   ],
+   "grade": "B",
+   "quality_score": 79.2
+  },
+  {
+   "cik": 315189,
+   "revenue_2017": 29738000000.0,
+   "name": "DEERE & CO",
+   "ticker_now": "DE",
+   "in_eval_universe": true,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-08-27",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": null,
+   "sic": "3523",
+   "names": [
+    "DEERE & CO"
+   ],
+   "grade": "A",
+   "quality_score": 85.8
+  },
+  {
+   "cik": 882095,
+   "revenue_2017": 29443000000.0,
+   "name": "GILEAD SCIENCES, INC.",
+   "ticker_now": "GILD",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-08-06",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": "2026-03-06",
+   "sic": "2836",
+   "names": [
+    "GILEAD SCIENCES, INC.",
+    "GILEAD SCIENCES INC"
+   ],
+   "grade": "A",
+   "quality_score": 91.1
+  },
+  {
+   "cik": 913760,
+   "revenue_2017": 29423600000.0,
+   "name": "StoneX Group Inc.",
+   "ticker_now": "SNEX",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-08-05",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": null,
+   "sic": "6200",
+   "names": [
+    "StoneX Group Inc.",
+    "INTL FCSTONE INC."
+   ],
+   "grade": null,
+   "quality_score": null
+  },
+  {
+   "cik": 1534504,
+   "revenue_2017": 29332300000.0,
+   "name": "PBF Energy Inc.",
+   "ticker_now": "PBF",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-07-30",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": "2022-10-27",
+   "sic": "2911",
+   "names": [
+    "PBF Energy Inc."
+   ],
+   "grade": "A",
+   "quality_score": 83.7
+  },
+  {
+   "cik": 1566011,
+   "revenue_2017": 29297700000.0,
+   "name": "PBF Holding Co LLC",
+   "ticker_now": null,
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-08-04",
+   "had_public_equity": false,
+   "bankruptcy_8k": null,
+   "merger_filing": null,
+   "sic": "2911",
+   "names": [
+    "PBF Holding Co LLC"
+   ]
+  },
+  {
+   "cik": 1061219,
+   "revenue_2017": 29241500000.0,
+   "name": "ENTERPRISE PRODUCTS PARTNERS L.P.",
+   "ticker_now": "EPD",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-08-07",
+   "had_public_equity": false,
+   "bankruptcy_8k": null,
+   "merger_filing": null,
+   "sic": "4922",
+   "names": [
+    "ENTERPRISE PRODUCTS PARTNERS L.P.",
+    "ENTERPRISE PRODUCTS PARTNERS L P"
+   ]
+  },
+  {
+   "cik": 86312,
+   "revenue_2017": 28902000000.0,
+   "name": "TRAVELERS COMPANIES, INC.",
+   "ticker_now": "TRV",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-07-17",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": null,
+   "sic": "6331",
+   "names": [
+    "TRAVELERS COMPANIES, INC."
+   ],
+   "grade": null,
+   "quality_score": null
+  },
+  {
+   "cik": 1645590,
+   "revenue_2017": 28871000000.0,
+   "name": "Hewlett Packard Enterprise Co",
+   "ticker_now": "HPE",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-09-03",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": null,
+   "sic": "3570",
+   "names": [
+    "Hewlett Packard Enterprise Co"
+   ],
+   "grade": "A",
+   "quality_score": 86.8
+  },
+  {
+   "cik": 1308161,
+   "revenue_2017": 28500000000.0,
+   "name": "TWENTY-FIRST CENTURY FOX, INC.",
+   "ticker_now": null,
+   "in_eval_universe": false,
+   "outcome": "ACQUIRED",
+   "last_periodic": "2019-02-06",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": "2018-07-19",
+   "sic": "4841",
+   "names": [
+    "TWENTY-FIRST CENTURY FOX, INC."
+   ],
+   "grade": "B",
+   "quality_score": 73.4
+  },
+  {
+   "cik": 1050915,
+   "revenue_2017": 28479697000.0,
+   "name": "QUANTA SERVICES, INC.",
+   "ticker_now": "PWR",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-07-30",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": null,
+   "sic": "1731",
+   "names": [
+    "QUANTA SERVICES, INC.",
+    "QUANTA SERVICES INC"
+   ],
+   "grade": "A",
+   "quality_score": 89.0
+  },
+  {
+   "cik": 6951,
+   "revenue_2017": 28368000000.0,
+   "name": "APPLIED MATERIALS INC /DE",
+   "ticker_now": "AMAT",
+   "in_eval_universe": true,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-08-20",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": null,
+   "sic": "3674",
+   "names": [
+    "APPLIED MATERIALS INC /DE"
+   ],
+   "grade": "A",
+   "quality_score": 97.5
+  },
+  {
+   "cik": 92380,
+   "revenue_2017": 28063000000.0,
+   "name": "SOUTHWEST AIRLINES CO",
+   "ticker_now": "LUV",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-07-23",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": null,
+   "sic": "4512",
+   "names": [
+    "SOUTHWEST AIRLINES CO"
+   ],
+   "grade": "A",
+   "quality_score": 93.0
+  },
+  {
+   "cik": 866374,
+   "revenue_2017": 27914000000.0,
+   "name": "FLEX LTD.",
+   "ticker_now": "FLEX",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-07-31",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": "2023-10-27",
+   "sic": "3672",
+   "names": [
+    "FLEX LTD."
+   ],
+   "grade": "B",
+   "quality_score": 71.8
+  },
+  {
+   "cik": 1701605,
+   "revenue_2017": 27733000000.0,
+   "name": "Baker Hughes Co",
+   "ticker_now": "BKR",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-07-27",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": null,
+   "sic": "3533",
+   "names": [
+    "Baker Hughes Co",
+    "Baker Hughes a GE Co",
+    "Bear Newco, Inc."
+   ],
+   "grade": "D",
+   "quality_score": 49.2
+  },
+  {
+   "cik": 1567094,
+   "revenue_2017": 27701000000.0,
+   "name": "CNH Industrial N.V.",
+   "ticker_now": "CNH",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-08-03",
+   "had_public_equity": false,
+   "bankruptcy_8k": null,
+   "merger_filing": null,
+   "sic": "3531",
+   "names": [
+    "CNH Industrial N.V."
+   ]
+  },
+  {
+   "cik": 8858,
+   "revenue_2017": 27632683000.0,
+   "name": "AVNET INC",
+   "ticker_now": "AVT",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-08-14",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": null,
+   "sic": "5065",
+   "names": [
+    "AVNET INC"
+   ],
+   "grade": null,
+   "quality_score": null
+  },
+  {
+   "cik": 1551182,
+   "revenue_2017": 27448000000.0,
+   "name": "Eaton Corp plc",
+   "ticker_now": "ETN",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-07-31",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": "2026-07-31",
+   "sic": "3590",
+   "names": [
+    "Eaton Corp plc"
+   ],
+   "grade": "A",
+   "quality_score": 90.7
+  },
+  {
+   "cik": 927628,
+   "revenue_2017": 27237000000.0,
+   "name": "CAPITAL ONE FINANCIAL CORP",
+   "ticker_now": "COF",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-07-28",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": "2025-02-10",
+   "sic": "6021",
+   "names": [
+    "CAPITAL ONE FINANCIAL CORP"
+   ],
+   "grade": null,
+   "quality_score": null
+  },
+  {
+   "cik": 62709,
+   "revenue_2017": 26981000000.0,
+   "name": "MARSH & MCLENNAN COMPANIES, INC.",
+   "ticker_now": "MRSH",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-07-21",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": null,
+   "sic": "6411",
+   "names": [
+    "MARSH & MCLENNAN COMPANIES, INC."
+   ],
+   "grade": null,
+   "quality_score": null
+  },
+  {
+   "cik": 1915657,
+   "revenue_2017": 26869000000.0,
+   "name": "HF Sinclair Corp",
+   "ticker_now": "DINO",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-07-30",
+   "had_public_equity": false,
+   "bankruptcy_8k": null,
+   "merger_filing": "2023-11-14",
+   "sic": "4610",
+   "names": [
+    "HF Sinclair Corp"
+   ]
+  },
+  {
+   "cik": 80661,
+   "revenue_2017": 26839000000.0,
+   "name": "PROGRESSIVE CORP/OH/",
+   "ticker_now": "PGR",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-08-03",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": null,
+   "sic": "6331",
+   "names": [
+    "PROGRESSIVE CORP/OH/"
+   ],
+   "grade": null,
+   "quality_score": null
+  },
+  {
+   "cik": 815097,
+   "revenue_2017": 26622000000.0,
+   "name": "Carnival Corp Ltd.",
+   "ticker_now": "CCL",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-09-29",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": "2026-02-27",
+   "sic": "4400",
+   "names": [
+    "Carnival Corp Ltd.",
+    "CARNIVAL CORP"
+   ],
+   "grade": "A",
+   "quality_score": 92.0
+  },
+  {
+   "cik": 7536,
+   "revenue_2017": 26554563000.0,
+   "name": "ARROW ELECTRONICS, INC.",
+   "ticker_now": "ARW",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-08-06",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": null,
+   "sic": "5065",
+   "names": [
+    "ARROW ELECTRONICS, INC.",
+    "ARROW ELECTRONICS, INC",
+    "ARROW ELECTRONICS INC"
+   ],
+   "grade": "B",
+   "quality_score": 73.2
+  },
+  {
+   "cik": 1070423,
+   "revenue_2017": 26223000000.0,
+   "name": "PLAINS ALL AMERICAN PIPELINE LP",
+   "ticker_now": "PAA",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-08-10",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": null,
+   "sic": "4610",
+   "names": [
+    "PLAINS ALL AMERICAN PIPELINE LP"
+   ],
+   "grade": "A",
+   "quality_score": 95.0
+  },
+  {
+   "cik": 1581990,
+   "revenue_2017": 26223000000.0,
+   "name": "PLAINS GP HOLDINGS LP",
+   "ticker_now": "PAGP",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-08-10",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": null,
+   "sic": "4610",
+   "names": [
+    "PLAINS GP HOLDINGS LP"
+   ],
+   "grade": "B",
+   "quality_score": 77.6
+  },
+  {
+   "cik": 1133421,
+   "revenue_2017": 26004000000.0,
+   "name": "NORTHROP GRUMMAN CORP /DE/",
+   "ticker_now": "NOC",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-07-21",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": null,
+   "sic": "3812",
+   "names": [
+    "NORTHROP GRUMMAN CORP /DE/"
+   ],
+   "grade": "A",
+   "quality_score": 93.8
+  },
+  {
+   "cik": 1103982,
+   "revenue_2017": 25896000000.0,
+   "name": "Mondelez International, Inc.",
+   "ticker_now": "MDLZ",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-07-28",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": null,
+   "sic": "2000",
+   "names": [
+    "Mondelez International, Inc."
+   ],
+   "grade": "B",
+   "quality_score": 72.4
+  },
+  {
+   "cik": 1170010,
+   "revenue_2017": 25881100000.0,
+   "name": "CARMAX INC",
+   "ticker_now": "KMX",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-09-30",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": null,
+   "sic": "5500",
+   "names": [
+    "CARMAX INC"
+   ],
+   "grade": "B",
+   "quality_score": 68.6
+  },
+  {
+   "cik": 764180,
+   "revenue_2017": 25576000000.0,
+   "name": "ALTRIA GROUP, INC.",
+   "ticker_now": "MO",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-07-30",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": null,
+   "sic": "2111",
+   "names": [
+    "ALTRIA GROUP, INC."
+   ],
+   "grade": "D",
+   "quality_score": 37.8
+  },
+  {
+   "cik": 1047122,
+   "revenue_2017": 25348000000.0,
+   "name": "RAYTHEON CO/",
+   "ticker_now": null,
+   "in_eval_universe": false,
+   "outcome": "ACQUIRED",
+   "last_periodic": "2020-02-12",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": "2020-03-31",
+   "sic": "3812",
+   "names": [
+    "RAYTHEON CO/"
+   ],
+   "grade": "A",
+   "quality_score": 91.7
+  },
+  {
+   "cik": 823768,
+   "revenue_2017": 25204000000.0,
+   "name": "WASTE MANAGEMENT INC",
+   "ticker_now": "WM",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-07-29",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": null,
+   "sic": "4953",
+   "names": [
+    "WASTE MANAGEMENT INC"
+   ],
+   "grade": "A",
+   "quality_score": 91.2
+  },
+  {
+   "cik": 1091587,
+   "revenue_2017": 25196000000.0,
+   "name": "ABB LTD",
+   "ticker_now": "ABLZF",
+   "in_eval_universe": false,
+   "outcome": "OTHER_STOPPED",
+   "last_periodic": "2024-02-23",
+   "had_public_equity": false,
+   "bankruptcy_8k": null,
+   "merger_filing": null,
+   "sic": "3613",
+   "names": [
+    "ABB LTD"
+   ]
+  },
+  {
+   "cik": 831259,
+   "revenue_2017": 25186000000.0,
+   "name": "FREEPORT-MCMORAN INC",
+   "ticker_now": "FCX",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-08-06",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": null,
+   "sic": "1000",
+   "names": [
+    "FREEPORT-MCMORAN INC"
+   ],
+   "grade": "A",
+   "quality_score": 85.2
+  },
+  {
+   "cik": 794367,
+   "revenue_2017": 24837000000.0,
+   "name": "Macy's, Inc.",
+   "ticker_now": "M",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-09-10",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": null,
+   "sic": "5311",
+   "names": [
+    "Macy's, Inc."
+   ],
+   "grade": "A",
+   "quality_score": 94.0
+  },
+  {
+   "cik": 313616,
+   "revenue_2017": 24568000000.0,
+   "name": "DANAHER CORP /DE/",
+   "ticker_now": "DHR",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-07-21",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": "2019-12-18",
+   "sic": "3823",
+   "names": [
+    "DANAHER CORP /DE/"
+   ],
+   "grade": "A",
+   "quality_score": 93.3
+  },
+  {
+   "cik": 100885,
+   "revenue_2017": 24510000000.0,
+   "name": "UNION PACIFIC CORP",
+   "ticker_now": "UNP",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-07-23",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": "2025-11-12",
+   "sic": "4011",
+   "names": [
+    "UNION PACIFIC CORP"
+   ],
+   "grade": "B",
+   "quality_score": 70.2
+  },
+  {
+   "cik": 40987,
+   "revenue_2017": 24300141000.0,
+   "name": "GENUINE PARTS CO",
+   "ticker_now": "GPC",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-07-21",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": "2018-05-17",
+   "sic": "5013",
+   "names": [
+    "GENUINE PARTS CO"
+   ],
+   "grade": "A",
+   "quality_score": 96.4
+  },
+  {
+   "cik": 2012383,
+   "revenue_2017": 24216000000.0,
+   "name": "BlackRock, Inc.",
+   "ticker_now": "BLK",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-08-06",
+   "had_public_equity": false,
+   "bankruptcy_8k": null,
+   "merger_filing": null,
+   "sic": "6211",
+   "names": [
+    "BlackRock, Inc.",
+    "BlackRock, Inc.",
+    "BlackRock Funding, Inc. /DE"
+   ]
+  },
+  {
+   "cik": 51434,
+   "revenue_2017": 23634000000.0,
+   "name": "INTERNATIONAL PAPER CO /NEW/",
+   "ticker_now": "IP",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-08-05",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": "2024-09-12",
+   "sic": "2621",
+   "names": [
+    "INTERNATIONAL PAPER CO /NEW/"
+   ],
+   "grade": "B",
+   "quality_score": 79.6
+  },
+  {
+   "cik": 89800,
+   "revenue_2017": 23574300000.0,
+   "name": "SHERWIN WILLIAMS CO",
+   "ticker_now": "SHW",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-07-28",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": null,
+   "sic": "5200",
+   "names": [
+    "SHERWIN WILLIAMS CO"
+   ],
+   "grade": "C",
+   "quality_score": 62.5
+  },
+  {
+   "cik": 929008,
+   "revenue_2017": 23510900000.0,
+   "name": "WESCO INTERNATIONAL INC",
+   "ticker_now": "WCC",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-07-30",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": "2020-06-12",
+   "sic": "5063",
+   "names": [
+    "WESCO INTERNATIONAL INC"
+   ],
+   "grade": "A",
+   "quality_score": 85.8
+  },
+  {
+   "cik": 934612,
+   "revenue_2017": 23421000000.0,
+   "name": "BURLINGTON NORTHERN SANTA FE, LLC",
+   "ticker_now": null,
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-08-10",
+   "had_public_equity": false,
+   "bankruptcy_8k": null,
+   "merger_filing": null,
+   "sic": "4011",
+   "names": [
+    "BURLINGTON NORTHERN SANTA FE, LLC"
+   ]
+  },
+  {
+   "cik": 842162,
+   "revenue_2017": 23259100000.0,
+   "name": "LEAR CORP",
+   "ticker_now": "LEA",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-07-31",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": null,
+   "sic": "3714",
+   "names": [
+    "LEAR CORP"
+   ],
+   "grade": "A",
+   "quality_score": 92.6
+  },
+  {
+   "cik": 707549,
+   "revenue_2017": 23232690000.0,
+   "name": "LAM RESEARCH CORP",
+   "ticker_now": "LRCX",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-08-07",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": null,
+   "sic": "3559",
+   "names": [
+    "LAM RESEARCH CORP"
+   ],
+   "grade": "A",
+   "quality_score": 97.0
+  },
+  {
+   "cik": 820313,
+   "revenue_2017": 23094700000.0,
+   "name": "AMPHENOL CORP /DE/",
+   "ticker_now": "APH",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-07-31",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": null,
+   "sic": "3678",
+   "names": [
+    "AMPHENOL CORP /DE/"
+   ],
+   "grade": "A",
+   "quality_score": 93.8
+  },
+  {
+   "cik": 92122,
+   "revenue_2017": 23031000000.0,
+   "name": "SOUTHERN CO",
+   "ticker_now": "SO",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-07-30",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": null,
+   "sic": "4911",
+   "names": [
+    "SOUTHERN CO",
+    "SOUTHERN CO"
+   ],
+   "grade": "B",
+   "quality_score": 70.6
+  },
+  {
+   "cik": 63908,
+   "revenue_2017": 22820400000.0,
+   "name": "MCDONALDS CORP",
+   "ticker_now": "MCD",
+   "in_eval_universe": true,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-08-07",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": null,
+   "sic": "5812",
+   "names": [
+    "MCDONALDS CORP"
+   ],
+   "grade": "A",
+   "quality_score": 95.4
+  },
+  {
+   "cik": 745732,
+   "revenue_2017": 22750559000.0,
+   "name": "ROSS STORES, INC.",
+   "ticker_now": "ROST",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-09-01",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": null,
+   "sic": "5651",
+   "names": [
+    "ROSS STORES, INC.",
+    "ROSS STORES INC"
+   ],
+   "grade": "A",
+   "quality_score": 97.7
+  },
+  {
+   "cik": 1164727,
+   "revenue_2017": 22669000000.0,
+   "name": "NEWMONT Corp /DE/",
+   "ticker_now": "NEM",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-07-23",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": "2023-09-05",
+   "sic": "1040",
+   "names": [
+    "NEWMONT Corp /DE/",
+    "NEWMONT GOLDCORP CORP /DE/",
+    "NEWMONT MINING CORP /DE/"
+   ],
+   "grade": "B",
+   "quality_score": 78.5
+  },
+  {
+   "cik": 1868275,
+   "revenue_2017": 22663000000.0,
+   "name": "Constellation Energy Corp",
+   "ticker_now": "CEG",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-08-06",
+   "had_public_equity": false,
+   "bankruptcy_8k": null,
+   "merger_filing": null,
+   "sic": "4911",
+   "names": [
+    "Constellation Energy Corp",
+    "Constellation Newholdco, Inc."
+   ]
+  },
+  {
+   "cik": 1031203,
+   "revenue_2017": 22571400000.0,
+   "name": "GROUP 1 AUTOMOTIVE INC",
+   "ticker_now": "GPI",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-07-30",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": null,
+   "sic": "5500",
+   "names": [
+    "GROUP 1 AUTOMOTIVE INC"
+   ],
+   "grade": "A",
+   "quality_score": 85.8
+  },
+  {
+   "cik": 1402057,
+   "revenue_2017": 22424100000.0,
+   "name": "CDW Corp",
+   "ticker_now": "CDW",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-08-05",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": null,
+   "sic": "5961",
+   "names": [
+    "CDW Corp"
+   ],
+   "grade": "A",
+   "quality_score": 90.6
+  },
+  {
+   "cik": 829224,
+   "revenue_2017": 22386800000.0,
+   "name": "STARBUCKS CORP",
+   "ticker_now": "SBUX",
+   "in_eval_universe": true,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-07-29",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": null,
+   "sic": "5810",
+   "names": [
+    "STARBUCKS CORP"
+   ],
+   "grade": "A",
+   "quality_score": 92.6
+  },
+  {
+   "cik": 818686,
+   "revenue_2017": 22385000000.0,
+   "name": "TEVA PHARMACEUTICAL INDUSTRIES LTD",
+   "ticker_now": "TEVA",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-07-29",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": null,
+   "sic": "2834",
+   "names": [
+    "TEVA PHARMACEUTICAL INDUSTRIES LTD"
+   ],
+   "grade": "B",
+   "quality_score": 73.0
+  },
+  {
+   "cik": 804328,
+   "revenue_2017": 22258000000.0,
+   "name": "QUALCOMM INC/DE",
+   "ticker_now": "QCOM",
+   "in_eval_universe": true,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-07-29",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": "2018-03-13",
+   "sic": "3663",
+   "names": [
+    "QUALCOMM INC/DE"
+   ],
+   "grade": "B",
+   "quality_score": 73.1
+  },
+  {
+   "cik": 1375365,
+   "revenue_2017": 21972042000.0,
+   "name": "Super Micro Computer, Inc.",
+   "ticker_now": "SMCI",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-08-31",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": null,
+   "sic": "3571",
+   "names": [
+    "Super Micro Computer, Inc."
+   ],
+   "grade": "F",
+   "quality_score": 31.2
+  },
+  {
+   "cik": 36104,
+   "revenue_2017": 21902000000.0,
+   "name": "US BANCORP \\DE\\",
+   "ticker_now": "USB",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-08-06",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": null,
+   "sic": "6021",
+   "names": [
+    "US BANCORP \\DE\\"
+   ],
+   "grade": null,
+   "quality_score": null
+  },
+  {
+   "cik": 1783180,
+   "revenue_2017": 21747000000.0,
+   "name": "CARRIER GLOBAL Corp",
+   "ticker_now": "CARR",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-07-28",
+   "had_public_equity": false,
+   "bankruptcy_8k": null,
+   "merger_filing": null,
+   "sic": "3585",
+   "names": [
+    "CARRIER GLOBAL Corp"
+   ]
+  },
+  {
+   "cik": 1688568,
+   "revenue_2017": 21733000000.0,
+   "name": "DXC Technology Co",
+   "ticker_now": "DXC",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-07-31",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": null,
+   "sic": "7374",
+   "names": [
+    "DXC Technology Co",
+    "Everett SpinCo, Inc."
+   ],
+   "grade": null,
+   "why": "no full-year flow figures \u2014 cannot place a fiscal calendar"
+  },
+  {
+   "cik": 4904,
+   "revenue_2017": 21702000000.0,
+   "name": "AMERICAN ELECTRIC POWER CO INC",
+   "ticker_now": "AEP",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-07-30",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": null,
+   "sic": "4911",
+   "names": [
+    "AMERICAN ELECTRIC POWER CO INC"
+   ],
+   "grade": "A",
+   "quality_score": 85.2
+  },
+  {
+   "cik": 4977,
+   "revenue_2017": 21667000000.0,
+   "name": "AFLAC INC",
+   "ticker_now": "AFL",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-08-07",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": null,
+   "sic": "6321",
+   "names": [
+    "AFLAC INC"
+   ],
+   "grade": null,
+   "quality_score": null
+  },
+  {
+   "cik": 797468,
+   "revenue_2017": 21569000000.0,
+   "name": "OCCIDENTAL PETROLEUM CORP /DE/",
+   "ticker_now": "OXY",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-08-05",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": "2019-08-05",
+   "sic": "1311",
+   "names": [
+    "OCCIDENTAL PETROLEUM CORP /DE/"
+   ],
+   "grade": "A",
+   "quality_score": 92.4
+  },
+  {
+   "cik": 350698,
+   "revenue_2017": 21534600000.0,
+   "name": "AUTONATION, INC.",
+   "ticker_now": "AN",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-07-31",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": null,
+   "sic": "5500",
+   "names": [
+    "AUTONATION, INC."
+   ],
+   "grade": "A",
+   "quality_score": 95.0
+  },
+  {
+   "cik": 84129,
+   "revenue_2017": 21528968000.0,
+   "name": "NEW RITE AID, LLC",
+   "ticker_now": null,
+   "in_eval_universe": false,
+   "outcome": "BANKRUPTCY",
+   "last_periodic": "2023-10-18",
+   "had_public_equity": true,
+   "bankruptcy_8k": "2023-12-27",
+   "merger_filing": "2018-08-07",
+   "sic": "5912",
+   "names": [
+    "NEW RITE AID, LLC",
+    "RITE AID CORP"
+   ],
+   "grade": "A",
+   "quality_score": 82.5
+  },
+  {
+   "cik": 1531152,
+   "revenue_2017": 21457274000.0,
+   "name": "BJ's Wholesale Club Holdings, Inc.",
+   "ticker_now": "BJ",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-08-25",
+   "had_public_equity": false,
+   "bankruptcy_8k": null,
+   "merger_filing": null,
+   "sic": "5331",
+   "names": [
+    "BJ's Wholesale Club Holdings, Inc.",
+    "Beacon Holding Inc."
+   ]
+  },
+  {
+   "cik": 1466258,
+   "revenue_2017": 21321900000.0,
+   "name": "Trane Technologies plc",
+   "ticker_now": "TT",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-07-30",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": "2020-02-14",
+   "sic": "3822",
+   "names": [
+    "Trane Technologies plc",
+    "Ingersoll-Rand plc"
+   ],
+   "grade": "A",
+   "quality_score": 89.5
+  },
+  {
+   "cik": 70318,
+   "revenue_2017": 21310000000.0,
+   "name": "TENET HEALTHCARE CORP",
+   "ticker_now": "THC",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-07-29",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": null,
+   "sic": "8062",
+   "names": [
+    "TENET HEALTHCARE CORP"
+   ],
+   "grade": "C",
+   "quality_score": 56.4
+  },
+  {
+   "cik": 106640,
+   "revenue_2017": 21253000000.0,
+   "name": "WHIRLPOOL CORP /DE/",
+   "ticker_now": "WHR",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-08-04",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": null,
+   "sic": "3630",
+   "names": [
+    "WHIRLPOOL CORP /DE/"
+   ],
+   "grade": "A",
+   "quality_score": 88.4
+  },
+  {
+   "cik": 1058290,
+   "revenue_2017": 21108000000.0,
+   "name": "COGNIZANT TECHNOLOGY SOLUTIONS CORP",
+   "ticker_now": "CTSH",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-07-29",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": null,
+   "sic": "7371",
+   "names": [
+    "COGNIZANT TECHNOLOGY SOLUTIONS CORP"
+   ],
+   "grade": "A",
+   "quality_score": 91.9
+  },
+  {
+   "cik": 14272,
+   "revenue_2017": 20776000000.0,
+   "name": "BRISTOL MYERS SQUIBB CO",
+   "ticker_now": "BMY",
+   "in_eval_universe": true,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-07-30",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": "2025-04-14",
+   "sic": "2834",
+   "names": [
+    "BRISTOL MYERS SQUIBB CO"
+   ],
+   "grade": "A",
+   "quality_score": 88.7
+  },
+  {
+   "cik": 15511,
+   "revenue_2017": 20747000000.0,
+   "name": "BNSF RAILWAY CO",
+   "ticker_now": null,
+   "in_eval_universe": false,
+   "outcome": "GONE_BEFORE_START",
+   "last_periodic": "2018-02-26",
+   "had_public_equity": false,
+   "bankruptcy_8k": null,
+   "merger_filing": null,
+   "sic": "4011",
+   "names": [
+    "BNSF RAILWAY CO"
+   ]
+  },
+  {
+   "cik": 1932393,
+   "revenue_2017": 20625000000.0,
+   "name": "GE HealthCare Technologies Inc.",
+   "ticker_now": "GEHC",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-07-29",
+   "had_public_equity": false,
+   "bankruptcy_8k": null,
+   "merger_filing": null,
+   "sic": "3844",
+   "names": [
+    "GE HealthCare Technologies Inc.",
+    "GE Healthcare Holding LLC"
+   ]
+  },
+  {
+   "cik": 45012,
+   "revenue_2017": 20620000000.0,
+   "name": "HALLIBURTON CO",
+   "ticker_now": "HAL",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-07-24",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": null,
+   "sic": "1389",
+   "names": [
+    "HALLIBURTON CO"
+   ],
+   "grade": "B",
+   "quality_score": 79.6
+  },
+  {
+   "cik": 8670,
+   "revenue_2017": 20560900000.0,
+   "name": "AUTOMATIC DATA PROCESSING INC",
+   "ticker_now": "ADP",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-08-05",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": null,
+   "sic": "7374",
+   "names": [
+    "AUTOMATIC DATA PROCESSING INC"
+   ],
+   "grade": "A",
+   "quality_score": 91.5
+  },
+  {
+   "cik": 1048286,
+   "revenue_2017": 20452000000.0,
+   "name": "MARRIOTT INTERNATIONAL INC /MD/",
+   "ticker_now": "MAR",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-08-03",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": null,
+   "sic": "7011",
+   "names": [
+    "MARRIOTT INTERNATIONAL INC /MD/",
+    "MARRIOTT INTERNATIONAL INC /MD/"
+   ],
+   "grade": "B",
+   "quality_score": 76.1
+  },
+  {
+   "cik": 26172,
+   "revenue_2017": 20428000000.0,
+   "name": "CUMMINS INC",
+   "ticker_now": "CMI",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-08-04",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": "2024-03-18",
+   "sic": "3510",
+   "names": [
+    "CUMMINS INC"
+   ],
+   "grade": "A",
+   "quality_score": 93.5
+  },
+  {
+   "cik": 1521332,
+   "revenue_2017": 20398000000.0,
+   "name": "Aptiv PLC",
+   "ticker_now": "APTV",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-08-04",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": "2024-11-06",
+   "sic": "3714",
+   "names": [
+    "Aptiv PLC",
+    "Delphi Automotive PLC"
+   ],
+   "grade": "A",
+   "quality_score": 94.6
+  },
+  {
+   "cik": 21665,
+   "revenue_2017": 20382000000.0,
+   "name": "COLGATE PALMOLIVE CO",
+   "ticker_now": "CL",
+   "in_eval_universe": true,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-07-31",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": null,
+   "sic": "2844",
+   "names": [
+    "COLGATE PALMOLIVE CO",
+    "COLGATE PALMOLIVE CO"
+   ],
+   "grade": "A",
+   "quality_score": 93.0
+  },
+  {
+   "cik": 1099590,
+   "revenue_2017": 20335000000.0,
+   "name": "MERCADOLIBRE INC",
+   "ticker_now": "MELI",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-08-06",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": null,
+   "sic": "7389",
+   "names": [
+    "MERCADOLIBRE INC"
+   ],
+   "grade": "A",
+   "quality_score": 94.2
+  },
+  {
+   "cik": 1690820,
+   "revenue_2017": 20322000000.0,
+   "name": "CARVANA CO.",
+   "ticker_now": "CVNA",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-07-29",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": null,
+   "sic": "5500",
+   "names": [
+    "CARVANA CO."
+   ],
+   "grade": "F",
+   "quality_score": 26.6
+  },
+  {
+   "cik": 885725,
+   "revenue_2017": 20074000000.0,
+   "name": "BOSTON SCIENTIFIC CORP",
+   "ticker_now": "BSX",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-08-03",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": "2026-04-22",
+   "sic": "3841",
+   "names": [
+    "BOSTON SCIENTIFIC CORP"
+   ],
+   "grade": "A",
+   "quality_score": 84.0
+  },
+  {
+   "cik": 59478,
+   "revenue_2017": 19973800000.0,
+   "name": "ELI LILLY & Co",
+   "ticker_now": "LLY",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-08-05",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": "2025-11-07",
+   "sic": "2834",
+   "names": [
+    "ELI LILLY & Co",
+    "LILLY ELI & CO"
+   ],
+   "grade": "A",
+   "quality_score": 90.3
+  },
+  {
+   "cik": 1179929,
+   "revenue_2017": 19883000000.0,
+   "name": "MOLINA HEALTHCARE, INC.",
+   "ticker_now": "MOH",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-07-23",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": null,
+   "sic": "6324",
+   "names": [
+    "MOLINA HEALTHCARE, INC.",
+    "MOLINA HEALTHCARE INC"
+   ],
+   "grade": null,
+   "quality_score": null
+  },
+  {
+   "cik": 76334,
+   "revenue_2017": 19850000000.0,
+   "name": "Parker-Hannifin Corp",
+   "ticker_now": "PH",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-08-21",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": null,
+   "sic": "3490",
+   "names": [
+    "Parker-Hannifin Corp",
+    "PARKER HANNIFIN CORP"
+   ],
+   "grade": "A",
+   "quality_score": 86.4
+  },
+  {
+   "cik": 1703399,
+   "revenue_2017": 19625021000.0,
+   "name": "Sea Ltd",
+   "ticker_now": "SE",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-04-17",
+   "had_public_equity": false,
+   "bankruptcy_8k": null,
+   "merger_filing": null,
+   "sic": "7380",
+   "names": [
+    "Sea Ltd",
+    "Sea Ltd"
+   ]
+  },
+  {
+   "cik": 3570,
+   "revenue_2017": 19464000000.0,
+   "name": "Cheniere Energy, Inc.",
+   "ticker_now": "LNG",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-08-06",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": "2018-06-19",
+   "sic": "4924",
+   "names": [
+    "Cheniere Energy, Inc.",
+    "CHENIERE ENERGY INC"
+   ],
+   "grade": "C",
+   "quality_score": 59.6
+  },
+  {
+   "cik": 75362,
+   "revenue_2017": 19456400000.0,
+   "name": "PACCAR INC",
+   "ticker_now": "PCAR",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-07-29",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": null,
+   "sic": "3711",
+   "names": [
+    "PACCAR INC"
+   ],
+   "grade": "A",
+   "quality_score": 94.4
+  },
+  {
+   "cik": 935703,
+   "revenue_2017": 19395700000.0,
+   "name": "DOLLAR TREE, INC.",
+   "ticker_now": "DLTR",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-08-27",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": null,
+   "sic": "5331",
+   "names": [
+    "DOLLAR TREE, INC.",
+    "DOLLAR TREE INC"
+   ],
+   "grade": "A",
+   "quality_score": 80.8
+  },
+  {
+   "cik": 885639,
+   "revenue_2017": 19095000000.0,
+   "name": "KOHLS Corp",
+   "ticker_now": "KSS",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-09-03",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": null,
+   "sic": "5311",
+   "names": [
+    "KOHLS Corp"
+   ],
+   "grade": "A",
+   "quality_score": 96.6
+  },
+  {
+   "cik": 896878,
+   "revenue_2017": 18831000000.0,
+   "name": "INTUIT INC.",
+   "ticker_now": "INTU",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-09-09",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": "2020-11-25",
+   "sic": "7372",
+   "names": [
+    "INTUIT INC.",
+    "INTUIT INC"
+   ],
+   "grade": "A",
+   "quality_score": 94.6
+  },
+  {
+   "cik": 1081316,
+   "revenue_2017": 18614000000.0,
+   "name": "BERKSHIRE HATHAWAY ENERGY CO",
+   "ticker_now": null,
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-08-10",
+   "had_public_equity": false,
+   "bankruptcy_8k": null,
+   "merger_filing": null,
+   "sic": "4900",
+   "names": [
+    "BERKSHIRE HATHAWAY ENERGY CO"
+   ]
+  },
+  {
+   "cik": 802481,
+   "revenue_2017": 18497553000.0,
+   "name": "PILGRIMS PRIDE CORP",
+   "ticker_now": "PPC",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-07-30",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": null,
+   "sic": "2015",
+   "names": [
+    "PILGRIMS PRIDE CORP"
+   ],
+   "grade": "A",
+   "quality_score": 90.3
+  },
+  {
+   "cik": 1329099,
+   "revenue_2017": 18458000000.0,
+   "name": "Baidu, Inc.",
+   "ticker_now": "BIDU",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-03-17",
+   "had_public_equity": false,
+   "bankruptcy_8k": null,
+   "merger_filing": null,
+   "sic": "7370",
+   "names": [
+    "Baidu, Inc."
+   ]
+  },
+  {
+   "cik": 1304280,
+   "revenue_2017": 18434000000.0,
+   "name": "Novelis Inc.",
+   "ticker_now": null,
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-08-05",
+   "had_public_equity": false,
+   "bankruptcy_8k": null,
+   "merger_filing": null,
+   "sic": "3350",
+   "names": [
+    "Novelis Inc."
+   ]
+  },
+  {
+   "cik": 40704,
+   "revenue_2017": 18424600000.0,
+   "name": "GENERAL MILLS INC",
+   "ticker_now": "GIS",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-09-23",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": null,
+   "sic": "2040",
+   "names": [
+    "GENERAL MILLS INC"
+   ],
+   "grade": "A",
+   "quality_score": 92.6
+  },
+  {
+   "cik": 55785,
+   "revenue_2017": 18348000000.0,
+   "name": "KIMBERLY CLARK CORP",
+   "ticker_now": "KMB",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-08-04",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": "2026-01-27",
+   "sic": "2670",
+   "names": [
+    "KIMBERLY CLARK CORP"
+   ],
+   "grade": "A",
+   "quality_score": 84.8
+  },
+  {
+   "cik": 42582,
+   "revenue_2017": 18280000000.0,
+   "name": "GOODYEAR TIRE & RUBBER CO /OH/",
+   "ticker_now": "GT",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-08-06",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": "2021-05-13",
+   "sic": "3011",
+   "names": [
+    "GOODYEAR TIRE & RUBBER CO /OH/"
+   ],
+   "grade": "A",
+   "quality_score": 92.8
+  },
+  {
+   "cik": 1022671,
+   "revenue_2017": 18176581000.0,
+   "name": "STEEL DYNAMICS INC",
+   "ticker_now": "STLD",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-07-28",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": null,
+   "sic": "3312",
+   "names": [
+    "STEEL DYNAMICS INC",
+    "STEEL DYNAMICS INC"
+   ],
+   "grade": "A",
+   "quality_score": 86.4
+  },
+  {
+   "cik": 32604,
+   "revenue_2017": 18016000000.0,
+   "name": "EMERSON ELECTRIC CO",
+   "ticker_now": "EMR",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-08-04",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": "2025-02-10",
+   "sic": "3600",
+   "names": [
+    "EMERSON ELECTRIC CO"
+   ],
+   "grade": "A",
+   "quality_score": 87.7
+  },
+  {
+   "cik": 871763,
+   "revenue_2017": 17957100000.0,
+   "name": "ManpowerGroup Inc.",
+   "ticker_now": "MAN",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-08-07",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": null,
+   "sic": "7363",
+   "names": [
+    "ManpowerGroup Inc."
+   ],
+   "grade": "B",
+   "quality_score": 78.9
+  },
+  {
+   "cik": 277135,
+   "revenue_2017": 17942000000.0,
+   "name": "W.W. GRAINGER, INC.",
+   "ticker_now": "GWW",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-08-04",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": null,
+   "sic": "5000",
+   "names": [
+    "W.W. GRAINGER, INC.",
+    "GRAINGER W W INC"
+   ],
+   "grade": "A",
+   "quality_score": 96.2
+  },
+  {
+   "cik": 884887,
+   "revenue_2017": 17935000000.0,
+   "name": "ROYAL CARIBBEAN CRUISES LTD",
+   "ticker_now": "RCL",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-07-28",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": null,
+   "sic": "4400",
+   "names": [
+    "ROYAL CARIBBEAN CRUISES LTD"
+   ],
+   "grade": "A",
+   "quality_score": 86.7
+  },
+  {
+   "cik": 898173,
+   "revenue_2017": 17781992000.0,
+   "name": "O REILLY AUTOMOTIVE INC",
+   "ticker_now": "ORLY",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-08-07",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": null,
+   "sic": "5531",
+   "names": [
+    "O REILLY AUTOMOTIVE INC"
+   ],
+   "grade": "A",
+   "quality_score": 90.0
+  },
+  {
+   "cik": 97476,
+   "revenue_2017": 17682000000.0,
+   "name": "TEXAS INSTRUMENTS INC",
+   "ticker_now": "TXN",
+   "in_eval_universe": true,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-07-24",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": "2026-02-05",
+   "sic": "3674",
+   "names": [
+    "TEXAS INSTRUMENTS INC"
+   ],
+   "grade": "A",
+   "quality_score": 96.5
+  },
+  {
+   "cik": 18926,
+   "revenue_2017": 17656000000.0,
+   "name": "Lumen Technologies, Inc.",
+   "ticker_now": "LUMN",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-08-04",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": "2026-05-20",
+   "sic": "4813",
+   "names": [
+    "Lumen Technologies, Inc.",
+    "CENTURYLINK, INC"
+   ],
+   "grade": "A",
+   "quality_score": 83.2
+  },
+  {
+   "cik": 1649338,
+   "revenue_2017": 17636000000.0,
+   "name": "Broadcom Pte. Ltd.",
+   "ticker_now": null,
+   "in_eval_universe": false,
+   "outcome": "GONE_BEFORE_START",
+   "last_periodic": "2018-03-15",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": "2018-03-13",
+   "sic": "3674",
+   "names": [
+    "Broadcom Pte. Ltd.",
+    "Broadcom Ltd"
+   ]
+  },
+  {
+   "cik": 1692819,
+   "revenue_2017": 17586000000.0,
+   "name": "Vistra Corp.",
+   "ticker_now": "VST",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-08-10",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": "2018-04-05",
+   "sic": "4911",
+   "names": [
+    "Vistra Corp.",
+    "Vistra Energy Corp.",
+    "Vistra Energy Corp"
+   ],
+   "grade": null,
+   "why": "no full-year flow figures \u2014 cannot place a fiscal calendar"
+  },
+  {
+   "cik": 789570,
+   "revenue_2017": 17537683000.0,
+   "name": "MGM Resorts International",
+   "ticker_now": "MGM",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-07-29",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": null,
+   "sic": "7011",
+   "names": [
+    "MGM Resorts International"
+   ],
+   "grade": "A",
+   "quality_score": 82.9
+  },
+  {
+   "cik": 352915,
+   "revenue_2017": 17364829000.0,
+   "name": "UNIVERSAL HEALTH SERVICES INC",
+   "ticker_now": "UHS",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-08-07",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": null,
+   "sic": "8062",
+   "names": [
+    "UNIVERSAL HEALTH SERVICES INC"
+   ],
+   "grade": "A",
+   "quality_score": 95.9
+  },
+  {
+   "cik": 822416,
+   "revenue_2017": 17311953000.0,
+   "name": "PULTEGROUP INC/MI/",
+   "ticker_now": "PHM",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-07-22",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": null,
+   "sic": "1531",
+   "names": [
+    "PULTEGROUP INC/MI/"
+   ],
+   "grade": "B",
+   "quality_score": 66.5
+  },
+  {
+   "cik": 1385157,
+   "revenue_2017": 17262000000.0,
+   "name": "TE Connectivity plc",
+   "ticker_now": "TEL",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-07-24",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": "2024-04-24",
+   "sic": "5065",
+   "names": [
+    "TE Connectivity plc",
+    "TE Connectivity Ltd."
+   ],
+   "grade": "A",
+   "quality_score": 90.8
+  },
+  {
+   "cik": 808362,
+   "revenue_2017": 17259000000.0,
+   "name": "Baker Hughes Holdings LLC",
+   "ticker_now": null,
+   "in_eval_universe": false,
+   "outcome": "DUPLICATE",
+   "last_periodic": "2023-10-26",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": null,
+   "sic": "3533",
+   "names": [
+    "Baker Hughes Holdings LLC",
+    "BAKER HUGHES a GE Co LLC",
+    "BAKER HUGHES INC"
+   ],
+   "grade": "D",
+   "quality_score": 38.0,
+   "successor": "Baker Hughes Co (BKR)"
+  },
+  {
+   "cik": 1089063,
+   "revenue_2017": 17215120000.0,
+   "name": "DICK'S SPORTING GOODS, INC.",
+   "ticker_now": "DKS",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-09-03",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": "2025-08-04",
+   "sic": "5940",
+   "names": [
+    "DICK'S SPORTING GOODS, INC.",
+    "DICKS SPORTING GOODS INC"
+   ],
+   "grade": null,
+   "quality_score": null
+  },
+  {
+   "cik": 315293,
+   "revenue_2017": 17181000000.0,
+   "name": "Aon plc",
+   "ticker_now": "AON",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-07-29",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": "2020-07-08",
+   "sic": "6411",
+   "names": [
+    "Aon plc"
+   ],
+   "grade": null,
+   "quality_score": null
+  },
+  {
+   "cik": 874766,
+   "revenue_2017": 17162000000.0,
+   "name": "HARTFORD INSURANCE GROUP, INC.",
+   "ticker_now": "HIG",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-07-23",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": null,
+   "sic": "6331",
+   "names": [
+    "HARTFORD INSURANCE GROUP, INC.",
+    "HARTFORD INSURANCE GROUP, INC.",
+    "HARTFORD FINANCIAL SERVICES GROUP, INC.",
+    "HARTFORD FINANCIAL SERVICES GROUP INC/DE"
+   ],
+   "grade": null,
+   "quality_score": null
+  },
+  {
+   "cik": 1004980,
+   "revenue_2017": 17135000000.0,
+   "name": "PG&E Corp",
+   "ticker_now": "PCG",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-07-23",
+   "had_public_equity": true,
+   "bankruptcy_8k": "2020-06-24",
+   "merger_filing": null,
+   "sic": "4931",
+   "names": [
+    "PG&E Corp",
+    "PG&E CORP",
+    "PG&E Corp"
+   ],
+   "grade": "A",
+   "quality_score": 84.6
+  },
+  {
+   "cik": 1336920,
+   "revenue_2017": 17107000000.0,
+   "name": "Leidos Holdings, Inc.",
+   "ticker_now": "LDOS",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-08-04",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": null,
+   "sic": "7373",
+   "names": [
+    "Leidos Holdings, Inc."
+   ],
+   "grade": "A",
+   "quality_score": 84.0
+  },
+  {
+   "cik": 1047862,
+   "revenue_2017": 17049000000.0,
+   "name": "CONSOLIDATED EDISON INC",
+   "ticker_now": "ED",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-08-06",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": null,
+   "sic": "4931",
+   "names": [
+    "CONSOLIDATED EDISON INC"
+   ],
+   "grade": "A",
+   "quality_score": 89.0
+  },
+  {
+   "cik": 1279363,
+   "revenue_2017": 17007200000.0,
+   "name": "WELLCARE HEALTH PLANS, INC.",
+   "ticker_now": null,
+   "in_eval_universe": false,
+   "outcome": "ACQUIRED",
+   "last_periodic": "2019-10-30",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": "2020-01-22",
+   "sic": "6324",
+   "names": [
+    "WELLCARE HEALTH PLANS, INC."
+   ],
+   "grade": null,
+   "quality_score": null
+  },
+  {
+   "cik": 1996862,
+   "revenue_2017": 16944000000.0,
+   "name": "Bunge Global SA",
+   "ticker_now": "BG",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-07-29",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": null,
+   "sic": "2070",
+   "names": [
+    "Bunge Global SA"
+   ],
+   "grade": "A",
+   "quality_score": 93.6,
+   "grade_from": "BUNGELTD"
+  },
+  {
+   "cik": 1504461,
+   "revenue_2017": 16907296000.0,
+   "name": "NGL Energy Partners LP",
+   "ticker_now": "NGL",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-08-04",
+   "had_public_equity": false,
+   "bankruptcy_8k": null,
+   "merger_filing": null,
+   "sic": "4922",
+   "names": [
+    "NGL Energy Partners LP"
+   ]
+  },
+  {
+   "cik": 1090012,
+   "revenue_2017": 16786000000.0,
+   "name": "DEVON ENERGY CORP/DE",
+   "ticker_now": "DVN",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-08-05",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": "2026-05-05",
+   "sic": "1311",
+   "names": [
+    "DEVON ENERGY CORP/DE"
+   ],
+   "grade": "A",
+   "quality_score": 85.9
+  },
+  {
+   "cik": 1618673,
+   "revenue_2017": 16761800000.0,
+   "name": "Performance Food Group Co",
+   "ticker_now": "PFGC",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-08-12",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": "2021-08-11",
+   "sic": "5141",
+   "names": [
+    "Performance Food Group Co"
+   ],
+   "grade": "A",
+   "quality_score": 86.7
+  },
+  {
+   "cik": 815917,
+   "revenue_2017": 16717000000.0,
+   "name": "JONES FINANCIAL COMPANIES LLLP",
+   "ticker_now": null,
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-08-07",
+   "had_public_equity": false,
+   "bankruptcy_8k": null,
+   "merger_filing": "2026-09-14",
+   "sic": "6211",
+   "names": [
+    "JONES FINANCIAL COMPANIES LLLP"
+   ]
+  },
+  {
+   "cik": 1310067,
+   "revenue_2017": 16702000000.0,
+   "name": "SEARS HOLDINGS CORP",
+   "ticker_now": null,
+   "in_eval_universe": false,
+   "outcome": "BANKRUPTCY",
+   "last_periodic": "2018-12-13",
+   "had_public_equity": true,
+   "bankruptcy_8k": "2019-11-04",
+   "merger_filing": null,
+   "sic": "5311",
+   "names": [
+    "SEARS HOLDINGS CORP"
+   ],
+   "grade": "F",
+   "quality_score": 28.6
+  },
+  {
+   "cik": 1418135,
+   "revenue_2017": 16603000000.0,
+   "name": "Keurig Dr Pepper Inc.",
+   "ticker_now": "KDP",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-08-10",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": "2018-05-29",
+   "sic": "2080",
+   "names": [
+    "Keurig Dr Pepper Inc.",
+    "Dr Pepper Snapple Group, Inc."
+   ],
+   "grade": "A",
+   "quality_score": 83.4
+  },
+  {
+   "cik": 1060391,
+   "revenue_2017": 16591000000.0,
+   "name": "REPUBLIC SERVICES, INC.",
+   "ticker_now": "RSG",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-08-07",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": null,
+   "sic": "4953",
+   "names": [
+    "REPUBLIC SERVICES, INC."
+   ],
+   "grade": "A",
+   "quality_score": 90.8
+  },
+  {
+   "cik": 715957,
+   "revenue_2017": 16523000000.0,
+   "name": "DOMINION ENERGY, INC",
+   "ticker_now": "D",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-07-31",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": "2026-09-30",
+   "sic": "4911",
+   "names": [
+    "DOMINION ENERGY, INC",
+    "DOMINION ENERGY INC /VA/",
+    "DOMINION RESOURCES INC /VA/"
+   ],
+   "grade": "A",
+   "quality_score": 84.0
+  },
+  {
+   "cik": 713676,
+   "revenue_2017": 16329000000.0,
+   "name": "PNC FINANCIAL SERVICES GROUP, INC.",
+   "ticker_now": "PNC",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-08-05",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": "2025-09-10",
+   "sic": "6021",
+   "names": [
+    "PNC FINANCIAL SERVICES GROUP, INC."
+   ],
+   "grade": null,
+   "quality_score": null
+  },
+  {
+   "cik": 1478242,
+   "revenue_2017": 16310000000.0,
+   "name": "IQVIA HOLDINGS INC.",
+   "ticker_now": "IQV",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-07-28",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": null,
+   "sic": "8731",
+   "names": [
+    "IQVIA HOLDINGS INC.",
+    "Quintiles IMS Holdings, Inc."
+   ],
+   "grade": "B",
+   "quality_score": 77.0
+  },
+  {
+   "cik": 1754301,
+   "revenue_2017": 16300000000.0,
+   "name": "Fox Corp",
+   "ticker_now": "FOXA",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-08-06",
+   "had_public_equity": false,
+   "bankruptcy_8k": null,
+   "merger_filing": "2026-09-10",
+   "sic": "4833",
+   "names": [
+    "Fox Corp",
+    "NEW FOX, INC."
+   ]
+  },
+  {
+   "cik": 1043277,
+   "revenue_2017": 16232763000.0,
+   "name": "C. H. ROBINSON WORLDWIDE, INC.",
+   "ticker_now": "CHRW",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-07-31",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": null,
+   "sic": "4731",
+   "names": [
+    "C. H. ROBINSON WORLDWIDE, INC.",
+    "C H ROBINSON WORLDWIDE INC"
+   ],
+   "grade": "B",
+   "quality_score": 77.7
+  },
+  {
+   "cik": 1670541,
+   "revenue_2017": 16213000000.0,
+   "name": "Adient plc",
+   "ticker_now": "ADNT",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-08-05",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": null,
+   "sic": "3714",
+   "names": [
+    "Adient plc"
+   ],
+   "grade": "A",
+   "quality_score": 81.3
+  },
+  {
+   "cik": 868857,
+   "revenue_2017": 16139622000.0,
+   "name": "AECOM",
+   "ticker_now": "ACM",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-08-11",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": null,
+   "sic": "8711",
+   "names": [
+    "AECOM"
+   ],
+   "grade": "A",
+   "quality_score": 83.2
+  },
+  {
+   "cik": 1110646,
+   "revenue_2017": 16105276000.0,
+   "name": "NetEase, Inc.",
+   "ticker_now": "NTES",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-04-15",
+   "had_public_equity": false,
+   "bankruptcy_8k": null,
+   "merger_filing": null,
+   "sic": "7372",
+   "names": [
+    "NetEase, Inc."
+   ]
+  },
+  {
+   "cik": 31462,
+   "revenue_2017": 16081200000.0,
+   "name": "ECOLAB INC.",
+   "ticker_now": "ECL",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-08-06",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": "2020-06-05",
+   "sic": "2840",
+   "names": [
+    "ECOLAB INC."
+   ],
+   "grade": "A",
+   "quality_score": 91.3
+  },
+  {
+   "cik": 1791706,
+   "revenue_2017": 16060475000.0,
+   "name": "Li Auto Inc.",
+   "ticker_now": "LI",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-04-10",
+   "had_public_equity": false,
+   "bankruptcy_8k": null,
+   "merger_filing": null,
+   "sic": "3711",
+   "names": [
+    "Li Auto Inc.",
+    "Leading Ideal Inc."
+   ]
+  },
+  {
+   "cik": 49826,
+   "revenue_2017": 16044000000.0,
+   "name": "ILLINOIS TOOL WORKS INC",
+   "ticker_now": "ITW",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-08-06",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": null,
+   "sic": "3560",
+   "names": [
+    "ILLINOIS TOOL WORKS INC"
+   ],
+   "grade": "A",
+   "quality_score": 96.2
+  },
+  {
+   "cik": 865436,
+   "revenue_2017": 16030000000.0,
+   "name": "WHOLE FOODS MARKET INC",
+   "ticker_now": null,
+   "in_eval_universe": false,
+   "outcome": "GONE_BEFORE_START",
+   "last_periodic": "2017-11-17",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": null,
+   "sic": "5411",
+   "names": [
+    "WHOLE FOODS MARKET INC"
+   ]
+  },
+  {
+   "cik": 1578845,
+   "revenue_2017": 15940700000.0,
+   "name": "Allergan plc",
+   "ticker_now": null,
+   "in_eval_universe": false,
+   "outcome": "ACQUIRED",
+   "last_periodic": "2020-05-07",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": "2019-09-16",
+   "sic": "2834",
+   "names": [
+    "Allergan plc"
+   ],
+   "grade": "B",
+   "quality_score": 69.4
+  },
+  {
+   "cik": 79879,
+   "revenue_2017": 15875000000.0,
+   "name": "PPG INDUSTRIES INC",
+   "ticker_now": "PPG",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-07-29",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": null,
+   "sic": "2851",
+   "names": [
+    "PPG INDUSTRIES INC"
+   ],
+   "grade": "A",
+   "quality_score": 87.9
+  },
+  {
+   "cik": 39911,
+   "revenue_2017": 15855000000.0,
+   "name": "GAP INC",
+   "ticker_now": "GAP",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-08-28",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": null,
+   "sic": "5651",
+   "names": [
+    "GAP INC"
+   ],
+   "grade": "A",
+   "quality_score": 100.0
+  },
+  {
+   "cik": 1318084,
+   "revenue_2017": 15687600000.0,
+   "name": "Core-Mark Holding Company, LLC",
+   "ticker_now": null,
+   "in_eval_universe": false,
+   "outcome": "ACQUIRED",
+   "last_periodic": "2021-08-05",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": "2021-08-25",
+   "sic": "5141",
+   "names": [
+    "Core-Mark Holding Company, LLC",
+    "Core-Mark Holding Company, Inc."
+   ],
+   "grade": "B",
+   "quality_score": 74.6
+  },
+  {
+   "cik": 1390777,
+   "revenue_2017": 15543000000.0,
+   "name": "Bank of New York Mellon Corp",
+   "ticker_now": "BNY",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-07-31",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": null,
+   "sic": "6022",
+   "names": [
+    "Bank of New York Mellon Corp"
+   ],
+   "grade": null,
+   "quality_score": null
+  },
+  {
+   "cik": 91388,
+   "revenue_2017": 15531000000.0,
+   "name": "SMITHFIELD FOODS INC",
+   "ticker_now": "SFD",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-08-11",
+   "had_public_equity": false,
+   "bankruptcy_8k": null,
+   "merger_filing": null,
+   "sic": "2011",
+   "names": [
+    "SMITHFIELD FOODS INC"
+   ]
+  },
+  {
+   "cik": 72333,
+   "revenue_2017": 15478000000.0,
+   "name": "NORDSTROM INC",
+   "ticker_now": null,
+   "in_eval_universe": false,
+   "outcome": "ACQUIRED",
+   "last_periodic": "2025-03-21",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": "2025-04-10",
+   "sic": "5651",
+   "names": [
+    "NORDSTROM INC"
+   ],
+   "grade": "A",
+   "quality_score": 99.1
+  },
+  {
+   "cik": 1166003,
+   "revenue_2017": 15381000000.0,
+   "name": "XPO, Inc.",
+   "ticker_now": "XPO",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-07-30",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": null,
+   "sic": "4700",
+   "names": [
+    "XPO, Inc.",
+    "XPO Logistics, Inc."
+   ],
+   "grade": "A",
+   "quality_score": 81.0
+  },
+  {
+   "cik": 1108109,
+   "revenue_2017": 15353000000.0,
+   "name": "COMMUNITY HEALTH SYSTEMS INC",
+   "ticker_now": "CYH",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-07-23",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": null,
+   "sic": "8062",
+   "names": [
+    "COMMUNITY HEALTH SYSTEMS INC"
+   ],
+   "grade": "C",
+   "quality_score": 56.4
+  },
+  {
+   "cik": 64040,
+   "revenue_2017": 15336000000.0,
+   "name": "S&P Global Inc.",
+   "ticker_now": "SPGI",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-07-28",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": "2021-03-11",
+   "sic": "7320",
+   "names": [
+    "S&P Global Inc."
+   ],
+   "grade": "A",
+   "quality_score": 88.0
+  },
+  {
+   "cik": 29989,
+   "revenue_2017": 15273600000.0,
+   "name": "OMNICOM GROUP INC.",
+   "ticker_now": "OMC",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-07-29",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": "2025-03-14",
+   "sic": "7311",
+   "names": [
+    "OMNICOM GROUP INC."
+   ],
+   "grade": "A",
+   "quality_score": 90.0
+  },
+  {
+   "cik": 1506307,
+   "revenue_2017": 15202000000.0,
+   "name": "KINDER MORGAN, INC.",
+   "ticker_now": "KMI",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-07-24",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": null,
+   "sic": "4922",
+   "names": [
+    "KINDER MORGAN, INC."
+   ],
+   "grade": "A",
+   "quality_score": 82.1
+  },
+  {
+   "cik": 1316835,
+   "revenue_2017": 15190638000.0,
+   "name": "Builders FirstSource, Inc.",
+   "ticker_now": "BLDR",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-07-30",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": "2020-12-22",
+   "sic": "5211",
+   "names": [
+    "Builders FirstSource, Inc."
+   ],
+   "grade": "A",
+   "quality_score": 86.0
+  },
+  {
+   "cik": 936402,
+   "revenue_2017": 15160600000.0,
+   "name": "Shire plc",
+   "ticker_now": null,
+   "in_eval_universe": false,
+   "outcome": "OTHER_STOPPED",
+   "last_periodic": "2018-11-01",
+   "had_public_equity": false,
+   "bankruptcy_8k": null,
+   "merger_filing": null,
+   "sic": "2834",
+   "names": [
+    "Shire plc"
+   ]
+  },
+  {
+   "cik": 1043509,
+   "revenue_2017": 15153600000.0,
+   "name": "SONIC AUTOMOTIVE INC",
+   "ticker_now": "SAH",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-07-30",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": null,
+   "sic": "5500",
+   "names": [
+    "SONIC AUTOMOTIVE INC"
+   ],
+   "grade": "A",
+   "quality_score": 87.3
+  },
+  {
+   "cik": 1529192,
+   "revenue_2017": 15146294000.0,
+   "name": "Vipshop Holdings Ltd",
+   "ticker_now": "VIPS",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-04-16",
+   "had_public_equity": false,
+   "bankruptcy_8k": null,
+   "merger_filing": null,
+   "sic": "5961",
+   "names": [
+    "Vipshop Holdings Ltd"
+   ]
+  },
+  {
+   "cik": 1944048,
+   "revenue_2017": 15124000000.0,
+   "name": "Kenvue Inc.",
+   "ticker_now": "KVUE",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-08-06",
+   "had_public_equity": false,
+   "bankruptcy_8k": null,
+   "merger_filing": "2026-01-27",
+   "sic": "2844",
+   "names": [
+    "Kenvue Inc.",
+    "JNTL, Inc."
+   ]
+  },
+  {
+   "cik": 1681459,
+   "revenue_2017": 15056900000.0,
+   "name": "TechnipFMC plc",
+   "ticker_now": "FTI",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-07-30",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": null,
+   "sic": "3533",
+   "names": [
+    "TechnipFMC plc"
+   ],
+   "grade": "B",
+   "quality_score": 70.3
+  },
+  {
+   "cik": 1748790,
+   "revenue_2017": 15009000000.0,
+   "name": "Amcor plc",
+   "ticker_now": "AMCR",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-08-14",
+   "had_public_equity": false,
+   "bankruptcy_8k": null,
+   "merger_filing": "2025-04-29",
+   "sic": "3990",
+   "names": [
+    "Amcor plc",
+    "ARCTIC JERSEY Ltd"
+   ]
+  },
+  {
+   "cik": 1415404,
+   "revenue_2017": 15004989000.0,
+   "name": "EchoStar CORP",
+   "ticker_now": "ECHO",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-08-03",
+   "had_public_equity": true,
+   "bankruptcy_8k": "2026-08-03",
+   "merger_filing": "2023-12-12",
+   "sic": "4899",
+   "names": [
+    "EchoStar CORP"
+   ],
+   "grade": "A",
+   "quality_score": 84.7
+  },
+  {
+   "cik": 107263,
+   "revenue_2017": 14899000000.0,
+   "name": "WILLIAMS COMPANIES, INC.",
+   "ticker_now": "WMB",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-08-03",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": "2018-08-03",
+   "sic": "4922",
+   "names": [
+    "WILLIAMS COMPANIES, INC.",
+    "WILLIAMS COMPANIES INC"
+   ],
+   "grade": "A",
+   "quality_score": 80.7
+  },
+  {
+   "cik": 1732845,
+   "revenue_2017": 14859700000.0,
+   "name": "WestRock Co",
+   "ticker_now": null,
+   "in_eval_universe": false,
+   "outcome": "ACQUIRED",
+   "last_periodic": "2024-05-03",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": "2024-07-05",
+   "sic": "2650",
+   "names": [
+    "WestRock Co",
+    "Whiskey Holdco, Inc."
+   ],
+   "grade": "B",
+   "why": "no revenue, assets, net income or equity facts in any currency",
+   "quality_score": 78.0,
+   "grade_from": "WRKCo Inc."
+  },
+  {
+   "cik": 1636023,
+   "revenue_2017": 14859700000.0,
+   "name": "WRKCo Inc.",
+   "ticker_now": null,
+   "in_eval_universe": false,
+   "outcome": "DUPLICATE",
+   "last_periodic": "2018-08-03",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": "2018-10-31",
+   "sic": "2650",
+   "names": [
+    "WRKCo Inc.",
+    "WestRock Co"
+   ],
+   "grade": "B",
+   "quality_score": 78.0,
+   "successor": "WestRock Co"
+  },
+  {
+   "cik": 1124198,
+   "revenue_2017": 14806511000.0,
+   "name": "FLUOR CORP",
+   "ticker_now": "FLR",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-08-07",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": "2021-12-21",
+   "sic": "1600",
+   "names": [
+    "FLUOR CORP"
+   ],
+   "grade": "A",
+   "quality_score": 96.2
+  },
+  {
+   "cik": 814453,
+   "revenue_2017": 14742200000.0,
+   "name": "NEWELL BRANDS INC.",
+   "ticker_now": "NWL",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-07-31",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": null,
+   "sic": "3089",
+   "names": [
+    "NEWELL BRANDS INC.",
+    "NEWELL BRANDS, INC.",
+    "NEWELL BRANDS INC"
+   ],
+   "grade": "B",
+   "quality_score": 65.1
+  },
+  {
+   "cik": 1324424,
+   "revenue_2017": 14733000000.0,
+   "name": "Expedia Group, Inc.",
+   "ticker_now": "EXPE",
+   "in_eval_universe": false,
+   "outcome": "STILL_FILING",
+   "last_periodic": "2026-08-06",
+   "had_public_equity": true,
+   "bankruptcy_8k": null,
+   "merger_filing": "2019-07-15",
+   "sic": "4700",
+   "names": [
+    "Expedia Group, Inc.",
+    "Expedia, Inc."
+   ],
+   "grade": "A",
+   "quality_score": 80.6
+  }
+ ]
+}

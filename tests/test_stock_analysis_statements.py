@@ -103,6 +103,22 @@ def test_tag_chosen_after_the_point_in_time_cut():
           cur[("revenue", "2024-01-01", "2024-12-31")]["value"] == 500)
 
 
+def test_a_zero_revenue_tag_does_not_beat_the_real_figure():
+    print("=== 4b. a zero under the preferred tag loses to a real figure ===")
+    from stock_analysis.statements import collapse
+    k = ("revenue", "2016-01-01", "2016-12-31")
+    zero = F("revenue", 0, k[1], k[2], "2017-02-22", form="10-K", tag_rank=1, tag="us-gaap:Revenues")
+    real = F("revenue", 19747e6, k[1], k[2], "2017-02-22", form="10-K", tag_rank=3, tag="us-gaap:SalesRevenueNet")
+    cur, _ = collapse([zero, real])
+    check("Eaton FY2016: SalesRevenueNet $19.7B, not Revenues 0", cur[k]["value"] == 19747e6)
+    cur, _ = collapse([zero])
+    check("a zero with no alternative is still reported", cur[k]["value"] == 0)
+    d = ("long_term_debt", None, "2016-12-31")
+    cur, _ = collapse([F("long_term_debt", 0, None, d[2], "2017-02-22", form="10-K", tag_rank=1),
+                       F("long_term_debt", 5e9, None, d[2], "2017-02-22", form="10-K", tag_rank=2)])
+    check("debt keeps its tag order (a zero there can be real)", cur[d]["value"] == 0)
+
+
 def test_restatement_and_split_are_told_apart():
     print("=== 5. revisions vs stock-split rescaling ===")
     from stock_analysis.statements import collapse

@@ -303,6 +303,18 @@ Traps that cost real debugging (read before editing):
 - `backtest/pillars.py` `FUNDAMENTALS_SCORER` (env) = `v1 | shadow | v2`; never v2 under pytest unless
   `STOCK_ANALYSIS_SCORER_IN_TESTS=1`. v2 uses `CORE_WEIGHTS_V2` and skips weights the self-improvement
   loop learned for v1. Promotion rule and evidence: `backtest/fundamentals_v2_eval.py`.
+- Vendor kinds collide (`filings` is served by sec-edgar, finnhub-research, alphavantage and fmp;
+  `events` by four): callers always pass `provider=` explicitly. Key-gated providers raise
+  `NotConfiguredError` naming the variable; `street._get` turns that into "waiting for <VAR>".
+  Alpha Vantage reports limits IN-BAND (HTTP 200 + "Note"/"Information") — never cache those.
+- `resolve_cik("CIK0000012345")` addresses a registrant directly — the only way to reach a company
+  that no longer trades (SEC's ticker file lists current tickers only).
+- `/mcp` (`stock_analysis/mcp_server.py`) is read-only by design: no tool changes the watchlist,
+  marks alerts, refreshes jobs or spends LLM credit. Keep it that way; `MCP_TOKEN` gates it.
+- Production cache: `FIL_CACHE_DIR=/data/fil_cache` (gzip) with a ceiling (`FIL_CACHE_MAX_MB`, 200
+  default) pruned by the screener job — the volume also holds the SQLite databases.
+- Research harnesses state their promotion rule BEFORE the run and report a failure as a failure:
+  `backtest/event_signals_eval.py` (nothing promoted), `backtest/survivorship_audit.py`.
 - Tests: `tests/test_stock_analysis_*.py` (offline). `tests/test_options_link.py::
   test_a_chain_failure_falls_back_to_a_model_answer_not_an_error` is intermittent and predates this
   work (it failed on the pre-session commit too, and passes on reruns).

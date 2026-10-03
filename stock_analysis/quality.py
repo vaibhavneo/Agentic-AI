@@ -230,6 +230,10 @@ def beneish(st, kind) -> Dict[str, Any]:
     s1, s0 = need["revenue"]
     r1, r0 = need["receivables"]
     ta1, ta0 = need["assets"]
+    # SGI and TATA have no neutral fallback: undefined inputs make M undefined.
+    if s0 <= 0 or s1 <= 0 or ta1 <= 0:
+        return _na(key, name, "revenue or total assets is zero or negative in one of the two years — the "
+                              "model's ratios are undefined")
     neutral: List[str] = []
 
     def ratio(fn, label):

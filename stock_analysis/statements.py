@@ -149,6 +149,9 @@ def _wanted_unit(concept: str, unit: str, currency: Optional[str]) -> bool:
     return unit == currency
 
 
+_NONZERO = {"revenue", "assets"}
+
+
 def collapse(facts: List[Dict[str, Any]]) -> Tuple[Dict[Tuple, Dict[str, Any]], List[Dict[str, Any]]]:
     """(concept, start, end) -> the latest-filed fact; plus every case where an
     earlier filing reported a materially different value for the same period."""
@@ -158,6 +161,11 @@ def collapse(facts: List[Dict[str, Any]]) -> Tuple[Dict[Tuple, Dict[str, Any]], 
     # The tag is chosen per period among what survived the point-in-time cut:
     # the highest-priority tag on file for that period, then its latest filing.
     for key, fs in list(groups.items()):
+        # A zero cannot be revenue or total assets when another tag reports the
+        # same period as non-zero: Eaton's FY2016 10-K tags us-gaap:Revenues 0
+        # beside SalesRevenueNet $19.7B. Elsewhere a zero may be real (debt).
+        if key[0] in _NONZERO and any(f["value"] for f in fs):
+            fs = [f for f in fs if f["value"]]
         best = min(f.get("tag_rank") or 0 for f in fs)
         groups[key] = [f for f in fs if (f.get("tag_rank") or 0) == best]
     current: Dict[Tuple, Dict[str, Any]] = {}

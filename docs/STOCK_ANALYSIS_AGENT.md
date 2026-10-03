@@ -82,6 +82,35 @@ report (a bank's operating income) are listed as not reported, not counted.
 
 Two of five are not flagged by either layer. That is reported, not tuned away.
 
+## Beyond the build (2026-10-02, free data only)
+
+| Step | What | Where |
+|---|---|---|
+| 1 | Fundamentals enter the decision: filing red flags (DECISIVE for restatement, late filing, ineffective controls, material weakness, going concern, bankruptcy) and a D/F earnings-quality grade become bearish evidence; "next 10-Q" monitoring checks for receivables, inventory, cash conversion and accruals. The portfolio brief sweeps every holding for red flags. | `decision/filings_evidence.py`, `stock_analysis/sweep.py` |
+| 1 | Filing alerts: hourly check of every watched name (watchlist.txt + watched table + broker holdings); 8-K items by severity, NT filings, new 10-Q/10-K with the score move. First look baselines silently. 🔔 badge in the header. | `stock_analysis/watcher.py`, `/api/alerts`, `/api/watch` |
+| 1 | Screener over the watched universe (score, grade, P/E, FCF yield, growth, no filing concerns), rebuilt every six hours | `stock_analysis/screener.py`, `/api/screener` |
+| 2 | Analysts and insiders (Finnhub free tier): earnings surprises, buy-share trend, open-market insider trades only (Form 4 P/S; cluster = 3+ buyers) | `stock_analysis/street.py`, `financial_data/providers/finnhub_research.py` |
+| 3 | Management guidance quoted from the earnings release (EX-99.1 of 8-K Item 2.02), parsed only when unambiguous, with a credibility record (next-quarter revenue vs the guided midpoint) | `stock_analysis/guidance.py` |
+| 3 | Revenue by segment, product and geography from the XBRL instance, labels from the label linkbase, subtotals from the definition linkbase | `stock_analysis/segments.py` |
+| 4 | Event signals (SUE, earnings reaction, relative momentum) measured point-in-time before use: **none passed** the pre-stated rule, so none enters the decision | `backtest/event_signals_eval.py`, `docs/EVENT_SIGNALS_EVALUATION.md` |
+| 5 | Key-gated Alpha Vantage and FMP: full consensus-EPS history (tried before Finnhub's four quarters) and earnings-call transcripts with a validated summary. Without a key each section names the free key it waits for. | `financial_data/providers/alphavantage.py`, `fmp.py`, `stock_analysis/transcripts.py` |
+| 6 | MCP server: the analysis as read-only tools for Claude Code / Desktop (`stock_analysis`, `compare_fundamentals`, `screener`, `filing_alerts`, `watchlist`) | `stock_analysis/mcp_server.py`, `POST /mcp` |
+| 7 | Survivorship audit from SEC data: how much of the 2017 large-company universe no longer files, by its 2018 earnings-quality grade | `backtest/survivorship_audit.py`, `docs/SURVIVORSHIP_AUDIT.md` |
+
+Connect Claude Code to the desk (read-only):
+
+```
+claude mcp add --transport http stock-desk https://agentic-ai-production-aea7.up.railway.app/mcp
+```
+
+With `MCP_TOKEN` set on the server, add `--header "Authorization: Bearer <token>"`.
+
+Free keys the desk uses when present (each section says which one it waits for):
+`FINNHUB_API_KEY` (analysts, insiders, four quarters of surprises), `ALPHAVANTAGE_API_KEY` (full
+surprise history, transcripts; 25 calls/day, cached), `FMP_API_KEY` (surprises; transcripts where the
+plan includes them), `TIINGO_API_KEY` (delisted prices — what the survivorship audit needs to measure
+returns, not just outcomes), `DEEPSEEK_API_KEY` with credit (MD&A and call summaries).
+
 ## Known limits
 
 - The DeepSeek key returns HTTP 402 locally; the MD&A summary path is tested
@@ -91,4 +120,9 @@ Two of five are not flagged by either layer. That is reported, not tuned away.
   within 10× of its size — the report says so.
 - Banks, insurers and REITs: most earnings-quality tests do not apply; those
   companies are shown the applicable tests, ungraded.
-- See `docs/FUNDAMENTALS_V2_EVALUATION.md` for the scoring evaluation.
+- See `docs/FUNDAMENTALS_V2_EVALUATION.md` for the scoring evaluation. Every evaluation here
+  replays today's tickers; `docs/SURVIVORSHIP_AUDIT.md` measures what that hides. The v2
+  weights were fixed before the evaluation, not fitted — any future re-weighting must be
+  chosen on one period and tested on a later one (walk-forward), or it is fitted to the test.
+- Guidance is parsed from the press release only; companies that guide on the call (Apple,
+  Microsoft) show "no numeric guidance in the release" until a transcript key is set.

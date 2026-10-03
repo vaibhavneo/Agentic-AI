@@ -27,6 +27,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import time
 import urllib.error
 import urllib.request
@@ -292,7 +293,11 @@ def _fetch_json(url: str, timeout: int = 20) -> Any:
 
 
 def resolve_cik(symbol: str, max_age_sec: int = 86400 * 7) -> Optional[int]:
-    """Ticker -> CIK. Cached for a week; the mapping changes rarely."""
+    """Ticker -> CIK. Cached for a week; the mapping changes rarely.
+    "CIK0000012345" names a registrant directly — the only way to reach a
+    company that no longer trades (SEC's ticker file lists current tickers)."""
+    if re.fullmatch(r"CIK\d{1,10}", symbol.upper().strip()):
+        return int(symbol.strip()[3:])
     payload = cache.get("sec-edgar", "_meta", "ticker_map", max_age_sec=max_age_sec)
     if payload is None:
         payload = _fetch_json(TICKER_MAP_URL)
