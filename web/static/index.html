@@ -140,6 +140,7 @@
   .grounded-item .gl { font-size: 9px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
   .grounded-item .gv { font-size: 13px; font-weight: 700; }
   .grounded-note { font-size: 11px; color: var(--muted); line-height: 1.5; border-top: 1px solid var(--border); padding-top: 10px; }
+  .grounded-reason { font-size: 11px; color: var(--yellow); margin: -4px 0 12px; }
   .strategy-signals { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
   .sig-pill { font-size: 10px; padding: 2px 8px; border-radius: 8px; font-weight: 600; }
   .sig-pill.bull { background: rgba(0,230,118,.15); color: var(--green); }
@@ -224,6 +225,7 @@
   .tab-content { display: none; }
   .tab-content.active { display: block; }
   .analysis-text { font-size: 13px; line-height: 1.8; color: var(--text); white-space: pre-wrap; }
+  .analysis-text.unavailable { color: var(--yellow); }
   .streaming-cursor { display: inline-block; width: 8px; height: 14px; background: var(--accent); animation: blink .7s infinite; vertical-align: text-bottom; }
   @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
 
@@ -991,6 +993,7 @@
             <div class="gv" id="gHitRate">—</div>
           </div>
         </div>
+        <div class="grounded-reason" id="groundingLevelsReason" style="display:none"></div>
         <div class="grounded-note" id="groundingNote"></div>
         <div class="strategy-signals" id="strategySignals"></div>
       </div>
@@ -1793,14 +1796,29 @@ function renderQuickData(q) {
 // A value that is meant to be a price but may arrive as a sentence.
 // Accepts "51.58", "$51.58", "$1,234.00"; anything else is treated as prose.
 const _PRICE_RE = /^\s*\$?\s*-?\d[\d,]*(?:\.\d+)?\s*$/;
+// The prediction fallback's placeholders ("N/A") are an absent level, not a
+// condition worth a note.
+const _NO_PRICE_RE = /^\s*(?:n\/?a|none|null|—|-+)\s*$/i;
 
 function _priceOrProse(v) {
-  if (v == null || v === '') return { tile: '--', prose: null, isPrice: false };
+  if (v == null || v === '' || _NO_PRICE_RE.test(String(v))) return { tile: '--', prose: null, isPrice: false };
   const s = String(v).trim();
   if (_PRICE_RE.test(s)) {
     return { tile: s.startsWith('$') ? s : '$' + s, prose: null, isPrice: true };
   }
   return { tile: 'Conditional', prose: s, isPrice: false };
+}
+
+// A failed LLM call, as agents/llm_errors.py describes it: a one-line
+// `message` for the page and the provider's (redacted) `detail` for the
+// tooltip. A payload from before that field existed carries only the raw
+// "[Agent error: ...]" text, so that is recognised too.
+function _llmError(err, text, what) {
+  if (err && err.message) return err;
+  if (typeof text === 'string' && text.startsWith('[Agent error:')) {
+    return { message: what + ' unavailable: the language-model call failed', detail: text };
+  }
+  return null;
 }
 
 function _setPriceTile(id, parsed) {
@@ -1809,7 +1827,7 @@ function _setPriceTile(id, parsed) {
   el.classList.toggle('conditional', !parsed.isPrice && parsed.prose != null);
   // The tile is clamped to two lines, so the full text stays reachable on hover
   // as well as in the note below.
-  el.title = parsed.prose || '';
+  el.title = parsed.prose || parsed.why || '';
 }
 
 function _renderPriceNotes(pairs) {
@@ -1849,9 +1867,14 @@ function renderFullResult(r) {
   // await a volume-backed breakout above $55.75 or a failed-bounce short
   // trigger below $49.20". That is a useful sentence and a terrible table
   // cell. Prices stay in the grid; prose moves to a full-width note under it.
-  const _entry  = _priceOrProse(pred.entry_price);
-  const _target = _priceOrProse(pred.target_price);
-  const _stop   = _priceOrProse(pred.stop_loss);
+  // A failed LLM call leaves placeholders, not levels (the fallback's entry is
+  // just the current price), so none of the three is shown as a price.
+  const _predErr = _llmError(pred.llm_error, pred.summary, 'AI prediction');
+  const _level = v => _predErr ? { tile: '--', prose: null, isPrice: false, why: _predErr.message }
+                               : _priceOrProse(v);
+  const _entry  = _level(pred.entry_price);
+  const _target = _level(pred.target_price);
+  const _stop   = _level(pred.stop_loss);
   _setPriceTile('predEntry', _entry);
   _setPriceTile('predTarget', _target);
   _setPriceTile('predStop', _stop);
@@ -1868,7 +1891,9 @@ function renderFullResult(r) {
   cb.textContent = pred.conviction || '--';
   cb.className = 'conviction-badge ' + (pred.conviction || 'MEDIUM');
   document.getElementById('timeHorizon').textContent = pred.time_horizon || '--';
-  document.getElementById('verdictSummary').textContent = pred.summary || '';
+  const _summaryEl = document.getElementById('verdictSummary');
+  _summaryEl.textContent = _predErr ? _predErr.message : (pred.summary || '');
+  _summaryEl.title = _predErr ? (_predErr.detail || '') : '';
   document.getElementById('verdictLoading').style.display = 'none';
   document.getElementById('verdictContent').style.display = 'block';
 
@@ -1884,8 +1909,14 @@ function renderFullResult(r) {
     social: r.social_analysis,
     algo: r.algo_analysis,
   };
+  const agentErrors = r.agent_errors || {};
   Object.entries(agentMap).forEach(([key, text]) => {
-    if (text) document.getElementById('text-' + key).textContent = text;
+    const el = document.getElementById('text-' + key);
+    const err = _llmError(agentErrors[key], text, 'AI analysis');
+    el.title = err ? (err.detail || '') : '';
+    el.classList.toggle('unavailable', !!err);
+    if (err) el.textContent = err.message;
+    else if (text) el.textContent = text;
   });
 
   // Composite Verdict tab
@@ -4350,10 +4381,14 @@ function renderGrounding(pred, ticker) {
   const row = document.getElementById('groundingRow');
   row.style.display = 'block';
 
+  const llmErr = _llmError(pred.llm_error, pred.summary, 'AI prediction');
   const badge = document.getElementById('groundingBadge');
   if (grounding === 'strategy') {
     badge.textContent = '✓ Strategy-Grounded';
     badge.className = 'grounded-badge strategy';
+  } else if (llmErr) {
+    badge.textContent = '⚠ No AI call to ground';
+    badge.className = 'grounded-badge none';
   } else {
     badge.textContent = '⚠ LLM-Only (no strategy agrees)';
     badge.className = 'grounded-badge none';
@@ -4367,9 +4402,34 @@ function renderGrounding(pred, ticker) {
   const fmtN = (v, d=3) => v != null ? Number(v).toFixed(d) : '—';
   const fmtPct = v => v != null ? (v * 100).toFixed(1) + '%' : '—';
 
-  document.getElementById('gEntry').textContent  = fmt(pred.entry_price);
-  document.getElementById('gTarget').textContent = fmt(pred.target_price);
-  document.getElementById('gStop').textContent   = fmt(pred.stop_loss);
+  // Entry/target/stop are numbers only when synthesis.py computed them (a
+  // strategy agreed with the call). Otherwise they are the model's own text —
+  // "$150-155", "N/A", a sentence — and Number() of that is NaN, which is how
+  // "$NaN" reached this panel. With no AI call at all there is no direction to
+  // price, so nothing is derived from the current price here either.
+  const levelEls = { gEntry: pred.entry_price, gTarget: pred.target_price, gStop: pred.stop_loss };
+  let missing = false;
+  Object.entries(levelEls).forEach(([id, v]) => {
+    const el = document.getElementById(id);
+    const p = llmErr ? { isPrice: false, prose: null } : _priceOrProse(v);
+    if (p.isPrice) {
+      el.textContent = fmt(String(v).replace(/[$,\s]/g, ''));
+      el.title = '';
+    } else if (p.prose) {
+      el.textContent = 'Conditional';
+      el.title = p.prose;
+    } else {
+      el.textContent = '—';
+      el.title = llmErr ? llmErr.message : 'The AI prediction gave no usable price for this level';
+      missing = true;
+    }
+  });
+  const reasonEl = document.getElementById('groundingLevelsReason');
+  reasonEl.textContent = !missing ? ''
+    : llmErr ? llmErr.message
+    : 'A level shown as — was not given as a price by the AI prediction.';
+  reasonEl.title = llmErr ? (llmErr.detail || '') : '';
+  reasonEl.style.display = missing ? 'block' : 'none';
   document.getElementById('gAtr').textContent    = pred.grounding_atr != null ? '$' + fmtN(pred.grounding_atr, 2) : '—';
   document.getElementById('gSharpe').textContent = fmtN(pred.grounding_backtest_sharpe);
   document.getElementById('gDsr').textContent    = fmtN(pred.grounding_dsr);
@@ -4382,7 +4442,11 @@ function renderGrounding(pred, ticker) {
 
   // Note
   const note = document.getElementById('groundingNote');
-  if (grounding === 'strategy') {
+  if (llmErr && grounding !== 'strategy') {
+    note.textContent = 'Entry, target and stop are computed only when a backtested strategy agrees ' +
+      'with the AI\'s call; with no call there is nothing to price. ATR and the strategy signals ' +
+      'below come from price data alone.';
+  } else if (grounding === 'strategy') {
     const n = pred.n_agreeing_strategies || 0;
     note.textContent = `${n} of 7 strategies agree with this call. Entry = current price. ` +
       `Stop = 1.5 × ATR(14). Target = 2:1 risk-reward. Kelly size = half-Kelly, capped at 10% of capital.`;

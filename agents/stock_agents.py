@@ -14,6 +14,7 @@ try:
 except ImportError:
     raise ImportError("Run: pip3 install openai")
 
+from agents.llm_errors import agent_error, describe as describe_agent_error
 from agents.prediction_schema import validate_prediction
 
 
@@ -64,8 +65,8 @@ def _call(client: OpenAI, system: str, user: str,
                 resp = client.chat.completions.create(**{k: v for k, v in kwargs.items() if k != "response_format"})
                 return resp.choices[0].message.content or ""
             except Exception as e2:
-                return f"[Agent error: {e2}]"
-        return f"[Agent error: {e}]"
+                return agent_error(e2)
+        return agent_error(e)
 
 
 def _fmt(data: dict) -> str:
@@ -496,12 +497,18 @@ def run_prediction_agent(
             return parsed
         # structurally invalid but syntactically valid JSON - retry once.
 
+    # A provider failure (402 out of balance, 401, timeout...) is said in one
+    # line; the raw SDK dump used to land in `summary` and so on the page.
+    llm_error = describe_agent_error(raw, "AI prediction")
+    if llm_error:
+        print(f"[prediction] {ticker}: {llm_error['message']} ({llm_error['detail']})", flush=True)
     fallback = {
         "action": "HOLD",
         "conviction": "LOW",
         "time_horizon": "N/A",
         "time_horizon_days": 0,
-        "summary": raw[:500] if raw else "Could not generate prediction.",
+        "summary": (llm_error["message"] if llm_error
+                    else raw[:500] if raw else "Could not generate prediction."),
         "bull_case": "—",
         "bear_case": "—",
         "key_catalysts": [],
@@ -518,6 +525,10 @@ def run_prediction_agent(
         # Diagnosable rather than opaque: the model DID return something
         # JSON-shaped, it just didn't pass validation - keep why.
         fallback["validation_errors"] = validation.errors
+    if llm_error:
+        # entry/target/stop above are placeholders, not levels: the page reads
+        # this to show "—" and the reason instead of pricing them.
+        fallback["llm_error"] = llm_error
     return fallback
 
 

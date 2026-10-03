@@ -51,6 +51,9 @@ EXPECTED_KEYS = {
     "fundamentals", "indicators", "signal_summary", "algo_signals", "reddit", "stocktwits",
     "fundamentals_analysis", "technical_analysis", "social_analysis", "algo_analysis",
     "prediction", "recommendation",
+    # Added deliberately later (not by the intelligence wiring): the one-line
+    # reason per failed agent - see tests/test_llm_error_display.py.
+    "agent_errors",
 }
 
 FAKE_DF = pd.DataFrame(

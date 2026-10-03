@@ -32,6 +32,7 @@ from agents.stock_agents import (
     run_social_agent, run_algo_agent, run_prediction_agent,
     _get_client,
 )
+from agents.llm_errors import agent_error, describe as describe_agent_error
 from agents.synthesis import ground_prediction
 from backtest.pillars import compute_pillar_scores
 from data.store import log_recommendation
@@ -131,7 +132,7 @@ def _run_analysis_agents(
         try:
             return fn(_get_client(resolved_key), *args, **kwargs)
         except Exception as e:
-            return f"[Agent error: {e}]"
+            return agent_error(e)
 
     results: dict = {}
     with ThreadPoolExecutor(max_workers=4) as pool:
@@ -367,6 +368,18 @@ def analyze_stock(
         except Exception:
             pass
 
+    # The *_analysis fields keep their "[Agent error: ...]" text (the prompt
+    # and eval cases rely on it); the page shows this one-line reason instead.
+    agent_errors = {}
+    for stage, text in (("fundamentals", fundamentals_analysis),
+                        ("technical", technical_analysis),
+                        ("social", social_analysis),
+                        ("algo", algo_analysis)):
+        err = describe_agent_error(text)
+        if err:
+            agent_errors[stage] = err
+            print(f"[analysis] {ticker} {stage}: {err['message']} ({err['detail']})", flush=True)
+
     elapsed = round(time.time() - t0, 1)
     progress("done", f"Analysis complete in {elapsed}s")
 
@@ -387,6 +400,7 @@ def analyze_stock(
         "technical_analysis":    technical_analysis,
         "social_analysis":       social_analysis,
         "algo_analysis":         algo_analysis,
+        "agent_errors":          agent_errors,
         "prediction":            prediction,
         "recommendation":        recommendation,
     }
