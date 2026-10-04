@@ -46,6 +46,9 @@ HORIZONS = (1, 5, 20, 60, 126, 252)     # trading days - 126 (6mo) added for the
                                          # horizon=20 used throughout this module
                                          # and by web/app.py's calibration routes.
 DEFAULT_BENCHMARK = "SPY"
+# A call dated on a weekend or holiday snaps to the next session; anything
+# further means the price series does not reach back to the call.
+MAX_CALL_SNAP_DAYS = 7
 
 _db_override: Optional[str] = None
 
@@ -294,6 +297,12 @@ def freeze_prediction(rec: Dict[str, Any]) -> Optional[str]:
             # Absent (None) for every existing caller - byte-identical behavior.
             "horizon_probabilities": rec.get("horizon_probabilities"),
         }
+        # {horizon_days: P(beat benchmark)} from intelligence/outperform, only
+        # for horizons whose map passed its gate. Added to the payload only
+        # when present, so every caller that does not state it hashes exactly
+        # as before. Graded by evaluation/ against excess_return > 0.
+        if rec.get("outperform_probabilities"):
+            frozen["outperform_probabilities"] = rec["outperform_probabilities"]
         sid = _content_hash(frozen)
         content_hash = _content_hash({k: v for k, v in frozen.items() if k != "created_at"})
         edge_score = (conf.get("statistical_edge") or {}).get("score")
@@ -432,17 +441,19 @@ def verify_snapshot(snapshot_id: str) -> bool:
     return recomputed == snap["content_hash"]
 
 
-def list_snapshots(ticker: Optional[str] = None, limit: int = 500) -> List[Dict[str, Any]]:
+def list_snapshots(ticker: Optional[str] = None, limit: Optional[int] = 500) -> List[Dict[str, Any]]:
+    """Newest first. `limit=None` returns every row (grading needs all of them)."""
     conn = _conn()
     try:
+        lim = -1 if limit is None else int(limit)          # SQLite: LIMIT -1 = no limit
         if ticker:
             rows = conn.execute(
                 "SELECT * FROM prediction_snapshots WHERE ticker=? ORDER BY created_at DESC LIMIT ?",
-                (ticker.upper(), limit)).fetchall()
+                (ticker.upper(), lim)).fetchall()
         else:
             rows = conn.execute(
                 "SELECT * FROM prediction_snapshots ORDER BY created_at DESC LIMIT ?",
-                (limit,)).fetchall()
+                (lim,)).fetchall()
         return [dict(r) for r in rows]
     finally:
         conn.close()
@@ -493,6 +504,14 @@ def evaluate_outcomes(price_at_call_date: str, action: str, prices, benchmark,
         for h in horizons:
             out[h] = {"matured": False}
         return out
+    if (idx[pos] - call_ts).days > MAX_CALL_SNAP_DAYS:
+        # The series starts long after the call: there is no price on the call
+        # date, and "the next available bar" would be months later. This is
+        # how a 2022 replay call graded against a 2-year download got its
+        # entry price from 2024 — and every such call the same outcome.
+        for h in horizons:
+            out[h] = {"matured": False, "reason": "no price history at the call date"}
+        return out
 
     p_call = float(prices.iloc[pos])
     bullish = action.upper() in _BULLISH
@@ -531,7 +550,14 @@ def evaluate_outcomes(price_at_call_date: str, action: str, prices, benchmark,
         else:
             direction_correct = None      # HOLD makes no directional claim
 
+        # The per-horizon number is P(price UP), a statement about the market;
+        # this column scores P(the CALL is right). For a bearish call those are
+        # complements. Using p_up as-is scored a correct SELL at p_up=0.33 as
+        # (0.33-1)^2 = 0.45 instead of (0.67-1)^2 = 0.11 — every right bearish
+        # call read as a confident miss, and every wrong one as a good forecast.
         per_horizon_p = (horizon_probabilities or {}).get(h)
+        if per_horizon_p is not None and bearish:
+            per_horizon_p = 1.0 - float(per_horizon_p)
         p_dir = per_horizon_p if per_horizon_p is not None else default_p_dir
         brier = None
         if p_dir is not None and direction_correct is not None:
@@ -563,6 +589,19 @@ def _upsert_outcome(conn, sid: int, h: int, o: Dict[str, Any]) -> None:
          o.get("mfe_pct"), o.get("direction_correct"), o.get("brier")))
 
 
+def history_period(oldest_call: str) -> str:
+    """The shortest standard download window that reaches `oldest_call`
+    (with a month of slack)."""
+    try:
+        age = (datetime.now().date() - datetime.fromisoformat(oldest_call[:10]).date()).days
+    except (TypeError, ValueError):
+        return "max"
+    for days, period in ((330, "1y"), (700, "2y"), (1790, "5y"), (3620, "10y")):
+        if age <= days:
+            return period
+    return "max"
+
+
 def refresh_outcomes(ticker: Optional[str] = None,
                      fetch_fn: Optional[Callable[[str], Any]] = None,
                      benchmark_fetch_fn: Optional[Callable[[str], Any]] = None) -> Dict[str, Any]:
@@ -575,17 +614,54 @@ def refresh_outcomes(ticker: Optional[str] = None,
     """
     import pandas as pd
 
+    # The download must reach back to the OLDEST call being graded. A fixed
+    # "2y" window graded every older replay call against the first bar in the
+    # window (see evaluate_outcomes' snap guard), and since the window moves
+    # daily, those wrong outcomes changed every day.
+    _period: Dict[str, str] = {}
     if fetch_fn is None:
         def fetch_fn(t):
             from tools.market_data import fetch_price_history
-            return fetch_price_history(t, period="2y")["Close"]
+            return fetch_price_history(t, period=_period.get(t, "2y"))["Close"]
     if benchmark_fetch_fn is None:
         benchmark_fetch_fn = fetch_fn
 
-    snaps = list_snapshots(ticker=ticker)
+    # Every snapshot that still has a horizon to mature — not the newest 500.
+    # The 6-hourly job calls this with no ticker, and the old default
+    # (list_snapshots' LIMIT 500, about a week of heartbeat calls) meant a call
+    # older than that never had its 20/60/126/252-day outcome recorded unless
+    # the heartbeat happened to grade its ticker by name. Fully matured
+    # snapshots are skipped: their outcomes cannot move.
+    if ticker:
+        snaps = list_snapshots(ticker=ticker, limit=None)
+    else:
+        conn = _conn()
+        try:
+            snaps = [dict(r) for r in conn.execute(
+                f"""SELECT s.* FROM prediction_snapshots s
+                     WHERE (SELECT COUNT(*) FROM prediction_outcomes o
+                             WHERE o.snapshot_id = s.snapshot_id AND o.matured = 1) < {len(HORIZONS)}
+                     ORDER BY s.created_at DESC""").fetchall()]
+        finally:
+            conn.close()
     by_ticker: Dict[str, List[Dict[str, Any]]] = {}
     for s in snaps:
         by_ticker.setdefault(s["ticker"], []).append(s)
+    for tkr, group in by_ticker.items():
+        _period[tkr] = history_period(min(str(s["created_at"])[:10] for s in group))
+    if snaps:
+        oldest = history_period(min(str(s["created_at"])[:10] for s in snaps))
+        for b in {s.get("benchmark") or DEFAULT_BENCHMARK for s in snaps}:
+            _period[b] = oldest
+    today = datetime.now().date()
+
+    def _settled(series):
+        # A bar dated today may still be provisional: the Oct 2 run graded
+        # minutes after the close and its outcomes moved by up to 1.3% once
+        # the final prints landed. Those horizons mature on the next run.
+        if series is None or not len(series):
+            return series
+        return series[series.index.date < today]
 
     n_snap = 0
     n_outcome = 0
@@ -597,7 +673,7 @@ def refresh_outcomes(ticker: Optional[str] = None,
     try:
         for tkr, group in by_ticker.items():
             try:
-                prices = fetch_fn(tkr)
+                prices = _settled(fetch_fn(tkr))
             except Exception as e:
                 errors.append(f"{tkr}: price fetch failed: {str(e)[:60]}")
                 continue
@@ -605,7 +681,7 @@ def refresh_outcomes(ticker: Optional[str] = None,
                 bmark = s.get("benchmark") or DEFAULT_BENCHMARK
                 if bmark not in bench_cache:
                     try:
-                        bench_cache[bmark] = benchmark_fetch_fn(bmark)
+                        bench_cache[bmark] = _settled(benchmark_fetch_fn(bmark))
                     except Exception:
                         bench_cache[bmark] = None
                 horizon_probs = None

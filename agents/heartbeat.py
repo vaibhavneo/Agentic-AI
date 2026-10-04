@@ -84,7 +84,8 @@ def forecast_and_freeze(ticker: str,
                         recommend_fn: Optional[Callable[[str], Any]] = None,
                         calibrators: Optional[Dict[int, Dict[str, Any]]] = None,
                         as_of: Optional[str] = None,
-                        force: bool = False) -> Dict[str, Any]:
+                        force: bool = False,
+                        outperform_models: Optional[Dict[int, Dict[str, Any]]] = None) -> Dict[str, Any]:
     """One ticker: snapshot -> pillars -> forecast -> freeze.
 
     Returns a per-ticker record; never raises, because one bad ticker must not
@@ -123,6 +124,15 @@ def forecast_and_freeze(ticker: str,
                     "reason": "no_forecast (insufficient pillar data or price)"}
 
         rec["horizon_probabilities"] = probs
+        # P(beat SPY) from the composite, for horizons whose map passed its
+        # out-of-sample gate. Frozen so it is graded like any other claim.
+        # Not on a back-dated run: a map fitted on today's ledger stamped onto
+        # an earlier call would be look-ahead.
+        if outperform_models and not as_of:
+            from intelligence.outperform import probabilities as _p_beat
+            p_beat = _p_beat(rec.get("composite"), outperform_models)
+            if p_beat:
+                rec["outperform_probabilities"] = p_beat
         # Stamp the prediction to the DAY, not the moment. freeze_prediction
         # content-hashes created_at, so a wall-clock timestamp would make every
         # re-run a new snapshot - a cron retry or a manual re-run would quietly
@@ -145,7 +155,8 @@ def forecast_and_freeze(ticker: str,
 
         return {"ticker": ticker, "status": "done", "snapshot_id": snapshot_id,
                 "action": rec.get("action"), "composite": rec.get("composite"),
-                "price": price, "p_up": probs, "calibrated_p_up": calibrated}
+                "price": price, "p_up": probs, "calibrated_p_up": calibrated,
+                "p_beat_spy": rec.get("outperform_probabilities")}
     except Exception as e:
         return {"ticker": ticker, "status": "error", "reason": f"forecast:{str(e)[:80]}"}
 
@@ -206,11 +217,24 @@ def run_daily(tickers: Sequence[str],
         except Exception as e:
             out["calibration"] = {"error": str(e)[:120]}
 
+    # 2b. FIT P(beat SPY) from the composite, same gate philosophy.
+    outperform_models = None
+    if refit:
+        try:
+            from intelligence.outperform import load_models, status
+            outperform_models = load_models(HORIZONS, use_cache=False)
+            out["outperform"] = status(outperform_models)
+            out["outperform_active_horizons"] = sorted(
+                int(h) for h, m in outperform_models.items() if m.get("applied"))
+        except Exception as e:
+            out["outperform"] = {"error": str(e)[:120]}
+
     # 3-4. FORECAST + FREEZE per ticker.
     results: List[Dict[str, Any]] = []
     for t in tickers:
         r = forecast_and_freeze(t, recommend_fn=recommend_fn,
-                                calibrators=calibrators, as_of=as_of, force=force)
+                                calibrators=calibrators, as_of=as_of, force=force,
+                                outperform_models=outperform_models)
         results.append(r)
         if progress_cb:
             progress_cb(r)

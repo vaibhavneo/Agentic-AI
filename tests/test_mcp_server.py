@@ -48,8 +48,9 @@ def test_handshake_and_tools():
     check("unknown version -> the server's latest", r["result"]["protocolVersion"] == "2025-06-18")
     tools = handle(_rpc("tools/list"))["result"]["tools"]
     names = {t["name"] for t in tools}
-    check("the five analysis tools", names == {"stock_analysis", "compare_fundamentals", "screener",
-                                               "filing_alerts", "watchlist"}, sorted(names))
+    check("the six read-only tools", names == {"stock_analysis", "compare_fundamentals", "screener",
+                                               "filing_alerts", "watchlist", "prediction_scorecard"},
+          sorted(names))
     check("every tool is marked read-only", all(t["annotations"]["readOnlyHint"] for t in tools))
     check("every tool has an object input schema", all(t["inputSchema"]["type"] == "object" for t in tools))
     check("no tool can change state", not any(w in n for n in names for w in ("add", "remove", "mark", "order",

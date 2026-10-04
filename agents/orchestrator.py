@@ -344,9 +344,24 @@ def analyze_stock(
                 horizons=tuple(_LEDGER_HORIZONS),
                 calibrators=_cals,
             )
-            _probs = {h["horizon_days"]: h["p_up"] for h in (_fc.get("horizons") or {}).values()}
+            from intelligence.prediction_engine import frozen_probabilities
+            _probs = frozen_probabilities(_fc)
             if _probs:
+                # Raw p_up is what gets frozen and graded; the calibrated
+                # value is what a reader is shown.
                 recommendation["horizon_probabilities"] = _probs
+                recommendation["horizon_probabilities_calibrated"] = {
+                    h["horizon_days"]: h["p_up"] for h in (_fc.get("horizons") or {}).values()}
+            # P(beat SPY) from the composite — only horizons whose map passed
+            # its out-of-sample gate; frozen so the ledger grades it.
+            try:
+                from intelligence.outperform import load_models, probabilities
+                _p_beat = probabilities(recommendation.get("composite"),
+                                        load_models(_LEDGER_HORIZONS))
+                if _p_beat:
+                    recommendation["outperform_probabilities"] = _p_beat
+            except Exception:
+                pass
         except Exception:
             pass
 

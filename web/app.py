@@ -2850,6 +2850,49 @@ def selfimprove_scorecard_endpoint():
         return jsonify({"error": f"{type(e).__name__}: {e}"}), 500
 
 
+@app.route("/api/evaluation")
+def evaluation_endpoint():
+    """The prediction scorecard: every matured call against what happened, in
+    the frame each claim was made in — ranking vs SPY (the stock-picking
+    question), direction on price and vs SPY, p_up and P(beat SPY) against
+    no-hindsight baselines, confidence labels against what they delivered —
+    with overlap-corrected significance and a verdict under pre-stated rules.
+    `horizons` = comma list (default 1,5,20,60); `source` = live | all | replay.
+    Read-only; cached 10 minutes."""
+    try:
+        from evaluation.report import DEFAULT_HORIZONS, build
+        raw = request.args.get("horizons")
+        horizons = tuple(int(h) for h in raw.split(",")) if raw else DEFAULT_HORIZONS
+        source = request.args.get("source", "live")
+        if source not in ("live", "all", "replay") or not horizons or any(
+                h not in (1, 5, 20, 60, 126, 252) for h in horizons):
+            return jsonify({"error": "horizons must be from 1,5,20,60,126,252; "
+                                     "source live|all|replay"}), 400
+        return jsonify(build(horizons, source,
+                             use_cache=request.args.get("fresh") not in ("1", "true")))
+    except ValueError:
+        return jsonify({"error": "horizons must be integers"}), 400
+    except Exception as e:
+        return jsonify({"error": f"{type(e).__name__}: {e}"}), 500
+
+
+@app.route("/api/evaluation/history")
+def evaluation_history_endpoint():
+    """One scorecard metric over time (recorded by the daily heartbeat)."""
+    try:
+        from evaluation.history import METRICS, series
+        metric = request.args.get("metric", "rank_ic")
+        if metric not in METRICS:
+            return jsonify({"error": f"metric must be one of {sorted(METRICS)}"}), 400
+        horizon = int(request.args.get("horizon", 5))
+        return jsonify({"metric": metric, "horizon_days": horizon,
+                        "points": series(metric, horizon)})
+    except ValueError:
+        return jsonify({"error": "horizon must be an integer"}), 400
+    except Exception as e:
+        return jsonify({"error": f"{type(e).__name__}: {e}"}), 500
+
+
 @app.route("/api/selfimprove/options")
 def selfimprove_options_endpoint():
     """The options track record, split into its two separable claims.

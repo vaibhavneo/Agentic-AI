@@ -27,6 +27,8 @@ SERVER_INFO = {"name": "stock-analysis-desk", "version": "1.0.0"}
 INSTRUCTIONS = ("Fundamental analysis from SEC filings (10-K/10-Q/20-F/8-K): earnings quality, filing red flags, "
                 "valuation, peers, price context, analyst/insider activity, guidance, segments and a fundamentals "
                 "score. Every figure carries its filing source. Use as_of=YYYY-MM-DD for a point-in-time read. "
+                "prediction_scorecard says how the desk's past calls actually did against prices and SPY — "
+                "quote its verdicts and independent-window counts, not just hit rates. "
                 "Scores are context, not recommendations.")
 
 _TICKER = re.compile(r"^[A-Za-z0-9.\-^=]{1,12}$")
@@ -130,6 +132,33 @@ def tool_watchlist(args: Dict[str, Any]) -> Dict[str, Any]:
     return {"available": True, "watched": watched()}
 
 
+_EVAL_HORIZONS = (1, 5, 20, 60, 126, 252)
+
+
+def tool_prediction_scorecard(args: Dict[str, Any]) -> Dict[str, Any]:
+    from evaluation.report import DEFAULT_HORIZONS, build
+    hs = args.get("horizons") or list(DEFAULT_HORIZONS)
+    if not isinstance(hs, list) or not hs or any(h not in _EVAL_HORIZONS for h in hs):
+        raise InvalidParams(f"horizons must be a list drawn from {list(_EVAL_HORIZONS)}")
+    source = args.get("source", "live")
+    if source not in ("live", "all", "replay"):
+        raise InvalidParams("source must be live, all or replay")
+    rep = build(tuple(int(h) for h in hs), source)
+    if not args.get("detail"):
+        # The headline, verdicts and coverage answer "how good are the calls";
+        # the per-week trend and reliability bins are opt-in.
+        rep = {"available": True, "generated_at": rep["generated_at"], "source": rep["source"],
+               "rules": rep["rules"], "headline": rep["headline"],
+               "horizons": {h: {"coverage": c["coverage"], "verdicts": c["verdicts"],
+                                "ranking": c["ranking"], "direction": {k: v for k, v in c["direction"].items()
+                                                                       if k != "by_action"},
+                                "p_up": {k: v for k, v in c["p_up"].items() if k != "reliability"},
+                                "confidence": c["confidence"]}
+                            for h, c in rep["horizons"].items()},
+               "feedback": rep["feedback"]}
+    return dict(rep, available=True)
+
+
 def _schema(props: Dict[str, Any], required: Optional[List[str]] = None) -> Dict[str, Any]:
     return {"type": "object", "properties": props, "required": required or [], "additionalProperties": False}
 
@@ -183,6 +212,21 @@ TOOLS: Dict[str, Dict[str, Any]] = {
                         "filings, bankruptcy, new 10-Q/10-K with the score move), most severe first."),
         "inputSchema": _schema({"unread_only": {"type": "boolean"},
                                 "limit": {"type": "integer", "minimum": 1, "maximum": 500}}),
+    },
+    "prediction_scorecard": {
+        "fn": tool_prediction_scorecard,
+        "title": "Prediction scorecard",
+        "description": ("How the desk's past calls actually did: ranking skill against SPY (same-day rank IC, "
+                        "bullish-minus-bearish spread), hit rate on price and against SPY, whether p_up beat "
+                        "always-50% and the base rate known at the time, and whether confidence labels delivered "
+                        "what they claimed — per horizon, with overlap-corrected t-stats, independent-window "
+                        "counts and a verdict (EDGE / PROMISING / NO_EDGE / ADVERSE / INSUFFICIENT)."),
+        "inputSchema": _schema({
+            "horizons": {"type": "array", "items": {"type": "integer", "enum": list(_EVAL_HORIZONS)},
+                         "description": "Trading-day horizons (default 1, 5, 20, 60)"},
+            "source": {"type": "string", "enum": ["live", "all", "replay"],
+                       "description": "live = calls the desk made (default); replay = point-in-time backfill"},
+            "detail": {"type": "boolean", "description": "Include per-week trend, reliability bins, pillars"}}),
     },
     "watchlist": {
         "fn": tool_watchlist,

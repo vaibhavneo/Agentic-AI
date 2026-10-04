@@ -208,7 +208,7 @@ def effective_sample_size(dates: Sequence[str], horizon_days: int) -> int:
 
 
 def purged_cv_brier(rows: Sequence[Tuple[float, float, str]], horizon_days: int,
-                    folds: int = CV_FOLDS) -> Optional[Dict[str, Any]]:
+                    folds: int = CV_FOLDS, baseline: str = "raw") -> Optional[Dict[str, Any]]:
     """Time-blocked, purged out-of-sample Brier. rows: [(p, outcome, as_of_date)].
 
     Two differences from cross_validated_brier, both load-bearing:
@@ -222,6 +222,12 @@ def purged_cv_brier(rows: Sequence[Tuple[float, float, str]], horizon_days: int,
 
     Also reports effective_n so the caller can refuse a verdict computed from
     fewer independent observations than it appears to have.
+
+    `baseline` is what the map has to beat on each test block:
+      "raw"        the stated value itself (it is already a probability)
+      "base_rate"  the training rows' mean outcome — for an input that is not
+                   a probability (a 0-100 score), "no skill" is predicting the
+                   rate seen so far, never the test block's own rate.
     """
     clean = [(float(p), float(o), str(d)[:10]) for p, o, d in rows
              if p is not None and o is not None and d]
@@ -261,8 +267,10 @@ def purged_cv_brier(rows: Sequence[Tuple[float, float, str]], horizon_days: int,
         if not test or len(train) < 2:
             continue
         cal_map = fit_isotonic(train)
+        rate = sum(o for _, o in train) / len(train)
         for p, o, _ in test:
-            raw_sq.append((p - o) ** 2)
+            ref = rate if baseline == "base_rate" else p
+            raw_sq.append((ref - o) ** 2)
             cal_sq.append((apply_isotonic(p, cal_map) - o) ** 2)
 
     if not raw_sq:
@@ -275,8 +283,16 @@ def purged_cv_brier(rows: Sequence[Tuple[float, float, str]], horizon_days: int,
 
 # ── Ledger-backed fitting ──────────────────────────────────────────────────
 
-def _pairs_for_horizon(horizon: int, source: str = "all") -> List[Tuple[float, float]]:
-    """(predicted p_up, realised direction_correct) for one horizon.
+def _pairs_for_horizon(horizon: int, source: str = "all") -> List[Tuple[float, float, str]]:
+    """(predicted p_up, did the price rise, outcome date) for one horizon.
+
+    The target is whether the PRICE ROSE, for every call that stated a p_up —
+    HOLD included. p_up is a statement about the market, so it is graded
+    against the market. This used to be `direction_correct`, which is a
+    statement about the CALL: for SELL/REDUCE it is 1 when the price FELL, so a
+    bearish call's p_up of 0.33 was paired with "1" whenever it was right and
+    the map learned that low p_up meant "up" on a quarter of the rows. HOLD
+    (no direction_correct) was silently excluded although it states a p_up.
 
     Only rows where the snapshot actually stored a per-horizon probability are
     usable — older rows predate horizon_probabilities_json and are skipped
@@ -288,12 +304,12 @@ def _pairs_for_horizon(horizon: int, source: str = "all") -> List[Tuple[float, f
     conn = pl._conn()
     try:
         rows = [dict(r) for r in conn.execute(
-            f"""SELECT o.direction_correct, o.as_of_date, s.created_at,
+            f"""SELECT o.raw_return_pct, o.as_of_date, s.created_at,
                        s.horizon_probabilities_json
                   FROM prediction_outcomes o
                   JOIN prediction_snapshots s ON s.snapshot_id = o.snapshot_id
                  WHERE o.horizon_days=? AND o.matured=1
-                       AND o.direction_correct IS NOT NULL
+                       AND o.raw_return_pct IS NOT NULL
                        AND s.horizon_probabilities_json IS NOT NULL
                        {pl._source_where(source)}""",
             (horizon,)).fetchall()]
@@ -309,7 +325,7 @@ def _pairs_for_horizon(horizon: int, source: str = "all") -> List[Tuple[float, f
         p = probs.get(str(horizon), probs.get(horizon))
         if p is None:
             continue
-        pairs.append((float(p), float(r["direction_correct"]),
+        pairs.append((float(p), 1.0 if float(r["raw_return_pct"]) > 0 else 0.0,
                       str(r["as_of_date"] or r["created_at"] or "")[:10]))
     return pairs
 

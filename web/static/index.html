@@ -810,6 +810,23 @@
         the reference universe is synthetic (labelled) to prove the mechanics.</div></div>
     </div>
 
+    <!-- Prediction Scorecard (full width) -->
+    <div class="card" id="predScoreCard" style="display:none;margin-bottom:16px">
+      <div class="card-title">🎯 Prediction Scorecard — calls vs what happened
+        <span style="float:right;font-weight:400;letter-spacing:0;text-transform:none">
+          <select id="scoreSource" onchange="loadScorecard()"
+            style="background:var(--bg3);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:3px 8px;font-size:11px" title="live = calls the desk made; historical = point-in-time replay">
+            <option value="live" selected>live</option><option value="replay">historical</option><option value="all">all</option>
+          </select>
+          <select id="scoreTrendH" onchange="loadScorecard()"
+            style="background:var(--bg3);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:3px 8px;font-size:11px" title="horizon for the summary, weekly trend and labels">
+            <option value="1">1d</option><option value="5" selected>5d</option><option value="20">20d</option><option value="60">60d</option>
+          </select>
+        </span>
+      </div>
+      <div id="predScoreBody"><div style="color:var(--muted);text-align:center;padding:14px 0;font-size:13px">Loading…</div></div>
+    </div>
+
     <!-- Prediction Ledger & Calibration (full width) -->
     <div class="card" id="predLedgerCard" style="display:none;margin-bottom:16px">
       <div class="card-title">🧾 Prediction Ledger &amp; Calibration
@@ -4118,10 +4135,12 @@ function showLabCards() {
   document.getElementById('dataSrcCard').style.display = 'block';
   document.getElementById('xsecCard').style.display = 'block';
   document.getElementById('predLedgerCard').style.display = 'block';
+  document.getElementById('predScoreCard').style.display = 'block';
   document.getElementById('decisionCard').style.display = 'block';
   document.getElementById('intelligenceCard').style.display = 'block';
   loadUniverses();
   loadPredictionLedger();
+  loadScorecard();
   if (!_labStrategiesLoaded) {
     _labStrategiesLoaded = true;
     fetch('/api/strategies').then(r => r.json()).then(d => {
@@ -4302,6 +4321,106 @@ async function pollReplay(runId) {
       loadPredictionLedger();          // refresh the historical calibration view
     }
   } catch (e) { prog.textContent = '' + e; btn.disabled = false; }
+}
+
+// ── Prediction Scorecard ──────────────────────────────────────────────────
+// Reads /api/evaluation: each claim graded in its own frame (ranking vs SPY,
+// direction on price and vs SPY, p_up vs no-hindsight baselines, labels vs
+// what they delivered). Verdicts carry their text, never colour alone.
+const SCORE_VERDICT_COLOR = {EDGE: 'var(--green)', PROMISING: 'var(--yellow)', ADVERSE: 'var(--red)',
+                             NO_EDGE: 'var(--muted)', INSUFFICIENT: 'var(--muted)'};
+
+function _scoreFmt(v, digits, pct) {
+  if (v === null || v === undefined) return '—';
+  return pct ? (v * 100).toFixed(0) + '%' : Number(v).toFixed(digits);
+}
+
+function _scoreVerdict(v) {
+  if (!v) return '—';
+  return `<span title="${esc(v.why)}" style="font-weight:800;font-size:11px;color:${SCORE_VERDICT_COLOR[v.verdict] || 'var(--text)'}">${esc(v.verdict.replace('_', ' '))}</span>`;
+}
+
+function _scoreTrendSvg(points) {
+  // Weekly same-day rank IC: one series, one hue, bars from a zero baseline.
+  const pts = points.filter(p => p.rank_ic !== null && p.rank_ic !== undefined);
+  if (pts.length < 2) return '<div style="color:var(--muted);font-size:11px">Not enough weeks with a full cross-section yet.</div>';
+  const W = 520, H = 120, pad = 22, bw = Math.max(6, Math.min(36, (W - 2 * pad) / pts.length - 6));
+  const m = Math.max(0.05, ...pts.map(p => Math.abs(p.rank_ic)));
+  const y0 = H / 2, sc = (H / 2 - 14) / m;
+  const bars = pts.map((p, i) => {
+    const x = pad + i * ((W - 2 * pad) / pts.length) + 3, h = Math.abs(p.rank_ic) * sc;
+    const y = p.rank_ic >= 0 ? y0 - h : y0;
+    return `<g><rect x="${x}" y="${y}" width="${bw}" height="${Math.max(h, 1)}" rx="2" fill="var(--accent)" opacity=".85"></rect>
+      <rect x="${x - 3}" y="4" width="${bw + 6}" height="${H - 8}" fill="transparent"><title>${esc(p.week)} · rank IC ${p.rank_ic.toFixed(3)} · ${p.calls} calls · hit vs SPY ${_scoreFmt(p.hit_vs_spy, 0, true)}</title></rect>
+      <text x="${x + bw / 2}" y="${H - 2}" text-anchor="middle" font-size="9" fill="var(--muted)">${esc(p.week.slice(5))}</text></g>`;
+  }).join('');
+  return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;max-width:${W}px;height:auto" role="img" aria-label="Weekly rank IC">
+    <line x1="${pad}" x2="${W - pad}" y1="${y0}" y2="${y0}" stroke="var(--border)" stroke-width="1"></line>
+    <text x="2" y="${y0 - sc * m + 4}" font-size="9" fill="var(--muted)">+${m.toFixed(2)}</text>
+    <text x="2" y="${y0 + sc * m}" font-size="9" fill="var(--muted)">−${m.toFixed(2)}</text>${bars}</svg>`;
+}
+
+async function loadScorecard() {
+  const body = document.getElementById('predScoreBody');
+  if (!body) return;
+  const source = (document.getElementById('scoreSource') || {}).value || 'live';
+  const th = (document.getElementById('scoreTrendH') || {}).value || '5';
+  try {
+    const rep = await (await fetch('/api/evaluation?source=' + source)).json();
+    if (rep.error) { body.innerHTML = `<div style="color:var(--red);font-size:12px">${esc(rep.error)}</div>`; return; }
+    const hs = Object.keys(rep.horizons || {});
+    const th_ = 'padding:4px 8px;text-align:right;color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.4px;font-weight:700';
+    const td = 'padding:4px 8px;text-align:right;font-variant-numeric:tabular-nums';
+    const rows = hs.map(h => {
+      const c = rep.horizons[h], d = c.direction, rk = c.ranking, pu = c.p_up || {};
+      return `<tr style="border-top:1px solid var(--border)">
+        <td style="${td};text-align:left;font-weight:800">${h}d</td>
+        <td style="${td}">${c.coverage.calls.toLocaleString()}</td>
+        <td style="${td}" title="independent (non-overlapping) evaluation windows">${c.coverage.independent_windows}</td>
+        <td style="${td}">${_scoreFmt(d.hit_on_price.rate, 0, true)}</td>
+        <td style="${td}">${_scoreFmt(d.hit_vs_spy.rate, 0, true)}</td>
+        <td style="${td}" title="share of calls where the stock rose — the market's own up-rate">${_scoreFmt(d.share_of_calls_where_stock_rose, 0, true)}</td>
+        <td style="${td}">${rk.rank_ic.mean === null ? '—' : (rk.rank_ic.mean >= 0 ? '+' : '') + rk.rank_ic.mean.toFixed(3)}</td>
+        <td style="${td}">${_scoreFmt(rk.rank_ic.t, 2)}</td>
+        <td style="${td}" title="bullish minus bearish calls, excess return vs SPY per date">${rk.bull_minus_bear_excess_pct.mean === null ? '—' : rk.bull_minus_bear_excess_pct.mean.toFixed(2) + '%'}</td>
+        <td style="${td}">${_scoreVerdict(c.verdicts.ranking)}</td>
+        <td style="${td}" title="Brier of p_up; always-50% scores 0.250">${_scoreFmt(pu.brier, 3)}</td>
+        <td style="${td}">${_scoreVerdict(c.verdicts.p_up)}</td></tr>`;
+    }).join('');
+    const fb = rep.feedback || {};
+    const calOn = Object.entries(fb.p_up_calibration || {}).filter(([, c]) => c && c.applied).map(([h]) => h + 'd');
+    const beatOn = Object.entries(fb.p_beat_spy_model || {}).filter(([, m]) => m && m.applied).map(([h]) => h + 'd');
+    // Same floor as the headline: a label with a handful of calls says nothing.
+    const conf = ((rep.horizons[th] || rep.horizons[hs[0]] || {}).confidence || []).filter(c => c.n >= 30);
+    const trend = (rep.horizons[th] || {}).trend || [];
+    body.innerHTML = `
+      <ul style="margin:0 0 10px 18px;font-size:12px;line-height:1.55">${(rep.headline || []).filter(l => l.startsWith(th + 'd ')).map(l => `<li>${esc(l)}</li>`).join('') || '<li>Nothing has matured at this horizon yet.</li>'}</ul>
+      <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px">
+        <thead><tr><th style="${th_};text-align:left">h</th><th style="${th_}">calls</th><th style="${th_}">indep.</th>
+          <th style="${th_}">hit on price</th><th style="${th_}">hit vs SPY</th><th style="${th_}">stock rose</th>
+          <th style="${th_}">rank IC</th><th style="${th_}">t</th><th style="${th_}">bull − bear</th>
+          <th style="${th_}">ranking</th><th style="${th_}">p_up Brier</th><th style="${th_}">p_up</th></tr></thead>
+        <tbody>${rows}</tbody></table></div>
+      <div style="display:flex;gap:18px;flex-wrap:wrap;margin-top:12px">
+        <div style="flex:1 1 300px;min-width:0">
+          <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;font-weight:700;margin-bottom:4px">Weekly rank IC · ${esc(th)}d (does the composite still rank?)</div>
+          ${_scoreTrendSvg(trend)}
+        </div>
+        <div style="flex:1 1 240px;min-width:0;font-size:12px">
+          <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;font-weight:700;margin-bottom:4px">Confidence labels · ${esc(th)}d — claimed vs delivered</div>
+          ${conf.length ? conf.map(c => `<div style="display:flex;justify-content:space-between;border-bottom:1px solid var(--border);padding:3px 0">
+              <span style="font-weight:700">${esc(c.level)} <span style="color:var(--muted);font-weight:400">(${c.n})</span></span>
+              <span>claimed ${_scoreFmt(c.claimed, 0, true)} · right ${_scoreFmt(c.hit_on_price, 0, true)} on price · ${_scoreFmt(c.hit_vs_spy, 0, true)} vs SPY</span></div>`).join('')
+            : '<div style="color:var(--muted)">No label has 30 matured directional calls yet.</div>'}
+          <div style="margin-top:8px;color:var(--muted);font-size:11px;line-height:1.5">
+            Feedback in force: p_up calibration at <b style="color:var(--text)">${calOn.join(', ') || 'no horizon'}</b>;
+            P(beat SPY) stated at <b style="color:var(--text)">${beatOn.join(', ') || 'no horizon (gate not met)'}</b>.
+            Verdicts need |t| ≥ ${rep.rules.t_significant} across call dates and ${rep.rules.min_independent_windows} independent windows.</div>
+        </div>
+      </div>`;
+  } catch (e) {
+    body.innerHTML = `<div style="color:var(--red);font-size:12px">Scorecard unavailable: ${esc(String(e))}</div>`;
+  }
 }
 
 async function loadPredictionLedger() {

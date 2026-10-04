@@ -237,3 +237,20 @@ def forecast_horizons(
         "confidence": avg_confidence,
         "flags": flags,
     }
+
+
+def frozen_probabilities(forecast: Optional[Dict[str, Any]]) -> Dict[int, float]:
+    """{horizon_days: p_up} as the LEDGER must store it — the uncalibrated value.
+
+    The calibration map is fitted on the ledger's own frozen p_up. Freezing the
+    calibrated number feeds the map its own output on the next refit: a
+    correction gets re-learned on top of itself. The heartbeat always froze the
+    raw value; the web path froze the calibrated one, which is what this exists
+    to stop. The calibrated value stays on the forecast for the reader.
+    """
+    out: Dict[int, float] = {}
+    for h in ((forecast or {}).get("horizons") or {}).values():
+        p = h.get("p_up_uncalibrated", h.get("p_up"))
+        if p is not None and h.get("horizon_days") is not None:
+            out[int(h["horizon_days"])] = p
+    return out

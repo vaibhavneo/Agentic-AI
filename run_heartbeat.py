@@ -73,9 +73,16 @@ def main() -> int:
                     help="skip the verified ledger backup after the run")
     ap.add_argument("--health-only", action="store_true",
                     help="print the flywheel health report and exit, changing nothing")
+    ap.add_argument("--scorecard-only", action="store_true",
+                    help="print the prediction scorecard and exit, changing nothing")
     args = ap.parse_args()
 
     from agents.heartbeat import independence_report, run_daily
+
+    if args.scorecard_only:
+        from evaluation.report import build, format_text
+        print(format_text(build(use_cache=False)))
+        return 0
 
     if args.health_only:
         from agents.flywheel_health import format_report, health_report
@@ -118,6 +125,9 @@ def main() -> int:
         active = res.get("calibration_active_horizons")
         if active is not None:
             print(f"calibration active at: {active or 'no horizon yet (gate not met)'}")
+        beat = res.get("outperform_active_horizons")
+        if beat is not None:
+            print(f"P(beat SPY) stated at: {beat or 'no horizon yet (gate not met)'}")
 
     # Back up the ledger AFTER the run, so the snapshot includes what was just
     # frozen. Canonical only: a secondary deployment's rows are not evidence,
@@ -145,6 +155,20 @@ def main() -> int:
         print(format_report(health_report()))
     except Exception as e:
         print(f"health report unavailable: {e}", file=sys.stderr)
+
+    # Scorecard: predictions against outcomes, recorded daily so the trend is
+    # answerable. Reporting only, like the health report.
+    try:
+        from evaluation.history import record
+        from evaluation.report import build, format_text
+        report = build(use_cache=False)
+        print()
+        print(format_text(report))
+        rec = record(report)
+        print(f"  history: {rec.get('recorded', 0)} metrics recorded"
+              + (f" ({rec['skipped']})" if rec.get("skipped") else ""))
+    except Exception as e:
+        print(f"scorecard unavailable: {e}", file=sys.stderr)
 
     # A run where every ticker was already predicted today is a SUCCESS - that
     # is the idempotency guard working, not a failed cron.
