@@ -9,6 +9,11 @@ __pycache__/
 *.pyo
 .DS_Store
 .env
+# Any other .env variant (backups, copies) holds the same keys — a real
+# DeepSeek key was committed once as .env.backup-preselfimprove.
+.env.*
+!.env.example
+!.env.production.example
 
 # The live SQLite DB (and its WAL/SHM siblings) churns on every request and
 # was accidentally tracked before this file existed - stop tracking it, same
