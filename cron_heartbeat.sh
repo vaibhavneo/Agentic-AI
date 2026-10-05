@@ -44,9 +44,20 @@ LOG="$LOG_DIR/heartbeat-$(date +%Y-%m-%d).log"
 mkdir -p "$LOG_DIR"
 cd "$REPO" || { echo "$(date '+%Y-%m-%dT%H:%M:%S%z') FATAL: cannot cd to $REPO" >>"$LOG_DIR/heartbeat-error.log"; exit 2; }
 
+# KEEP THE MACHINE AWAKE FOR THE RUN. The 2-3 hour runs (2026-09-25,
+#   10-01, 10-02) were the laptop sleeping mid-run: on 10-02 the lid closed at
+#   14:31 and the run crept forward only during brief maintenance wakes until
+#   16:50, with four tickers failing for want of a network. caffeinate -i stops
+#   idle sleep and -s stops system sleep on AC power; it cannot stop a lid
+#   closed on battery, so the runner also reports how long it slept.
+CAFF=""
+[ -x /usr/bin/caffeinate ] && CAFF="/usr/bin/caffeinate -i -s"
+
 {
   echo "===== heartbeat start $(date '+%Y-%m-%dT%H:%M:%S%z') ====="
-  "$PY" run_heartbeat.py --file watchlist.txt
+  # MAINTENANCE_SCHEDULER=0: the runner sequences the upkeep jobs itself
+  # (run_heartbeat.prepare_env explains why the background thread must not run).
+  MAINTENANCE_SCHEDULER=0 $CAFF "$PY" run_heartbeat.py --file watchlist.txt
   rc=$?
   echo "===== heartbeat end   $(date '+%Y-%m-%dT%H:%M:%S%z')  exit=$rc ====="
   # A non-zero exit is surfaced in a separate always-checked file, because a

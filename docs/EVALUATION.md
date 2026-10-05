@@ -34,7 +34,7 @@ calibration (`intelligence/calibration.py`) and self-improvement loop (`selfimpr
 | `GET /api/evaluation?horizons=1,5,20,60&source=live` | Full report (cached 10 min; `fresh=1` to rebuild) |
 | `GET /api/evaluation/history?metric=rank_ic&horizon=5` | One metric over time |
 | MCP `prediction_scorecard` (at `/mcp`) | Headline, verdicts, coverage; `detail: true` for trend and reliability bins |
-| UI: Advanced Analysis → 🎯 Prediction Scorecard | Summary, per-horizon table, weekly rank-IC chart, confidence labels |
+| UI: Advanced Analysis → 🎯 Prediction Scorecard | Summary, per-horizon table, weekly rank-IC chart, confidence labels, desk vs simple models, paper portfolio |
 
 ## What is graded, and in which frame
 
@@ -131,6 +131,82 @@ At 5d it has 3 windows. The composite has only been frozen since early September
 which is the binding constraint. The probability is frozen into each new call as
 `outperform_probabilities` and graded by the scorecard against excess > 0.
 It is never stamped on a back-dated or replay call, because that would be look-ahead.
+
+## Desk vs simple models (challengers)
+
+`evaluation/challengers.py` scores simple models on the **same calls** and grades them
+against the composite, paired by date. Each date, both rank the same names, and the
+difference of the two rank ICs is one observation. The rule is symmetric: "a challenger
+is better" also needs |t| ≥ 2 and 20 independent windows. Below that it reads
+`…_UNCONFIRMED`.
+
+| Challenger | What it is | Where it comes from |
+|---|---|---|
+| `momentum_12_1` | 12-month return excluding the last month | prices up to and including the call day |
+| `reversal_1m` | minus the last month's return | same |
+| `low_volatility` | minus 60-day volatility | same |
+| `fundamentals_only`, `technical_only` | one pillar alone | the frozen pillars |
+| `equal_weight_core` | technical, algo, fundamentals at equal weight | the frozen pillars |
+
+Price challengers are **frozen beside each new call** (`shadow_scores`, source `frozen`,
+immutable by trigger). For past calls they are rebuilt from prices cut at the call day,
+which is exactly what the desk knew. Bars are stamped 04:00, so the cut compares calendar
+dates; a midnight cut silently dropped the call day's own close. The daily run fills in any
+missing ones.
+
+**This is also where a new data source belongs.** Add it as a challenger, let it build a
+record beside the composite, and wire it into the decision only if it wins.
+
+## Paper portfolio
+
+`evaluation/paper.py`: equal weight in the top third by score at each rebalance date.
+Rebalance dates are at least h trading days apart, so periods never overlap. It is charged
+`backtest.costs.CostModel`'s per-trade cost for a liquid name (4.13 bps) on every unit of
+weight traded. It is compared with SPY **and** with all names the desk covered that day;
+the second is the honest benchmark for picking. A top-minus-bottom (market-neutral)
+version is reported alongside. Challengers are simulated on the composite's own dates and
+names.
+
+**First read (1d, 22 trading days in September 2026, after costs):**
+
+| Model | Top third | Top − bottom | Rank IC (same names) |
+|---|---|---|---|
+| **Composite (the desk)** | **+0.38%** | +4.84% | +0.080 |
+| momentum 12-1 | −0.56% | +5.64% | +0.117 |
+| equal-weight core | +0.07% | +5.54% | +0.079 |
+| fundamentals only | −1.61% | +4.28% | +0.052 |
+| technical only | −1.59% | +4.69% | +0.081 |
+| low volatility | −7.15% | −9.43% | −0.079 (desk reliably better) |
+| reversal 1m | −4.54% | −3.52% | −0.020 |
+| *All covered names* | *−3.77%* | | |
+| *SPY* | *+0.37%* | | |
+
+The desk's top third was ahead of all covered names on 73% of days (t = 2.62), but only
+matched SPY. Momentum and equal weights did as well as the composite on ranking (no
+reliable difference). At 5d, equal weights led the composite with t = −2.35, but on only
+3 independent windows (unconfirmed). Watch these two; they are the cheapest possible
+alternative to the full engine.
+
+## Daily run reliability
+
+The 2–3 hour runs (2026-09-25, 10-01, 10-02) were not slow code; a ticker takes 5–8 s.
+macOS's power log shows the laptop asleep mid-run. On 10-02 the lid closed at 14:31, and
+the run crept forward only during brief maintenance wakes until 16:50. Four tickers failed
+for want of a network. Changes:
+
+- `cron_heartbeat.sh` runs under `caffeinate -i -s`, which stops idle sleep and stops
+  system sleep on AC power. A lid closed on battery still sleeps, so the run reports
+  `asleep_s` (wall-clock minus monotonic time) and warns when it is a minute or more.
+- Failed tickers are retried once after 30 s (`retried` / `recovered` in the log).
+- Every ticker's time is logged, plus the three slowest.
+- **The web app's background scheduler no longer starts inside the run.** It used to start
+  as a side effect of importing `web.app`. The self-improvement cycle then ran on a thread
+  *concurrently* with the day's calls, so a promotion landing mid-run scored part of the
+  day under old weights and part under new. Its jobs now run at fixed points:
+  grade → options grading → self-improvement → challenger reconstruction → fit →
+  score and freeze → scorecard → filing watch and screener (at their usual intervals).
+  `.env` is loaded explicitly, so `SELFIMPROVE_APPLY=1` still reaches the loop.
+  `--no-maintenance` skips the upkeep.
 
 ## Limits worth knowing
 

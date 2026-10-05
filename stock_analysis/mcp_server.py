@@ -153,7 +153,12 @@ def tool_prediction_scorecard(args: Dict[str, Any]) -> Dict[str, Any]:
                                 "ranking": c["ranking"], "direction": {k: v for k, v in c["direction"].items()
                                                                        if k != "by_action"},
                                 "p_up": {k: v for k, v in c["p_up"].items() if k != "reliability"},
-                                "confidence": c["confidence"]}
+                                "confidence": c["confidence"],
+                                "challengers": {n: {"verdict": v["verdict"],
+                                                    "challenger_rank_ic": v["challenger_rank_ic"]["mean"],
+                                                    "desk_rank_ic_same_names": v["composite_rank_ic_same_names"]["mean"]}
+                                                for n, v in (c.get("challengers") or {}).items()},
+                                "paper": {k: v for k, v in (c.get("paper") or {}).items() if k != "curve"}}
                             for h, c in rep["horizons"].items()},
                "feedback": rep["feedback"]}
     return dict(rep, available=True)
@@ -220,7 +225,9 @@ TOOLS: Dict[str, Dict[str, Any]] = {
                         "bullish-minus-bearish spread), hit rate on price and against SPY, whether p_up beat "
                         "always-50% and the base rate known at the time, and whether confidence labels delivered "
                         "what they claimed — per horizon, with overlap-corrected t-stats, independent-window "
-                        "counts and a verdict (EDGE / PROMISING / NO_EDGE / ADVERSE / INSUFFICIENT)."),
+                        "counts and a verdict (EDGE / PROMISING / NO_EDGE / ADVERSE / INSUFFICIENT). Also: the desk "
+                        "against simple models on the same names and days (12-1 momentum, reversal, low volatility, "
+                        "single pillars), and a paper portfolio of its top third after trading costs."),
         "inputSchema": _schema({
             "horizons": {"type": "array", "items": {"type": "integer", "enum": list(_EVAL_HORIZONS)},
                          "description": "Trading-day horizons (default 1, 5, 20, 60)"},

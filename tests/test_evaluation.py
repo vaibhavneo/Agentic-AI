@@ -491,3 +491,129 @@ def test_api_and_mcp(ledger):
     from stock_analysis.mcp_server import call_tool
     out = call_tool("prediction_scorecard", {"horizons": [1]})
     assert not out["isError"] and out["structuredContent"]["headline"]
+
+
+# ── 6. Challengers and the paper portfolio ────────────────────────────────
+
+def test_price_challengers_match_their_definitions():
+    from evaluation.challengers import price_scores
+    close = pd.Series([100.0 * (1.001 ** i) for i in range(300)],
+                      index=pd.bdate_range("2024-01-01", periods=300))
+    s = price_scores(close)
+    assert s["momentum_12_1"] == pytest.approx(close.iloc[-22] / close.iloc[-253] - 1, abs=1e-6)
+    assert s["reversal_1m"] == pytest.approx(-(close.iloc[-1] / close.iloc[-22] - 1), abs=1e-6)
+    assert s["low_volatility"] == pytest.approx(0.0, abs=1e-9)        # a constant-growth line has no vol
+    assert "momentum_12_1" not in price_scores(close.iloc[:200])       # not enough history
+
+
+def test_reconstruction_is_point_in_time_and_includes_the_call_days_bar(ledger):
+    pl = ledger
+    from evaluation.challengers import load, reconstruct
+    # Bars stamped 04:00, as the vendor stamps them.
+    idx = pd.bdate_range("2024-01-01", periods=400) + pd.Timedelta(hours=4)
+    close = pd.Series(np.linspace(100, 300, 400), index=idx)
+    call_day = str(idx[300].date())
+    sid = pl.freeze_prediction(_rec("MSFT", call_day))
+    reconstruct(fetch_fn=lambda t, period: close)
+    got = load()[sid]["reversal_1m"]
+    expect = -(close.iloc[300] / close.iloc[279] - 1)                 # ends ON the call day, not after
+    assert got == pytest.approx(expect, abs=1e-6)
+
+
+def test_frozen_challenger_scores_cannot_be_rewritten(ledger):
+    pl = ledger
+    from evaluation.challengers import _conn, _write, load, reconstruct, record_frozen
+    close = pd.Series(np.linspace(100, 300, 400), index=pd.bdate_range("2024-01-01", periods=400))
+    sid = pl.freeze_prediction(_rec("MSFT", str(close.index[-1].date())))
+    assert record_frozen(sid, close) == 3
+    before = load()[sid]
+    reconstruct(fetch_fn=lambda t, period: close * 2 + 7)              # a different series
+    assert load()[sid] == before
+    assert _write(sid, {"reversal_1m": 9.9}, "reconstructed") == 0     # asked directly, still refused
+    assert load()[sid] == before
+    conn = _conn()
+    try:
+        with pytest.raises(Exception):
+            conn.execute("UPDATE shadow_scores SET value=0 WHERE snapshot_id=?", (sid,))
+    finally:
+        conn.close()
+
+
+def test_a_better_challenger_is_found_and_a_worse_one_is_beaten():
+    from evaluation import scorecard as S
+    recs = _synthetic(_days(60), names=15, skill=0.0, seed=21)
+    rng = random.Random(22)
+    shadow = {}
+    for i, x in enumerate(recs):
+        x["snapshot_id"] = f"s{i}"
+        x["composite"] = rng.uniform(30, 80)                          # the desk: noise
+        shadow[x["snapshot_id"]] = {"momentum_12_1": x["excess"] + rng.gauss(0, 0.5),   # informative
+                                    "reversal_1m": rng.random(), "low_volatility": rng.random()}
+    ch = S.challenger_scorecard(recs, 1, shadow)
+    assert ch["momentum_12_1"]["verdict"] == "CHALLENGER_BETTER"
+    assert ch["reversal_1m"]["verdict"] in ("NO_DIFFERENCE", "COMPOSITE_BETTER_UNCONFIRMED")
+
+
+def test_a_challenger_win_needs_independent_windows_too():
+    from evaluation.scorecard import paired_verdict
+    v = paired_verdict({"mean": -0.05, "t": -3.0, "n_dates": 18, "independent_windows": 3})
+    assert v["verdict"] == "CHALLENGER_BETTER_UNCONFIRMED"
+    v = paired_verdict({"mean": -0.05, "t": -3.0, "n_dates": 40, "independent_windows": 25})
+    assert v["verdict"] == "CHALLENGER_BETTER"
+
+
+def _paper_records(days, names, skill, seed=31, market=0.0):
+    recs = _synthetic(days, names=names, skill=skill, market=market, seed=seed)
+    return recs
+
+
+def test_paper_portfolio_rewards_a_real_signal_and_charges_for_trading():
+    from evaluation.paper import simulate
+    good = simulate(_paper_records(_days(60), 15, skill=1.0), 1, cost_bps=5.0)
+    assert good["periods"] == 60
+    assert good["long"]["total_pct"] > good["universe"]["total_pct"]
+    assert good["long_vs_universe"]["t"] > 2
+    assert good["cost_drag_pct"] > 0
+    free = simulate(_paper_records(_days(60), 15, skill=1.0), 1, cost_bps=0.0)
+    assert free["long"]["total_pct"] > good["long"]["total_pct"]
+    # Without costs a signal-free pick is indistinguishable from the names;
+    # with them it trails, as it should (the universe pays nothing to hold).
+    noise = simulate(_paper_records(_days(60), 15, skill=0.0, seed=32), 1, cost_bps=0.0)
+    assert abs(noise["long_vs_universe"]["t"] or 0) < 2.5
+
+
+def test_paper_periods_never_overlap():
+    from evaluation.paper import _rebalance_dates
+    days = _days(30)
+    picked = _rebalance_dates(days, 5)
+    assert all(np.busday_count(a, b) >= 5 for a, b in zip(picked, picked[1:]))
+    assert len(picked) == 6
+    assert _rebalance_dates(days, 1) == days
+
+
+def test_paper_benchmarks_come_from_the_same_calls():
+    from evaluation.paper import simulate
+    recs = _paper_records(_days(10), 12, skill=0.5, market=1.0)
+    sim = simulate(recs, 1, cost_bps=0)
+    first_day = [x for x in recs if x["call_date"] == sim["first"]]
+    spy = sum(x["raw"] - x["excess"] for x in first_day) / len(first_day)
+    assert sim["curve"][0]["spy"] == pytest.approx(1 + spy / 100, abs=1e-4)
+
+
+def test_the_report_compares_challengers_on_the_composites_own_dates(ledger):
+    pl = ledger
+    _populate(pl, n_dates=12)
+    # An early date with no composite: challengers must not trade it.
+    for i in range(10):
+        sid = pl.freeze_prediction({**_rec(f"N{i:02d}", "2024-12-02", "BUY", p_up={1: 0.5}), "composite": None})
+        _outcome(pl, sid, 1, -9.0, -9.0, "2024-12-03")
+    from evaluation.challengers import reconstruct
+    walk = pd.Series(100 * np.exp(np.cumsum(np.random.default_rng(3).normal(0, 0.01, 700))),
+                     index=pd.bdate_range("2023-01-02", periods=700))
+    reconstruct(fetch_fn=lambda t, period: walk)
+    from evaluation.report import build
+    card = build((1,), "live", use_cache=False)["horizons"][1]
+    assert card["paper"]["periods"] == 12
+    assert all(v["periods"] == 12 for v in card["paper_challengers"].values())
+    assert set(card["challengers"]) == {"momentum_12_1", "reversal_1m", "low_volatility",
+                                        "fundamentals_only", "technical_only", "equal_weight_core"}

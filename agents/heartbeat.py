@@ -92,6 +92,15 @@ def forecast_and_freeze(ticker: str,
     end a universe-wide run. Skips a ticker already predicted today unless
     `force` — see already_frozen().
     """
+    t0 = time.time()
+    out = _forecast_and_freeze(ticker, recommend_fn, calibrators, as_of, force, outperform_models)
+    # Per-ticker time in the record: a slow run used to leave nothing to
+    # diagnose it with (the 2-3 hour runs turned out to be a sleeping laptop).
+    out["elapsed_s"] = round(time.time() - t0, 1)
+    return out
+
+
+def _forecast_and_freeze(ticker, recommend_fn, calibrators, as_of, force, outperform_models):
     from intelligence.prediction_engine import forecast_horizons
 
     day = (as_of or datetime.now().strftime("%Y-%m-%d"))[:10]
@@ -143,6 +152,14 @@ def forecast_and_freeze(ticker: str,
 
         snapshot_id = pl.freeze_prediction(rec)
 
+        # Challengers frozen beside the call, from the same price history the
+        # call used (evaluation/challengers.py). Not on a back-dated run: the
+        # history may extend past `as_of`.
+        shadow = 0
+        if snapshot_id and df is not None and len(df) and not as_of:
+            from evaluation.challengers import record_frozen
+            shadow = record_frozen(snapshot_id, df["Close"])
+
         # Calibrated view for the reader only — never the graded number.
         calibrated = None
         if calibrators:
@@ -156,7 +173,8 @@ def forecast_and_freeze(ticker: str,
         return {"ticker": ticker, "status": "done", "snapshot_id": snapshot_id,
                 "action": rec.get("action"), "composite": rec.get("composite"),
                 "price": price, "p_up": probs, "calibrated_p_up": calibrated,
-                "p_beat_spy": rec.get("outperform_probabilities")}
+                "p_beat_spy": rec.get("outperform_probabilities"),
+                "challengers_frozen": shadow}
     except Exception as e:
         return {"ticker": ticker, "status": "error", "reason": f"forecast:{str(e)[:80]}"}
 
@@ -167,7 +185,10 @@ def run_daily(tickers: Sequence[str],
               refit: bool = True,
               as_of: Optional[str] = None,
               force: bool = False,
-              progress_cb: Optional[Callable[[Dict[str, Any]], None]] = None) -> Dict[str, Any]:
+              progress_cb: Optional[Callable[[Dict[str, Any]], None]] = None,
+              after_grade: Optional[Callable[[], Any]] = None,
+              retry_errors: bool = True,
+              retry_pause_s: float = 0.0) -> Dict[str, Any]:
     """One full heartbeat cycle. Idempotent per (ticker, day) via an explicit
     already_frozen() guard — NOT via content hashing, which is not sufficient
     here because price_at_call moves intraday (see already_frozen). `force`
@@ -176,8 +197,22 @@ def run_daily(tickers: Sequence[str],
 
     grade/refit exist so a test (or a backfill) can exercise the forecast half
     without touching the ledger's outcome tables.
+
+    `after_grade` runs between grading and fitting — where anything that
+    learns from outcomes belongs (the self-improvement cycle), so a change it
+    makes applies to EVERY call of the day rather than to whichever tickers
+    happened to be scored after a background thread finished.
+
+    Failed tickers are retried once at the end (after `retry_pause_s`): a
+    failure is nearly always a vendor timeout or an empty response, and a
+    ticker missing from a day leaves a hole in that day's cross-section.
+
+    `asleep_s` is wall-clock time minus monotonic time — on macOS and Linux the
+    monotonic clock stops while the machine sleeps, so this is how long the
+    run spent asleep.
     """
     t0 = time.time()
+    m0 = time.monotonic()
     tickers = [str(t).upper().strip() for t in tickers if str(t).strip()]
     out: Dict[str, Any] = {
         "started_at": datetime.now().isoformat(timespec="seconds"),
@@ -198,6 +233,13 @@ def run_daily(tickers: Sequence[str],
             "matured": sum((g or {}).get("matured", 0) or 0
                            for g in graded.values() if isinstance(g, dict)),
         }
+
+    # 1b. LEARN from what was just graded, before anything is fitted or scored.
+    if after_grade is not None:
+        try:
+            out["after_grade"] = after_grade()
+        except Exception as e:
+            out["after_grade"] = {"error": f"{type(e).__name__}: {str(e)[:120]}"}
 
     # 2. FIT calibration on everything now known. Reported, never forced.
     calibrators = None
@@ -239,11 +281,32 @@ def run_daily(tickers: Sequence[str],
         if progress_cb:
             progress_cb(r)
 
+    # 5. RETRY the failures once.
+    failed = [i for i, r in enumerate(results) if r["status"] == "error"]
+    out["retried"] = len(failed) if retry_errors else 0
+    out["recovered"] = 0
+    if retry_errors and failed:
+        if retry_pause_s > 0:
+            time.sleep(retry_pause_s)
+        for i in failed:
+            r = forecast_and_freeze(results[i]["ticker"], recommend_fn=recommend_fn,
+                                    calibrators=calibrators, as_of=as_of, force=force,
+                                    outperform_models=outperform_models)
+            r["retry"] = True
+            if r["status"] != "error":
+                out["recovered"] += 1
+            else:
+                r["first_reason"] = results[i].get("reason")
+            results[i] = r
+            if progress_cb:
+                progress_cb(r)
+
     out["results"] = results
     out["frozen"] = sum(1 for r in results if r["status"] == "done")
     out["skipped"] = sum(1 for r in results if r["status"] == "skipped")
     out["errors"] = sum(1 for r in results if r["status"] == "error")
     out["elapsed_s"] = round(time.time() - t0, 1)
+    out["asleep_s"] = round(max(0.0, (time.time() - t0) - (time.monotonic() - m0)), 1)
     return out
 
 

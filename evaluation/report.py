@@ -80,6 +80,29 @@ def headline(card: Dict[str, Any]) -> List[str]:
     worst = max((c for c in card["confidence"]
                  if c.get("overclaim_pts") is not None and c["n"] >= MIN_LABEL_N),
                 key=lambda c: c["overclaim_pts"], default=None)
+    ch = card.get("challengers") or {}
+    scored = {n: c for n, c in ch.items() if c["composite_minus_challenger"]["n_dates"]}
+    if scored:
+        better = [n for n, c in scored.items() if c["verdict"] == "COMPOSITE_BETTER"]
+        worse = [n for n, c in scored.items() if c["verdict"] == "CHALLENGER_BETTER"]
+        leaning = [n for n, c in scored.items() if c["verdict"] == "CHALLENGER_BETTER_UNCONFIRMED"]
+        best = max(scored.items(), key=lambda kv: kv[1]["challenger_rank_ic"]["mean"] or -9)
+        lines.append(
+            f"{h}d vs simple models: the composite reliably beat {len(better)} of {len(scored)}"
+            + (f" ({', '.join(better)})" if better else "")
+            + (f"; {', '.join(worse)} reliably beat it" if worse else "; none reliably beat it")
+            + (f" ({', '.join(leaning)} ahead, unconfirmed)" if leaning else "")
+            + f". Best challenger: {best[0]} (rank IC {_num(best[1]['challenger_rank_ic']['mean'], '+.3f')} "
+              f"vs the composite's {_num(best[1]['composite_rank_ic_same_names']['mean'], '+.3f')} on the same names).")
+    pp = card.get("paper") or {}
+    if pp.get("periods"):
+        lines.append(
+            f"{h}d paper portfolio (top third by composite, rebalanced every {h} trading day"
+            f"{'s' if h > 1 else ''}, {pp['cost_bps_per_trade']} bps per trade): {_num(pp['long']['total_pct'], '+.2f')}% "
+            f"after costs vs {_num(pp['universe']['total_pct'], '+.2f')}% for all covered names and "
+            f"{_num(pp['spy']['total_pct'], '+.2f')}% for SPY over {pp['periods']} periods "
+            f"(ahead of the names in {_pct(pp['long_vs_universe']['share_of_periods_ahead'])} of periods, "
+            f"t={_num(pp['long_vs_universe']['t'], '+.2f')}).")
     if worst and worst["overclaim_pts"] > 10:
         lines.append(f"{h}d confidence: {worst['level']} claimed {_pct(worst['claimed'])} and was right "
                      f"{_pct(worst['hit_on_price'])} on price ({worst['n']} calls) — the label overstates.")
@@ -92,7 +115,28 @@ def build(horizons: Sequence[int] = DEFAULT_HORIZONS, source: str = "live",
     now = time.time()
     if use_cache and key in _cache and now - _cache[key][0] < _CACHE_TTL_S:
         return _cache[key][1]
-    cards = {int(h): S.horizon_scorecard(S.load(int(h), source), int(h)) for h in horizons}
+    from .challengers import load as load_shadow
+    from .paper import simulate
+    try:
+        shadow = load_shadow()
+    except Exception:
+        shadow = {}
+    cards = {}
+    for h in horizons:
+        records = S.load(int(h), source)
+        card = S.horizon_scorecard(records, int(h))
+        card["challengers"] = S.challenger_scorecard(records, int(h), shadow)
+        card["paper"] = simulate(records, int(h))
+        card["paper_challengers"] = {}
+        # Same dates and names as the composite's portfolio. Without this the
+        # challengers also traded the weeks before the composite was first
+        # frozen (2026-09-01) and their totals were not comparable.
+        paired = [x for x in records if x.get("composite") is not None]
+        for name in card["challengers"]:
+            sim = simulate(paired, int(h), score=_challenger_score(name, shadow))
+            card["paper_challengers"][name] = {k: sim.get(k) for k in
+                                               ("periods", "long", "long_short", "long_vs_universe")}
+        cards[int(h)] = card
     report = {
         "generated_at": datetime.now().isoformat(timespec="seconds"),
         "source": source,
@@ -105,6 +149,13 @@ def build(horizons: Sequence[int] = DEFAULT_HORIZONS, source: str = "live",
     }
     _cache[key] = (now, report)
     return report
+
+
+def _challenger_score(name: str, shadow: Dict[str, Dict[str, float]]):
+    from .challengers import PILLAR_CHALLENGERS, pillar_scores
+    if name in PILLAR_CHALLENGERS:
+        return lambda x: pillar_scores(x["pillars"], x.get("composite")).get(name)
+    return lambda x: (shadow.get(x.get("snapshot_id")) or {}).get(name)
 
 
 def clear_cache() -> None:

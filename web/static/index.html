@@ -4360,6 +4360,81 @@ function _scoreTrendSvg(points) {
     <text x="2" y="${y0 + sc * m}" font-size="9" fill="var(--muted)">−${m.toFixed(2)}</text>${bars}</svg>`;
 }
 
+// Desk vs simple models + paper portfolio (evaluation/challengers.py, paper.py).
+// Series colours: the dataviz reference's first three dark categorical slots,
+// validated on this card surface (#0f1929): blue = desk, orange = all covered
+// names, aqua = SPY. Identity is also carried by the legend and end labels.
+const PAPER_SERIES = [['long', 'Desk top third (after costs)', '#3987e5'],
+                      ['universe', 'All covered names', '#d95926'],
+                      ['spy', 'SPY', '#199e70']];
+const CHALLENGER_VERDICT_COLOR = {COMPOSITE_BETTER: 'var(--green)', COMPOSITE_BETTER_UNCONFIRMED: 'var(--yellow)',
+  CHALLENGER_BETTER: 'var(--red)', CHALLENGER_BETTER_UNCONFIRMED: 'var(--yellow)',
+  NO_DIFFERENCE: 'var(--muted)', INSUFFICIENT: 'var(--muted)'};
+
+function _pct2(v) { return (v === null || v === undefined) ? '—' : (v >= 0 ? '+' : '') + Number(v).toFixed(2) + '%'; }
+
+function _scoreChallengers(card) {
+  const ch = card.challengers || {}, pc = card.paper_challengers || {}, pp = card.paper || {};
+  const names = Object.keys(ch);
+  if (!names.length) return '';
+  const td = 'padding:3px 8px;text-align:right;font-variant-numeric:tabular-nums';
+  const th = 'padding:3px 8px;text-align:right;color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.4px;font-weight:700';
+  const ic = v => v === null || v === undefined ? '—' : (v >= 0 ? '+' : '') + Number(v).toFixed(3);
+  const desk = `<tr style="border-top:1px solid var(--border);font-weight:800"><td style="${td};text-align:left">Composite (the desk)</td>
+      <td style="${td}">${ic((card.ranking || {}).rank_ic && card.ranking.rank_ic.mean)}</td><td style="${td}">—</td><td style="${td}">—</td>
+      <td style="${td};text-align:left">—</td><td style="${td}">${_pct2(pp.long && pp.long.total_pct)}</td><td style="${td}">${_pct2(pp.long_short && pp.long_short.total_pct)}</td></tr>`;
+  const rows = names.map(n => {
+    const c = ch[n], p = pc[n] || {};
+    return `<tr style="border-top:1px solid var(--border)"><td style="${td};text-align:left" title="${esc(c.description)}">${esc(n.replace(/_/g, ' '))}</td>
+      <td style="${td}">${ic(c.challenger_rank_ic.mean)}</td><td style="${td}">${ic(c.composite_rank_ic_same_names.mean)}</td>
+      <td style="${td}">${_scoreFmt(c.composite_minus_challenger.t, 2)}</td>
+      <td style="${td};text-align:left"><span title="${esc(c.why)}" style="font-weight:800;font-size:11px;color:${CHALLENGER_VERDICT_COLOR[c.verdict] || 'var(--text)'}">${esc(c.verdict.replace(/_/g, ' ').toLowerCase())}</span></td>
+      <td style="${td}">${_pct2(p.long && p.long.total_pct)}</td><td style="${td}">${_pct2(p.long_short && p.long_short.total_pct)}</td></tr>`;
+  }).join('');
+  return `<div style="margin-top:14px">
+    <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;font-weight:700;margin-bottom:4px">Desk vs simple models — same names, same days (does the 7-pillar engine earn its complexity?)</div>
+    <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px">
+      <thead><tr><th style="${th};text-align:left">model</th><th style="${th}">rank IC</th><th style="${th}">desk, same names</th>
+        <th style="${th}" title="t of (desk − model) across call dates">t</th><th style="${th};text-align:left">verdict</th>
+        <th style="${th}">paper: top third</th><th style="${th}">paper: top − bottom</th></tr></thead>
+      <tbody>${desk}${rows}</tbody></table></div></div>`;
+}
+
+function _scorePaper(card, h) {
+  const pp = card.paper || {};
+  if (!pp.periods) return `<div style="margin-top:12px;color:var(--muted);font-size:12px">Paper portfolio: ${esc(pp.reason || 'no rebalance date yet')}.</div>`;
+  const pts = pp.curve || [];
+  const W = 560, H = 150, padL = 44, padR = 132, padT = 10, padB = 20;
+  const vals = pts.flatMap(p => PAPER_SERIES.map(([k]) => p[k]));
+  const lo = Math.min(1, ...vals), hi = Math.max(1, ...vals), span = (hi - lo) || 0.01;
+  const x = i => padL + (pts.length < 2 ? 0 : i * (W - padL - padR) / (pts.length - 1));
+  const y = v => padT + (hi - v) / span * (H - padT - padB);
+  const lines = PAPER_SERIES.map(([k, , col]) =>
+    `<polyline fill="none" stroke="${col}" stroke-width="2" stroke-linejoin="round" points="${pts.map((p, i) => x(i) + ',' + y(p[k])).join(' ')}"></polyline>`).join('');
+  const last = pts[pts.length - 1] || {};
+  // End labels: nudged apart so they never overlap; text in text colour, marker in series colour.
+  const ends = PAPER_SERIES.map(([k, label, col]) => ({k, label, col, yy: y(last[k])})).sort((a, b) => a.yy - b.yy);
+  for (let i = 1; i < ends.length; i++) ends[i].yy = Math.max(ends[i].yy, ends[i - 1].yy + 13);
+  const labels = ends.map(e => `<circle cx="${x(pts.length - 1)}" cy="${y(last[e.k])}" r="4" fill="${e.col}" stroke="#0f1929" stroke-width="2"></circle>
+    <text x="${x(pts.length - 1) + 8}" y="${e.yy + 4}" font-size="10" fill="var(--text)">${esc(e.label.split(' (')[0])} ${_pct2(100 * (last[e.k] - 1))}</text>`).join('');
+  const hits = pts.map((p, i) => `<rect x="${x(i) - 6}" y="${padT}" width="12" height="${H - padT - padB}" fill="transparent">
+      <title>${esc(p.date)} · desk ${_pct2(100 * (p.long - 1))} · all names ${_pct2(100 * (p.universe - 1))} · SPY ${_pct2(100 * (p.spy - 1))}</title></rect>`).join('');
+  const base = `<line x1="${padL}" x2="${W - padR}" y1="${y(1)}" y2="${y(1)}" stroke="var(--border)" stroke-dasharray="3 3"></line>
+    <text x="${padL - 6}" y="${y(hi) + 4}" font-size="9" fill="var(--muted)" text-anchor="end">${_pct2(100 * (hi - 1))}</text>
+    <text x="${padL - 6}" y="${y(lo) + 4}" font-size="9" fill="var(--muted)" text-anchor="end">${_pct2(100 * (lo - 1))}</text>
+    <text x="${padL}" y="${H - 4}" font-size="9" fill="var(--muted)">${esc(pp.first)}</text>
+    <text x="${W - padR}" y="${H - 4}" font-size="9" fill="var(--muted)" text-anchor="end">${esc(pp.last)}</text>`;
+  const legend = PAPER_SERIES.map(([, label, col]) => `<span style="display:inline-flex;align-items:center;gap:5px;margin-right:12px"><span style="width:14px;height:2px;background:${col};display:inline-block"></span>${esc(label)}</span>`).join('');
+  const vu = pp.long_vs_universe || {};
+  return `<div style="margin-top:14px">
+    <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;font-weight:700;margin-bottom:4px">Paper portfolio · ${esc(h)}d — top third by composite, rebalanced every ${esc(h)} trading day${h > 1 ? 's' : ''}, ${pp.cost_bps_per_trade} bps per trade</div>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:4px">${legend}</div>
+    <svg viewBox="0 0 ${W} ${H}" style="width:100%;max-width:${W}px;height:auto" role="img" aria-label="Paper portfolio growth">${base}${lines}${labels}${hits}</svg>
+    <div style="font-size:11px;color:var(--muted);line-height:1.5">${pp.periods} periods · ahead of all covered names in ${_scoreFmt(vu.share_of_periods_ahead, 0, true)} of periods (t=${_scoreFmt(vu.t, 2)}) ·
+      top − bottom ${_pct2(pp.long_short && pp.long_short.total_pct)} · turnover ${_scoreFmt(pp.avg_turnover_long, 2)} per rebalance · costs ${_pct2(-(pp.cost_drag_pct || 0))} ·
+      max drawdown ${_pct2(pp.long && pp.long.max_drawdown_pct)}. Days without calls are not counted.</div></div>`;
+}
+
 async function loadScorecard() {
   const body = document.getElementById('predScoreBody');
   if (!body) return;
@@ -4417,7 +4492,9 @@ async function loadScorecard() {
             P(beat SPY) stated at <b style="color:var(--text)">${beatOn.join(', ') || 'no horizon (gate not met)'}</b>.
             Verdicts need |t| ≥ ${rep.rules.t_significant} across call dates and ${rep.rules.min_independent_windows} independent windows.</div>
         </div>
-      </div>`;
+      </div>
+      ${_scoreChallengers(rep.horizons[th] || {})}
+      ${_scorePaper(rep.horizons[th] || {}, Number(th))}`;
   } catch (e) {
     body.innerHTML = `<div style="color:var(--red);font-size:12px">Scorecard unavailable: ${esc(String(e))}</div>`;
   }

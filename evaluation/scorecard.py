@@ -75,7 +75,7 @@ def load(horizon: int, source: str = "live") -> List[Dict[str, Any]]:
     conn = pl._conn()
     try:
         rows = [dict(x) for x in conn.execute(
-            f"""SELECT s.ticker, s.action, substr(s.created_at,1,10) AS call_date,
+            f"""SELECT s.snapshot_id, s.ticker, s.action, substr(s.created_at,1,10) AS call_date,
                        s.conf_statistical_edge AS conf, s.edge_score, s.sector,
                        s.pillars_json, s.horizon_probabilities_json AS hp,
                        json_extract(s.frozen_json, '$.composite') AS composite,
@@ -96,6 +96,7 @@ def _record(x: Dict[str, Any], h: int) -> Dict[str, Any]:
     action = str(x.get("action") or "").upper()
     excess = x.get("excess")
     return {
+        "snapshot_id": x.get("snapshot_id"),
         "ticker": x.get("ticker"), "action": action,
         "side": 1 if action in BULLISH else (-1 if action in BEARISH else 0),
         "call_date": x.get("call_date"), "outcome_date": x.get("outcome_date"),
@@ -328,6 +329,68 @@ def trend(records: Sequence[Dict[str, Any]], horizon: int) -> List[Dict[str, Any
                     "bull_minus_bear_excess_pct": rk["bull_minus_bear_excess_pct"]["mean"],
                     "hit_on_price": r(mean([h for h in map(_abs_hit, directional) if h is not None]), 3),
                     "hit_vs_spy": r(mean([h for h in map(_rel_hit, directional) if h is not None]), 3)})
+    return out
+
+
+# ── Champion vs challengers ───────────────────────────────────────────────
+
+_PAIRED = {"EDGE": "COMPOSITE_BETTER", "PROMISING": "COMPOSITE_BETTER_UNCONFIRMED",
+           "ADVERSE": "CHALLENGER_BETTER", "NO_EDGE": "NO_DIFFERENCE",
+           "INSUFFICIENT": "INSUFFICIENT"}
+
+
+def paired_verdict(series: Dict[str, Any]) -> Dict[str, Any]:
+    """verdict() on composite-minus-challenger, held to the SAME bar in both
+    directions. verdict() flags ADVERSE without the window requirement because
+    an early warning about the desk is cheap; "a challenger is better" is a
+    claim that could replace part of the desk, so it needs the 20 windows too."""
+    v = verdict(series)
+    name = _PAIRED[v["verdict"]]
+    w = series.get("independent_windows") or 0
+    if name == "CHALLENGER_BETTER" and w < MIN_WINDOWS:
+        name = "CHALLENGER_BETTER_UNCONFIRMED"
+        v = dict(v, why=f"{v['why']}, but only {w} independent windows (need {MIN_WINDOWS})")
+    return {"verdict": name, "why": v["why"]}
+
+
+def challenger_scorecard(records: Sequence[Dict[str, Any]], horizon: int,
+                         shadow: Optional[Dict[str, Dict[str, float]]] = None) -> Dict[str, Any]:
+    """Each challenger against the composite, PAIRED: on every date, both rank
+    the same names (those that have both scores), and the difference of the
+    two rank ICs is the observation. Same t and independent-window rules as
+    everything else; ADVERSE on the difference means the challenger wins."""
+    from .challengers import CHALLENGERS, DESCRIPTIONS, PILLAR_CHALLENGERS, pillar_scores
+    shadow = shadow or {}
+    out: Dict[str, Any] = {}
+    for name in CHALLENGERS:
+        if name in PILLAR_CHALLENGERS:
+            def score(x, name=name):
+                return pillar_scores(x["pillars"], x.get("composite")).get(name)
+        else:
+            def score(x, name=name):
+                return (shadow.get(x.get("snapshot_id")) or {}).get(name)
+        diffs, champ, chal = [], [], []
+        for day, xs in _by_date(records).items():
+            xs = [x for x in xs if x.get("composite") is not None and score(x) is not None
+                  and x.get("excess") is not None]
+            if len(xs) < MIN_NAMES_PER_DATE:
+                continue
+            ex = [x["excess"] for x in xs]
+            a = spearman([x["composite"] for x in xs], ex)
+            b = spearman([float(score(x)) for x in xs], ex)
+            if a is None or b is None:
+                continue
+            champ.append((day, a))
+            chal.append((day, b))
+            diffs.append((day, a - b))
+        d = _series_stats(diffs, horizon)
+        v = paired_verdict(d)
+        out[name] = {"description": DESCRIPTIONS.get(name, name),
+                     "calls_scored": sum(1 for x in records if score(x) is not None),
+                     "challenger_rank_ic": _series_stats(chal, horizon),
+                     "composite_rank_ic_same_names": _series_stats(champ, horizon),
+                     "composite_minus_challenger": d,
+                     "verdict": v["verdict"], "why": v["why"]}
     return out
 
 
