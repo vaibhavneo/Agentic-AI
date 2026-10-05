@@ -13,3 +13,4 @@ data/*.sqlite
 **/*.pyc
 .pytest_cache
 .DS_Store
+financial_data/.cache/sec-edgar/companyfacts/
