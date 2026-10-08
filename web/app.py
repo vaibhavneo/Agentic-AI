@@ -397,7 +397,18 @@ def predictions():
                 })
         finally:
             conn.close()
-        return jsonify({"predictions": out, "summary": pl.summary()})
+        # The heartbeat's fresh calls (data/desk_views.py): the hosted desk's
+        # own ledger only holds what was analysed on the website.
+        feed = {"available": False, "reason": "feed not loaded", "count": 0}
+        try:
+            from data import desk_views
+            f = desk_views.fetch()
+            feed = {"available": f["available"], "generated_at": f.get("generated_at"),
+                    "reason": f.get("reason"), "count": len(f["views"])}
+            out = desk_views.merge(out, f["views"], ticker=ticker)
+        except Exception as e:
+            feed["reason"] = f"{type(e).__name__}: {e}"
+        return jsonify({"predictions": out, "summary": pl.summary(), "feed": feed})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 

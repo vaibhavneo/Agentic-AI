@@ -251,6 +251,18 @@ def main() -> int:
     except Exception as e:
         print(f"scorecard unavailable: {e}", file=sys.stderr)
 
+    # Publish today's calls for the hosted desk (data/desk_views.py) — the only
+    # way OptionsPilot sees fresh desk views. Optional: needs DESK_VIEWS_REPO.
+    repo = os.environ.get("DESK_VIEWS_REPO", "").strip()
+    if repo:
+        try:
+            from data.desk_views import publish
+            r = publish(repo)
+            print(f"desk views: published {r.get('published', 0)} ticker(s) to {repo}"
+                  + (f" ({r['skipped']})" if r.get("skipped") else ""))
+        except Exception as e:
+            print(f"desk views: publish FAILED — {type(e).__name__}: {str(e)[:160]}", file=sys.stderr)
+
     if not args.no_maintenance:
         print()
         for j in post_forecast_jobs():
