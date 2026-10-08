@@ -77,11 +77,14 @@ def put(provider: str, kind: str, key: str, payload: Any) -> Path:
     if COMPRESS:
         import gzip
         p = p.with_name(p.name + ".gz")
-        tmp = p.with_suffix(".tmp")
+        tmp = p.with_name(f"{p.name}.{os.getpid()}.tmp")
         with gzip.open(tmp, "wt") as fh:
             json.dump(payload, fh)
     else:
-        tmp = p.with_suffix(".tmp")
+        # Per-process temp name: two processes caching the same key at once
+        # (gunicorn workers, parallel replay workers) used to share one
+        # ".tmp" and could interleave into it before the rename.
+        tmp = p.with_name(f"{p.name}.{os.getpid()}.tmp")
         with tmp.open("w") as fh:
             json.dump(payload, fh)
     os.replace(tmp, p)

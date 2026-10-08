@@ -43,3 +43,8 @@ data/backups/
 # Filing-watcher / screener state (stock_analysis/watcher.py); lives on the volume in production.
 data/stock_analysis_state.db
 data/stock_analysis_state.db-*
+
+# Wide point-in-time replay (scripts/replay_wide.py) — research output, kept out of the live ledger
+data/replay_wide/
+data/replay_wide.db
+data/replay_wide.db-*

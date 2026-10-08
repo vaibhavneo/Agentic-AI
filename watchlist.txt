@@ -94,3 +94,9 @@ AMT
 PLD
 SPG
 O
+
+# Covers OptionsPilot's research universe too (its ideas need a fresh desk view per name)
+DIS
+NFLX
+UNP
+V
