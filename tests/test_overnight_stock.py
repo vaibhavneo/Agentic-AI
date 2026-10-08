@@ -9,12 +9,12 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-# OptionsPilot's research universe (research/universe.py v6.0.0). Its ideas need
+# OptionsPilot's research universe (ranking.pipeline.DEFAULT_UNIVERSE, v6.0.0 — copied 2026-10-08). Its ideas need
 # a fresh desk view per name, and the desk only calls what the heartbeat covers.
 OPTIONSPILOT_UNIVERSE = {
-    "AAPL", "MSFT", "NVDA", "AMZN", "GOOGL", "META", "TSLA", "AMD", "AVGO", "CRM", "ORCL",
-    "ADBE", "INTC", "QCOM", "JPM", "BAC", "GS", "V", "UNH", "JNJ", "LLY", "XOM", "CVX",
-    "WMT", "COST", "HD", "DIS", "NFLX", "CAT", "BA", "UNP"}
+    "AAPL", "AMZN", "AVGO", "BAC", "CAT", "COST", "CSCO", "CVX", "DIS", "GOOGL", "GS",
+    "HD", "HON", "JNJ", "JPM", "KO", "LLY", "MCD", "META", "MSFT", "NEE", "NFLX",
+    "NVDA", "ORCL", "PFE", "PG", "TSLA", "UNH", "UNP", "V", "XOM"}
 
 
 def _watchlist():
