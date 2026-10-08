@@ -698,6 +698,13 @@ def recommendation():
     period = data.get("period", "5y")
     if not ticker:
         return jsonify({"error": "No ticker"}), 400
+    # Deterministic, so a repeat within the TTL is the same answer: serve it
+    # (and freeze nothing new). agents/rec_cache.py has the TTL rules.
+    from agents import rec_cache
+    if not data.get("refresh"):
+        cached = rec_cache.get(ticker, period)
+        if cached is not None:
+            return jsonify(cached)
     try:
         import warnings; warnings.filterwarnings("ignore")
         from tools.market_data import (
@@ -732,6 +739,8 @@ def recommendation():
         rec = build_recommendation(ticker, df, ind, ss, algo, fund, pit=pit,
                                    reddit=reddit, stocktwits=stocktwits, run_id="web")
         rec["recommendation_id"] = log_composite_recommendation(rec)
+        rec_cache.put(ticker, period, rec)
+        rec["cache"] = {"hit": False}
         return jsonify(rec)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
