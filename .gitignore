@@ -48,3 +48,7 @@ data/stock_analysis_state.db-*
 data/replay_wide/
 data/replay_wide.db
 data/replay_wide.db-*
+
+# Live-knowledge cache (rebuilt on demand)
+data/knowledge.db
+data/knowledge.db-*

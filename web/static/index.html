@@ -3576,7 +3576,18 @@ function _chatPush(who, payload, understood, trace) {
   (payload.blocks || []).forEach(b => {
     const declined = b.declined;
     h += `<div style="margin-bottom:8px${declined ? ';opacity:.85' : ''}">`;
-    (b.lines || []).forEach(l => { h += _chatMd(l); });
+    const srcs = Array.isArray(b.sources) ? b.sources : [];
+    (b.lines || []).forEach(l => { if (!(srcs.length && l.startsWith('Sources: '))) h += _chatMd(l); });
+    if (srcs.length) {
+      // Live-knowledge citations: [n] title, where it came from, when it was fetched.
+      h += '<div style="font-size:10.5px;color:var(--muted);margin-top:4px;line-height:1.55">'
+        + srcs.map(s => {
+            const t = `[${esc(String(s.n))}] ${esc(s.title || '')}`;
+            const link = /^https?:\/\//.test(s.url || '')
+              ? `<a href="${esc(s.url)}" target="_blank" rel="noopener noreferrer" style="color:var(--accent)">${t}</a>` : t;
+            return `<div>${link} · ${esc(s.source || '')} · fetched ${esc(s.fetched_at || '')}</div>`;
+          }).join('') + '</div>';
+    }
     if (b.answered_by) {
       h += `<div style="font-size:10px;color:var(--muted);margin-top:3px">via ${esc(b.answered_by)}</div>`;
     }

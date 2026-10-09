@@ -79,6 +79,18 @@ def turn(text: str, session_id: Optional[str] = None,
     sess = session_mod.get(session_id)
     parsed = parse(text, context_symbol=sess.get("subject"))
 
+    # Questions no specialist covers go to the knowledge layer (knowledge.py):
+    # local knowledge base first, live sources when it can't answer. parse() is
+    # untouched — the frozen corpus still grades exactly what it graded.
+    from . import knowledge as knowledge_mod
+    k_shape = knowledge_mod.shape(text, parsed)
+    k_out: Optional[Dict[str, Any]] = None
+    if k_shape == "NEWS" and not parsed.get("scores"):
+        # "latest news on NVDA": research was only IMPLIED by the bare symbol.
+        # The headlines and the live quote answer it; a full research run
+        # would answer a different question, slowly.
+        parsed = dict(parsed, kind="KNOWLEDGE", capabilities=[])
+
     results: Dict[str, Any] = {}
     symbols = parsed.get("symbols") or []
     subject = symbols[0] if symbols else sess.get("subject")
@@ -187,7 +199,15 @@ def turn(text: str, session_id: Optional[str] = None,
         except Exception as e:
             research_out = {"error": f"{type(e).__name__}: {e}"}
 
-    if research_out is None or research_out.get("error"):
+    if k_shape:
+        try:
+            k_out = knowledge_mod.answer(text, parsed.get("symbols") or [], k_shape)
+        except Exception as e:          # the fallback must never sink the turn
+            k_out = {"found": False, "error": f"{type(e).__name__}: {e}"}
+
+    if parsed.get("kind") == "KNOWLEDGE":
+        answer = {"headline": "", "blocks": [], "kind": "KNOWLEDGE"}
+    elif research_out is None or research_out.get("error"):
         answer = reply_mod.compose(parsed, results, subject)
     else:
         # The research reply is the frame; the filings agent's answer, when it
@@ -197,6 +217,19 @@ def turn(text: str, session_id: Optional[str] = None,
             answer.setdefault("blocks", []).append(
                 {"capability": "fundamental_analysis",
                  "lines": reply_mod.COMPOSERS["fundamental_analysis"](fa.get("data") or {}, subject)})
+    if k_out is not None and k_out.get("found"):
+        kb = knowledge_mod.block(k_out)
+        if k_shape == "NEWS" and parsed.get("kind") == "QUERY" and isinstance(answer, dict):
+            answer.setdefault("blocks", []).append(kb)      # the desk's answer, then the news
+        else:
+            extra = ([{"capability": None, "lines": [parsed["clarification"]]}]
+                     if k_shape == "CONCEPT" and parsed.get("clarification") else [])
+            answer = {"headline": kb["lines"][0].split(". ")[0][:120], "blocks": [kb] + extra,
+                      "kind": "KNOWLEDGE"}
+    elif parsed.get("kind") == "KNOWLEDGE":
+        answer = {"headline": "Nothing came back", "kind": "EMPTY", "blocks": [{"capability": None, "lines": [
+            (k_out or {}).get("answer") or "The live sources did not answer. That is a failure on my side, "
+            "not an answer about the market."]}]}
     session_mod.record(sess, text, parsed, answer)
 
     trace: List[Dict[str, Any]] = []
@@ -226,6 +259,8 @@ def turn(text: str, session_id: Optional[str] = None,
         "research": ({k: v for k, v in research_out.items()
                       if k not in ("_ledger",)} if research_out else None),
         "policy": policy_out,
+        "knowledge": ({"shape": k_shape, "used_live": k_out.get("used_live"), "trace": k_out.get("trace"),
+                       "error": k_out.get("error")} if k_out is not None else None),
         "trace": trace,
         "elapsed_ms": int((time.time() - t0) * 1000),
     }
