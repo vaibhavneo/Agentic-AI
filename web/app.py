@@ -2099,6 +2099,43 @@ def chat_endpoint():
         return jsonify({"error": f"{type(e).__name__}: {e}"}), 500
 
 
+# ── Live market feed (mas/live.py): on only with LIVE_FEEDS=1 ───────────────
+try:
+    from mas import live as _live_mkt
+    _live_mkt.start_if_enabled()
+except Exception as _e:                      # a feed problem must never stop the desk
+    print(f"live feeds not started: {_e}")
+    _live_mkt = None
+
+
+@app.route("/api/live")
+def live_snapshot_endpoint():
+    """Feed health, every streamed quote / rate / headline / mover, and the
+    watchlist's movers. For the screen and the conversation; the desk's
+    scores never read it."""
+    if _live_mkt is None:
+        return jsonify({"enabled": False, "running": False, "feeds": {}, "latest": []})
+    snap = _live_mkt.snapshot()
+    if snap.get("enabled"):
+        snap["movers"] = _live_mkt.movers()
+    return jsonify(snap)
+
+
+@app.route("/api/live/stream")
+def live_stream_endpoint():
+    """Server-Sent Events (~25 s per connection; EventSource reconnects with
+    Last-Event-ID). ?kinds=quote,rate,headline,mover filters."""
+    if _live_mkt is None or not _live_mkt.enabled():
+        return jsonify({"error": "live feeds are off (LIVE_FEEDS=1 turns them on)"}), 503
+    kinds = [k for k in (request.args.get("kinds") or "").split(",") if k] or None
+    try:
+        since = int(request.headers.get("Last-Event-ID") or request.args.get("since") or 0)
+    except ValueError:
+        since = 0
+    return Response(stream_with_context(_live_mkt.hub().sse(kinds=kinds, since_id=since)),
+                    mimetype="text/event-stream", headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
+
+
 @app.route("/api/mas/agents")
 def mas_agents_endpoint():
     """The sub-agent roster. Reads the registry; touches no specialist."""

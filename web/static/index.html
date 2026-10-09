@@ -361,6 +361,41 @@
   </div>
 </div>
 
+<!-- Live market tape: streamed by mas/live.py (LIVE_FEEDS=1). For the screen and the
+     conversation only — the desk's scores never read it. -->
+<div id="liveTape" hidden style="display:flex;flex-wrap:wrap;gap:6px 18px;align-items:center;padding:6px 24px;font-size:12px;border-bottom:1px solid var(--border,#1e2d45);font-variant-numeric:tabular-nums"></div>
+<script>
+(function () {
+  const tape = document.getElementById('liveTape');
+  const e = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const pc = (v) => v == null ? '' : `<span style="color:${v > 0 ? 'var(--green)' : v < 0 ? 'var(--red)' : 'inherit'}">${v > 0 ? '+' : ''}${v.toFixed(2)}%</span>`;
+  let timer = null;
+  async function load() {
+    let d;
+    try { d = await (await fetch((window.API_BASE || '') + '/api/live')).json(); } catch (_) { return; }
+    if (!d.enabled) return;
+    const by = {}; (d.latest || []).forEach((x) => { by[x.key] = x; });
+    const names = {SPY: 'S&P', QQQ: 'Nasdaq', DIA: 'Dow', IWM: 'Russell', '^VIX': 'VIX'};
+    const parts = Object.keys(names).map((s) => { const q = by['quote:' + s]; return q ? `<span><b>${names[s]}</b> ${q.value.price.toFixed(2)} ${pc(q.value.change_pct)}</span>` : ''; });
+    const r10 = by['rate:DGS10'], curve = by['rate:T10Y2Y'];
+    if (r10) parts.push(`<span><b>10y</b> ${e(r10.value.value)}%</span>`);
+    if (curve) parts.push(`<span><b>10y–2y</b> ${e(curve.value.value)}</span>`);
+    const m = d.movers || {};
+    const mv = [...(m.gainers || []).slice(0, 3), ...(m.losers || []).slice(0, 3)].map((x) => `${e(x.symbol)} ${pc(x.change_pct)}`).join(' · ');
+    if (mv) parts.push(`<span style="color:var(--muted)">movers</span> <span>${mv}</span>`);
+    const h = (d.latest || []).filter((x) => x.kind === 'headline').sort((a, b) => b.ts - a.ts)[0];
+    if (h) parts.push(`<a href="${e(/^https?:/.test(h.url) ? h.url : '#')}" target="_blank" rel="noopener noreferrer" style="color:var(--muted);text-decoration:none">📰 ${e(h.value.title.slice(0, 90))}</a>`);
+    tape.innerHTML = parts.filter(Boolean).join('');
+    tape.hidden = !tape.innerHTML;
+  }
+  load();
+  if (window.EventSource) {
+    const es = new EventSource((window.API_BASE || '') + '/api/live/stream?kinds=quote,rate,headline,mover');
+    ['quote', 'rate', 'headline', 'mover'].forEach((k) => es.addEventListener(k, () => { clearTimeout(timer); timer = setTimeout(load, 2000); }));
+  }
+})();
+</script>
+
 <div class="search-bar" style="flex-direction:column;align-items:stretch;gap:10px">
   <!-- Primary row: the one action most visits need — type a ticker, hit Analyze.
        Quick Rec / Portfolio are secondary but still one click; cost basis is

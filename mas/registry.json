@@ -353,6 +353,62 @@
       "notes": "Every number from a 10-K, 10-Q, 20-F or 40-F through SEC EDGAR, traced to its accession; point-in-time via as_of. Foreign filers are annual-only and in their reporting currency, labelled. The peer table is the slow part (~5-10s, cached 6h). Declines non-equities: they file nothing to read.",
       "symbol_required": true,
       "est_ms": 8000
+    },
+    "live_market": {
+      "id": "live_market",
+      "name": "Live market",
+      "role": "What is the price now, what is moving, what is the news?",
+      "module": "mas.agents.live_market",
+      "transport": "local",
+      "capabilities": [
+        "live_market"
+      ],
+      "asset_classes": [
+        "EQUITY",
+        "ETF",
+        "INDEX",
+        "CRYPTO",
+        "FX",
+        "COMMODITY"
+      ],
+      "universe": "UNBOUNDED",
+      "price_basis": "LIVE_QUOTE",
+      "priority": 20,
+      "reliability": 0.7,
+      "timeout_sec": 15,
+      "requires_key": null,
+      "writes": {},
+      "notes": "Reads the live feed hub (mas/live.py): streamed quotes, macro, headlines, movers. A last trade with its source and time; never an input to the desk's scores.",
+      "symbol_required": false,
+      "est_ms": 60
+    },
+    "knowledge": {
+      "id": "knowledge",
+      "name": "World knowledge",
+      "role": "Questions no other specialist covers: concepts, rates, news, filings",
+      "module": "mas.agents.knowledge",
+      "transport": "local",
+      "capabilities": [
+        "world_knowledge"
+      ],
+      "asset_classes": [
+        "EQUITY",
+        "ETF",
+        "INDEX",
+        "CRYPTO",
+        "FX",
+        "COMMODITY"
+      ],
+      "universe": "UNBOUNDED",
+      "price_basis": null,
+      "priority": 90,
+      "reliability": 0.6,
+      "timeout_sec": 25,
+      "requires_key": null,
+      "writes": {},
+      "notes": "RAG over the local knowledge base first (repo docs + every earlier live answer + the live feed), then FRED, quotes, Google News, SEC full-text (with SEC_USER_AGENT) and Wikipedia. Extractive and cited.",
+      "symbol_required": false,
+      "est_ms": 900
     }
   }
 }

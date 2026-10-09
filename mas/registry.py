@@ -32,6 +32,8 @@ CAPABILITIES = (
     "market_intelligence",    # the interpretive layer over the primitives
     "analyst_narrative",      # the five LLM analysts; PROSE ONLY, never a number
     "fundamental_analysis",   # statements, earnings quality, filings, peers, valuation — from SEC filings
+    "live_market",            # streamed quotes, movers, macro, headlines — the screen, never the scores
+    "world_knowledge",        # questions no other specialist covers: RAG, local first, then live
 )
 
 

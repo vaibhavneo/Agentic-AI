@@ -87,7 +87,7 @@ def pipeline() -> lk.Pipeline:
                         if part.strip():
                             head = part.strip().splitlines()[0].lstrip("# ").strip()
                             docs.append(lk.Doc("local:docs", f"{rel} — {head}", " ".join(re.sub(r"[#`*|]", " ", part).split()),
-                                               f"{rel}#{i}", "local", ttl_s=10 * 365 * 86400))
+                                               f"{rel}#{i}", "appdoc", ttl_s=10 * 365 * 86400))
             store.add(docs)
             _pipe = lk.Pipeline(store, [
                 lk.FredFetcher(lk.MARKET_SERIES),
@@ -99,9 +99,21 @@ def pipeline() -> lk.Pipeline:
         return _pipe
 
 
+PULSE = re.compile(r"\b(what'?s moving|top movers|market movers|biggest movers|movers today|how'?s the market (now|today|"
+                   r"right now|doing)|market (right )?now|stocks? (today|right now))\b", re.I)
+LIVE = re.compile(r"\b(now|today|right now|live|currently|so far|this morning|this afternoon)\b", re.I)
+
+
 def shape(text: str, parsed: Dict[str, Any]) -> Optional[str]:
-    """Which fallback (if any) this turn gets: UNROUTABLE, CONCEPT, NEWS or None."""
+    """Which fallback (if any) this turn gets: UNROUTABLE, CONCEPT, NEWS,
+    PULSE (the streamed market: indexes, curve, movers, headlines) or None."""
     kind = parsed.get("kind")
+    caps = parsed.get("capabilities") or []
+    if PULSE.search(text) and kind in ("UNROUTABLE", "NEEDS_SUBJECT") and not \
+            (parsed.get("clarification") or "").startswith("I do not pick names"):
+        return "PULSE"
+    if kind == "QUERY" and caps == ["market_regime"] and LIVE.search(text):
+        return "PULSE"
     clar = parsed.get("clarification") or ""
     if kind == "NEEDS_SUBJECT" and clar.startswith("I do not pick names"):
         return None                                   # the no-pick refusal stands
@@ -117,9 +129,11 @@ def shape(text: str, parsed: Dict[str, Any]) -> Optional[str]:
 
 
 def answer(text: str, symbols: Optional[List[str]] = None, shape_: str = "UNROUTABLE") -> Dict[str, Any]:
-    ctx: Dict[str, Any] = {"tickers": list(symbols or [])[:3]}
+    ctx: Dict[str, Any] = {"tickers": [s for s in (symbols or []) if s][:3]}
     if shape_ == "NEWS" or NEWS.search(text):
         ctx["want_news"] = True
+    if shape_ == "NEWS":
+        ctx["only"] = ["news", "sec"]      # the live_market agent states the price; this one finds the why
     return pipeline().answer(text, ctx)
 
 

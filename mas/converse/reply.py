@@ -296,7 +296,51 @@ def _say_fundamentals(d: Dict[str, Any], symbol: str) -> List[str]:
     return lines
 
 
+def _chg(v) -> str:
+    return "n/a" if v is None else f"{v:+.2f}%"
+
+
+def _say_live(d: Dict[str, Any], symbol: str) -> List[str]:
+    """The stream, right now. A last trade with its source and time."""
+    if d.get("mode") == "symbol":
+        q = d.get("quote") or {}
+        lines = [f"**{d['symbol']}** ${q.get('price', 0):,.2f} ({_chg(q.get('change_pct'))} on the day, "
+                 f"as of {q.get('as_of') or 'now'}, {q.get('source') or 'stream'})."]
+        for h in d.get("headlines") or []:
+            lines.append(f"- {h['title']}")
+        return lines
+    names = {"SPY": "S&P 500", "QQQ": "Nasdaq-100", "DIA": "Dow", "IWM": "Russell 2000", "^VIX": "VIX"}
+    idx = [f"{names.get(s, s)} {('' if s == '^VIX' else '$')}{q['price']:,.2f} ({_chg(q.get('change_pct'))})"
+           for s, q in (d.get("indexes") or {}).items() if q]
+    as_of = next((q.get("as_of") for q in (d.get("indexes") or {}).values() if q), None)
+    lines = [f"**Market now** (as of {as_of or 'the last close'}): " + ", ".join(idx) + "."]
+    m = d.get("macro") or {}
+    rates = [f"{lbl} {m[k]['value']:g}{'%' if k != 'T10Y2Y' else ' pts'}" for k, lbl in
+             (("DGS10", "10-year"), ("DGS2", "2-year"), ("T10Y2Y", "10y-2y curve")) if m.get(k)]
+    if rates:
+        lines.append("Rates (FRED, " + (m.get("DGS10") or {}).get("date", "latest") + "): " + ", ".join(rates) + ".")
+    mv = d.get("movers") or {}
+    up = ", ".join(f"{r['symbol']} {_chg(r['change_pct'])}" for r in (mv.get("gainers") or [])[:4])
+    dn = ", ".join(f"{r['symbol']} {_chg(r['change_pct'])}" for r in (mv.get("losers") or [])[:4])
+    if up or dn:
+        lines.append(f"Watchlist movers ({mv.get('priced', 0)} names streamed): "
+                     + "; ".join(x for x in (f"up {up}" if up else "", f"down {dn}" if dn else "") if x) + ".")
+    for h in (d.get("headlines") or [])[:4]:
+        lines.append(f"- {h['title']}")
+    return lines
+
+
+def _say_knowledge(d: Dict[str, Any], symbol: str) -> List[str]:
+    lines = [d.get("answer") or ""]
+    if d.get("sources"):
+        lines.append("Sources: " + "; ".join(f"[{s['n']}] {s['title']} — {s['source']}, {s['fetched_at']}"
+                                             for s in d["sources"]))
+    return lines
+
+
 COMPOSERS = {
+    "live_market": _say_live,
+    "world_knowledge": _say_knowledge,
     "fundamental_analysis": _say_fundamentals,
     "market_intelligence": _say_intel,
     "analyst_narrative": _say_narrative,

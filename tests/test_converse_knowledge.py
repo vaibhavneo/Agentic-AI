@@ -90,20 +90,55 @@ def test_no_pick_refusal_is_never_overridden(pipe):
     assert r["kind"] == "NEEDS_SUBJECT" and w.calls == 0 and "ACME" not in str(r)
 
 
+def _only_knowledge_specialists(monkeypatch):
+    real = engine._run_capability
+
+    def guard(cap, *a, **k):
+        if cap not in ("world_knowledge", "live_market"):
+            raise AssertionError(f"{cap} ran for a news question")
+        return real(cap, *a, **k)
+    monkeypatch.setattr(engine, "_run_capability", guard)
+
+
 def test_news_on_a_bare_symbol_skips_the_research_run(pipe, monkeypatch):
-    def no_research(*a, **k):
-        raise AssertionError("a specialist ran for a news question")
-    monkeypatch.setattr(engine, "_run_capability", no_research)
+    """The live_market agent states the price; the knowledge agent finds the
+    why — and nothing else on the roster runs."""
+    _only_knowledge_specialists(monkeypatch)
+    monkeypatch.setattr("mas.agents.live_market._quote", lambda s: {"price": 230.48, "change_pct": -2.94,
+                                                                    "as_of": "2026-10-09T13:00", "source": "stream"})
     news = Stub("news", [lk.Doc("news", "Nvidia slides on OpenAI report", "Nvidia slides on OpenAI report. "
                                 "Related: NVDA.", "n1", kind="news")], kinds=("news",))
-    q = lk.Doc("quote", "NVDA price", "NVDA last traded at $230.48, -2.94% on the day.",
-               "https://finance.yahoo.com/quote/NVDA", kind="fact")
-    quote = Stub("quote", [q], kinds=("fact",), applies=lambda q_, ctx: bool(ctx.get("tickers")), ids=[q.id])
+    quote = Stub("quote", [], kinds=("fact",), applies=lambda q_, ctx: bool(ctx.get("tickers")))
     pipe.fetchers = [quote, news]
-    r = turn("latest news on NVDA")["reply"]
+    out = turn("latest news on NVDA")
+    r = out["reply"]
+    assert r["kind"] == "KNOWLEDGE" and [b["capability"] for b in r["blocks"]] == ["live_market", "live_knowledge"]
+    assert "$230.48" in r["blocks"][0]["lines"][0] and "-2.94%" in r["blocks"][0]["lines"][0]
+    assert "OpenAI report" in " ".join(r["blocks"][1]["lines"])
+    assert quote.calls == 0                                              # the price is not fetched twice
+    assert {t["capability"] for t in out["trace"]} >= {"live_market", "world_knowledge"}
+
+
+def test_pulse_question_gets_the_streamed_market(pipe, monkeypatch):
+    from mas import live
+    from mas.converse import live_feed as lf
+    hub = lf.FeedHub([])
+    monkeypatch.setattr(live, "_hub", hub)
+    monkeypatch.setattr(live, "watchlist", lambda: ["AAA", "BBB"])
+    for sym, p, c in (("SPY", 778.57, 0.6), ("^VIX", 14.84, -3.7), ("AAA", 10.5, 5.0), ("BBB", 9.0, -2.0)):
+        hub.publish(lf.Event("t", "quote", f"quote:{sym}", {"symbol": sym, "price": p, "change_pct": c,
+                                                            "as_of": "2026-10-09T13:00"}))
+    out = turn("what's moving today")
+    r = out["reply"]
     text = " ".join(r["blocks"][0]["lines"])
-    assert r["kind"] == "KNOWLEDGE" and "$230.48" in text and "OpenAI report" in text
-    assert text.index("$230.48") < text.index("OpenAI report")         # the quote leads
+    assert r["blocks"][0]["capability"] == "live_market" and "S&P 500 $778.57 (+0.60%)" in text
+    assert "VIX 14.84" in text and "up AAA +5.00%" in text and "down BBB -2.00%" in text
+
+
+def test_pulse_shape():
+    assert kn.shape("what's moving today", parse("what's moving today")) == "PULSE"
+    assert kn.shape("how's the market right now", parse("how's the market right now")) == "PULSE"
+    assert kn.shape("what's the best stock to buy", parse("what's the best stock to buy")) is None
 
 
 def test_nothing_found_keeps_the_original_reply(pipe):
@@ -121,7 +156,8 @@ def test_a_failing_knowledge_layer_never_sinks_the_turn(monkeypatch):
 
 
 def test_news_question_with_nothing_found_says_so(pipe, monkeypatch):
-    monkeypatch.setattr(engine, "_run_capability", lambda *a, **k: (_ for _ in ()).throw(AssertionError()))
+    _only_knowledge_specialists(monkeypatch)
+    monkeypatch.setattr("mas.agents.live_market._quote", lambda s: None)
     pipe.fetchers = [Stub("news", [], kinds=("news",))]
     r = turn("latest news on NVDA")["reply"]
     assert r["kind"] == "EMPTY" and r["blocks"][0]["lines"][0]

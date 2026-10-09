@@ -58,11 +58,24 @@ LIVE_WORDS = re.compile(r"\b(now|today|tonight|current(ly)?|latest|recent|this (
 
 
 def terms(text: str) -> List[str]:
-    return [w for w in re.findall(r"[a-z0-9][a-z0-9.\-']*", text.lower()) if w not in STOP and len(w) > 1]
+    # Inner dots and hyphens stay ("u.s.", "10-year"); a sentence's final
+    # period does not ("yoga." is "yoga").
+    words = (w.strip(".-'") for w in re.findall(r"[a-z0-9][a-z0-9.\-']*", text.lower()))
+    return [w for w in words if w not in STOP and len(w) > 1]
 
 
 def needs_live(question: str) -> bool:
     return bool(LIVE_WORDS.search(question or ""))
+
+
+DEFINITION = re.compile(r"^\s*(what('s| is| are)( an?| the)?|define|definition of|explain|meaning of|what does .+ mean)\b",
+                        re.I)
+
+
+def is_definition(question: str) -> bool:
+    """'what is a calendar spread', 'define theta': an encyclopedia question.
+    App docs that merely mention the words are not a definition."""
+    return bool(DEFINITION.search(question or ""))
 
 
 @dataclass
@@ -71,7 +84,7 @@ class Doc:
     title: str
     text: str
     url: str = ""
-    kind: str = "reference"     # reference | fact | news | local
+    kind: str = "reference"     # reference | fact | news | local (a knowledge corpus) | appdoc (the app's own docs)
     ttl_s: float = 30 * 86400   # how long a fetched doc stays usable
     fetched_at: float = field(default_factory=time.time)
     meta: Dict[str, Any] = field(default_factory=dict)
@@ -395,9 +408,12 @@ class SecFullTextFetcher(Fetcher):
 
 class Pipeline:
     def __init__(self, store: KnowledgeStore, fetchers: Sequence[Fetcher], min_coverage: float = 0.6,
-                 max_workers: int = 4):
+                 max_workers: int = 4, kinds: Optional[Sequence[str]] = None):
         self.store, self.fetchers = store, list(fetchers)
         self.min_coverage, self.max_workers = min_coverage, max_workers
+        # Restrict local search to these doc kinds: two pipelines can share one
+        # store and still answer from different shelves (a library vs the sky).
+        self.kinds = tuple(kinds) if kinds else None
 
     def _enough(self, hits: List[Dict[str, Any]], live: bool) -> bool:
         if live:
@@ -440,7 +456,7 @@ class Pipeline:
                            for f in self.fetchers)
         live = (needs_live(question) or fact_fetcher) if force_live is None else force_live
         q_for_search = " ".join([question] + list(ctx.get("tickers", [])))
-        hits = self.store.search(q_for_search, k)
+        hits = self.store.search(q_for_search, k, self.kinds)
         trace: List[Dict[str, Any]] = []
         used_live = False
         # Facts a fetcher can name in advance (a FRED series, a quote): fresh
@@ -461,7 +477,13 @@ class Pipeline:
         seen_ids = {x["id"] for x in known}
         hits = known + [h for h in hits if h["id"] not in seen_ids]
         fetched: List[str] = [h["id"] for h in known]
-        if live:
+        definition = is_definition(question) and not live
+        if definition:
+            # A definition needs a reference or a knowledge corpus (kind "local",
+            # e.g. a library of books). An app's own documentation ("appdoc")
+            # that merely uses the words is not a definition.
+            enough = any(h["kind"] in ("reference", "local") and h["coverage"] >= self.min_coverage for h in hits)
+        elif live:
             want_fact = [f for f in applicable if "fact" in f.kinds]
             want_news = any("news" in f.kinds for f in applicable)
             enough = (all(f.name in cached_ok for f in want_fact)
@@ -476,7 +498,7 @@ class Pipeline:
             used_live = any(t["ok"] and t["docs"] for t in trace)
             # What was fetched FOR this question is a candidate even when its words
             # differ from the question's ("T-bills" vs "Treasury bill").
-            found = self.store.search(q_for_search, k)
+            found = self.store.search(q_for_search, k, self.kinds)
             ids = {h["id"] for h in found}
             extra = [h for h in self.store.get(fetched) if h["id"] not in ids]
             qt = set(terms(q_for_search))
@@ -487,10 +509,16 @@ class Pipeline:
         if live:
             # Facts and news cached for OTHER questions must match this one well;
             # the T-bill rate fetched an hour ago is no answer to "mortgage rates".
+            # A fact cached for another question must cover every key term of
+            # this one ("2-year Treasury yield" is no answer to the 10-year).
             now_ids = set(fetched)
-            hits = [h for h in hits if h["kind"] not in ("fact", "news") or h["id"] in now_ids
-                    or h["coverage"] >= self.min_coverage]
-            hits.sort(key=lambda h: ({"fact": 0, "news": 1}.get(h["kind"], 2), -h["fetched_at"]))   # facts, news, rest
+            hits = [h for h in hits if h["id"] in now_ids
+                    or (h["kind"] == "fact" and h["coverage"] >= 1.0)
+                    or (h["kind"] == "news" and h["coverage"] >= self.min_coverage)
+                    or h["kind"] not in ("fact", "news")]
+            hits.sort(key=lambda h: ({"fact": 0, "news": 1}.get(h["kind"], 2), -h["coverage"], -h["fetched_at"]))
+        if definition and any(h["kind"] in ("reference", "local") for h in hits):
+            hits = [h for h in hits if h["kind"] in ("reference", "local")]
         out = compose(question, hits, trace, used_live, live)
         if not out["found"] and not trace:
             # The local text matched words but held no quotable sentence (a table
@@ -546,9 +574,11 @@ def compose(question: str, hits: List[Dict[str, Any]], trace: List[Dict[str, Any
     q = set(terms(question))
     sources: List[Dict[str, Any]] = []
     scored = []
+    by_doc: Dict[str, List[str]] = {}
     for rank, h in enumerate(hits):
         strict = h["kind"] not in ("fact", "news")
         sents = _sentences(h["text"], strict) or ([h["text"]] if _good(h["text"].strip(), strict) else [])
+        by_doc[h["id"]] = sents
         for i, s in enumerate(sents):
             st = set(terms(s))
             hit_terms = len(q & st)
@@ -599,6 +629,19 @@ def compose(question: str, hits: List[Dict[str, Any]], trace: List[Dict[str, Any
         seen.add(key)
         chosen.append((rank, i, s, h))
         total += len(s)
+    # Context: a chosen passage sentence brings the sentence before it when
+    # that one shares a term ("Guru in a kendra from the Moon causes this
+    # yoga." before "Of what good is that Kesari Yoga…") — what a reader of
+    # the page would have seen.
+    have = {(h["id"], i) for _, i, _, h in chosen}
+    for rank, i, s, h in list(chosen):
+        if h["kind"] in ("local", "reference") and i > 0 and (h["id"], i - 1) not in have \
+                and len(chosen) < max_sentences:
+            prev = by_doc.get(h["id"], [])[i - 1]
+            if q & set(terms(prev)) and total + len(prev) <= max_chars:
+                chosen.append((rank, i - 1, prev, h))
+                have.add((h["id"], i - 1))
+                total += len(prev)
     picked, used = [], {}
     for rank, i, s, h in sorted(chosen, key=lambda c: (c[0], c[1])):   # retrieval order, then the source's own
         if h["id"] not in used:

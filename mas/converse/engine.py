@@ -199,9 +199,24 @@ def turn(text: str, session_id: Optional[str] = None,
         except Exception as e:
             research_out = {"error": f"{type(e).__name__}: {e}"}
 
+    # The knowledge and live-market specialists are registered agents: they
+    # run through the roster like every other one, so they appear in the
+    # trace with their timings and declines.
+    live_step = None
     if k_shape:
+        k_sym = (parsed.get("symbols") or [""])[0] if k_shape == "NEWS" else ""
         try:
-            k_out = knowledge_mod.answer(text, parsed.get("symbols") or [], k_shape)
+            if k_shape in ("NEWS", "PULSE"):
+                live_step = _run_capability("live_market", k_sym, {})
+                results["live_market"] = live_step
+            if k_shape != "PULSE":
+                k_step = _run_capability("world_knowledge", k_sym,
+                                         {"question": text, "shape": k_shape})
+                results["world_knowledge"] = k_step
+                kres = k_step.get("result") or {}
+                k_out = kres.get("data") if kres.get("status") == "OK" else \
+                    {"found": False, "error": k_step.get("unanswered_reason") or kres.get("reason")
+                     or "; ".join(str(a.get("reason")) for a in (k_step.get("trace") or []) if a.get("reason"))}
         except Exception as e:          # the fallback must never sink the turn
             k_out = {"found": False, "error": f"{type(e).__name__}: {e}"}
 
@@ -217,15 +232,21 @@ def turn(text: str, session_id: Optional[str] = None,
             answer.setdefault("blocks", []).append(
                 {"capability": "fundamental_analysis",
                  "lines": reply_mod.COMPOSERS["fundamental_analysis"](fa.get("data") or {}, subject)})
+    kblocks = []
+    lres = (live_step or {}).get("result") or {}
+    if lres.get("status") == "OK":
+        kblocks.append({"capability": "live_market", "answered_by": "live_market",
+                        "lines": reply_mod.COMPOSERS["live_market"](lres.get("data") or {}, subject or "")})
     if k_out is not None and k_out.get("found"):
-        kb = knowledge_mod.block(k_out)
-        if k_shape == "NEWS" and parsed.get("kind") == "QUERY" and isinstance(answer, dict):
-            answer.setdefault("blocks", []).append(kb)      # the desk's answer, then the news
+        kblocks.append(knowledge_mod.block(k_out))
+    if kblocks:
+        if parsed.get("kind") == "QUERY" and isinstance(answer, dict):
+            answer.setdefault("blocks", []).extend(kblocks)   # the desk's answer, then the live / cited context
         else:
             extra = ([{"capability": None, "lines": [parsed["clarification"]]}]
                      if k_shape == "CONCEPT" and parsed.get("clarification") else [])
-            answer = {"headline": kb["lines"][0].split(". ")[0][:120], "blocks": [kb] + extra,
-                      "kind": "KNOWLEDGE"}
+            answer = {"headline": kblocks[0]["lines"][0].replace("**", "").split(". ")[0][:120],
+                      "blocks": kblocks + extra, "kind": "KNOWLEDGE"}
     elif parsed.get("kind") == "KNOWLEDGE":
         answer = {"headline": "Nothing came back", "kind": "EMPTY", "blocks": [{"capability": None, "lines": [
             (k_out or {}).get("answer") or "The live sources did not answer. That is a failure on my side, "
@@ -259,8 +280,9 @@ def turn(text: str, session_id: Optional[str] = None,
         "research": ({k: v for k, v in research_out.items()
                       if k not in ("_ledger",)} if research_out else None),
         "policy": policy_out,
-        "knowledge": ({"shape": k_shape, "used_live": k_out.get("used_live"), "trace": k_out.get("trace"),
-                       "error": k_out.get("error")} if k_out is not None else None),
+        "knowledge": ({"shape": k_shape, "used_live": (k_out or {}).get("used_live"),
+                       "trace": (k_out or {}).get("trace"), "error": (k_out or {}).get("error"),
+                       "live_market": lres.get("status")} if k_shape else None),
         "trace": trace,
         "elapsed_ms": int((time.time() - t0) * 1000),
     }
