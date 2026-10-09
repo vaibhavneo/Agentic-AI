@@ -5,7 +5,7 @@ process, started by web/app.py only when LIVE_FEEDS=1 (local/run_all.py sets
 it; tests, the heartbeat and hosted copies leave it off):
 
     indexes     SPY QQQ DIA IWM ^VIX — every 60 s in US market hours, 30 min otherwise
-    watchlist   the heartbeat universe (watchlist.txt) — every 120 s in market hours
+    watchlist   the heartbeat universe (watchlist.txt) — every 5 min in market hours (Yahoo rate limits)
     macro       FRED: 10-year, 2-year, 10y-2y curve, fed funds, VIX close — every 6 h
     headlines   Google News: the market today, and the watchlist's biggest movers — every 20 min
     movers      a watchlist name moving 4% or more on the day becomes a "mover" event
@@ -85,7 +85,7 @@ def hub() -> lf.FeedHub:
             from mas.converse.knowledge import pipeline
             _hub = lf.FeedHub([
                 lf.QuoteFeed(lambda: INDEXES, name="indexes", interval_s=60, closed_interval_s=1800),
-                lf.QuoteFeed(watchlist, name="watchlist", interval_s=120, closed_interval_s=1800, max_symbols=120),
+                lf.QuoteFeed(watchlist, name="watchlist", interval_s=300, closed_interval_s=1800, max_symbols=120),
                 lf.FredFeed(MACRO, name="macro"),
                 lf.HeadlineFeed(_headline_queries, name="headlines", per_query=4),
                 lf.FnFeed("movers", _mover_events, interval_s=300, closed_interval_s=1800),
