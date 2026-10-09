@@ -44,6 +44,7 @@ import urllib.parse
 import urllib.request
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Sequence
 
 VERSION = "1.0.0"
@@ -99,6 +100,7 @@ class KnowledgeStore:
     def __init__(self, path: str):
         self.path = path
         self._lock = threading.Lock()
+        Path(path).parent.mkdir(parents=True, exist_ok=True)     # a fresh container has no data/ yet
         with self._conn() as c:
             c.executescript(self._SCHEMA)
 
@@ -588,7 +590,10 @@ def compose(question: str, hits: List[Dict[str, Any]], trace: List[Dict[str, Any
         if score <= 0 or len(chosen) >= max_sentences or total + len(s) > max_chars or key in seen:
             continue
         if has_fact and h["kind"] not in ("fact", "news"):
-            if background >= 1 or score < 0.5:   # a live answer leads with the live facts
+            # A live answer leads with the live facts; background is one
+            # encyclopedia sentence at most — never an app's own docs or a
+            # book aside that happens to share the words.
+            if background >= 1 or score < 0.5 or h["kind"] != "reference":
                 continue
             background += 1
         seen.add(key)
