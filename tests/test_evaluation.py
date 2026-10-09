@@ -58,10 +58,10 @@ def _rec(ticker, day, action="BUY", composite=60.0, p_up=None, p_beat=None, conf
     rec = {
         "ticker": ticker, "generated_at": f"{day}T00:00:00", "current_price": 100.0,
         "action": action, "time_horizon_days": 20, "sector": "Technology", "regime": "LOW",
-        "benchmark": "SPY", "composite": composite,
+        "benchmark": "SPY", "composite": composite, "core_score": composite, "modifier_pts": 0.0,
         "confidence": {"statistical_edge": {"level": conf, "score": edge, "checks": {}}},
         "pillars": {"technical": {"score": composite}, "algo": {"score": 50.0},
-                    "fundamentals": {"score": 100 - composite}},
+                    "fundamentals": {"score": 100 - composite}, "risk": {"score": 60.0}},
         "claims": {},
         "horizon_probabilities": p_up,
     }
@@ -616,4 +616,17 @@ def test_the_report_compares_challengers_on_the_composites_own_dates(ledger):
     assert card["paper"]["periods"] == 12
     assert all(v["periods"] == 12 for v in card["paper_challengers"].values())
     assert set(card["challengers"]) == {"momentum_12_1", "reversal_1m", "low_volatility",
-                                        "fundamentals_only", "technical_only", "equal_weight_core"}
+                                        "fundamentals_only", "technical_only", "equal_weight_core",
+                                        "composite_no_risk", "composite_risk_inverted"}
+
+
+def test_risk_challengers_rebuild_the_composite_formula_exactly():
+    """backtest/pillars.py: composite = 50 + (clip(core+mods) - 50) * (0.5 + 0.5*risk/100)."""
+    from evaluation.challengers import pillar_scores
+    rec = {"core_score": 70.0, "modifier_pts": 2.0}
+    s = pillar_scores({"risk": 80.0}, 67.6, rec)
+    assert s["composite_no_risk"] == 72.0
+    assert s["composite_risk_inverted"] == pytest.approx(50 + 22 * (0.5 + 0.5 * 0.2))   # 63.2
+    desk = 50 + 22 * (0.5 + 0.5 * 0.8)                                                   # 69.8, what the desk froze
+    assert s["composite_no_risk"] > desk > s["composite_risk_inverted"]
+    assert "composite_no_risk" not in pillar_scores({"risk": 80.0}, 67.6, {})        # no core_score → no score

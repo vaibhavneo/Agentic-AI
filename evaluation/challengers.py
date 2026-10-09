@@ -71,18 +71,43 @@ PRICE_CHALLENGERS: Dict[str, Callable] = {
 
 
 def _pillar(name):
-    return lambda pillars, composite: pillars.get(name)
+    return lambda pillars, composite, rec: pillars.get(name)
 
 
-def _equal_core(pillars, composite):
+def _equal_core(pillars, composite, rec):
     vals = [pillars.get(k) for k in ("technical", "algo", "fundamentals")]
     return None if any(v is None for v in vals) else sum(vals) / 3.0
+
+
+def _pre_risk(rec) -> Optional[float]:
+    """clip(core + modifiers): the composite BEFORE the risk step, rebuilt
+    exactly from what the call froze (backtest/pillars.py's formula)."""
+    core = (rec or {}).get("core_score")
+    if core is None:
+        return None
+    return max(0.0, min(100.0, float(core) + float((rec or {}).get("modifier_pts") or 0.0)))
+
+
+def _no_risk(pillars, composite, rec):
+    # The 2017-2025 replay found the risk pillar ranking BACKWARDS (IC -0.066,
+    # t=-4.04 at 126d). These two test what the composite would have done
+    # without its risk multiplier/veto, and with the multiplier inverted.
+    return _pre_risk(rec)
+
+
+def _risk_inverted(pillars, composite, rec):
+    pre, risk = _pre_risk(rec), pillars.get("risk")
+    if pre is None or risk is None:
+        return None
+    return 50.0 + (pre - 50.0) * (0.5 + 0.5 * (100.0 - float(risk)) / 100.0)
 
 
 PILLAR_CHALLENGERS: Dict[str, Callable] = {
     "fundamentals_only": _pillar("fundamentals"),
     "technical_only": _pillar("technical"),
     "equal_weight_core": _equal_core,
+    "composite_no_risk": _no_risk,
+    "composite_risk_inverted": _risk_inverted,
 }
 
 CHALLENGERS = tuple(PRICE_CHALLENGERS) + tuple(PILLAR_CHALLENGERS)
@@ -94,6 +119,8 @@ DESCRIPTIONS = {
     "fundamentals_only": "the fundamentals pillar alone",
     "technical_only": "the technical pillar alone",
     "equal_weight_core": "technical, algo and fundamentals at equal weight",
+    "composite_no_risk": "the desk's composite without the risk multiplier and veto",
+    "composite_risk_inverted": "the desk's composite with the risk multiplier inverted (riskier names amplified)",
 }
 
 
@@ -110,10 +137,11 @@ def price_scores(close) -> Dict[str, float]:
     return out
 
 
-def pillar_scores(pillars: Dict[str, Any], composite: Optional[float]) -> Dict[str, float]:
+def pillar_scores(pillars: Dict[str, Any], composite: Optional[float],
+                  rec: Optional[Dict[str, Any]] = None) -> Dict[str, float]:
     out = {}
     for name, fn in PILLAR_CHALLENGERS.items():
-        v = fn(pillars or {}, composite)
+        v = fn(pillars or {}, composite, rec or {})
         if v is not None:
             out[name] = float(v)
     return out

@@ -154,7 +154,7 @@ def build(horizons: Sequence[int] = DEFAULT_HORIZONS, source: str = "live",
 def _challenger_score(name: str, shadow: Dict[str, Dict[str, float]]):
     from .challengers import PILLAR_CHALLENGERS, pillar_scores
     if name in PILLAR_CHALLENGERS:
-        return lambda x: pillar_scores(x["pillars"], x.get("composite")).get(name)
+        return lambda x: pillar_scores(x["pillars"], x.get("composite"), x).get(name)
     return lambda x: (shadow.get(x.get("snapshot_id")) or {}).get(name)
 
 

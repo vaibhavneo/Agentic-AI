@@ -79,6 +79,8 @@ def load(horizon: int, source: str = "live") -> List[Dict[str, Any]]:
                        s.conf_statistical_edge AS conf, s.edge_score, s.sector,
                        s.pillars_json, s.horizon_probabilities_json AS hp,
                        json_extract(s.frozen_json, '$.composite') AS composite,
+                       json_extract(s.frozen_json, '$.core_score') AS core_score,
+                       json_extract(s.frozen_json, '$.modifier_pts') AS modifier_pts,
                        json_extract(s.frozen_json, '$.outperform_probabilities') AS op,
                        o.raw_return_pct AS raw, o.excess_return_pct AS excess,
                        o.as_of_date AS outcome_date, o.direction_correct
@@ -103,6 +105,7 @@ def _record(x: Dict[str, Any], h: int) -> Dict[str, Any]:
         "conf": x.get("conf") or "NONE", "edge_score": x.get("edge_score"),
         "sector": x.get("sector") or "unknown",
         "composite": None if x.get("composite") is None else float(x["composite"]),
+        "core_score": x.get("core_score"), "modifier_pts": x.get("modifier_pts"),
         "pillars": {k: v for k, v in _json(x.get("pillars_json")).items() if v is not None},
         "p_up": _hp(_json(x.get("hp")), h),
         "p_beat": _hp(_json(x.get("op")), h),
@@ -365,7 +368,7 @@ def challenger_scorecard(records: Sequence[Dict[str, Any]], horizon: int,
     for name in CHALLENGERS:
         if name in PILLAR_CHALLENGERS:
             def score(x, name=name):
-                return pillar_scores(x["pillars"], x.get("composite")).get(name)
+                return pillar_scores(x["pillars"], x.get("composite"), x).get(name)
         else:
             def score(x, name=name):
                 return (shadow.get(x.get("snapshot_id")) or {}).get(name)

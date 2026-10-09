@@ -187,6 +187,29 @@ reliable difference). At 5d, equal weights led the composite with t = −2.35, b
 3 independent windows (unconfirmed). Watch these two; they are the cheapest possible
 alternative to the full engine.
 
+## The risk pillar test (2026-10-08)
+
+The 2017–2025 replay (`docs/REPLAY_WIDE_RESULTS.md`) found the risk pillar ranking **backwards**: IC
+−0.066 with t = −4.04 at 126 days. Two challengers rebuild the desk's own formula from each frozen call:
+- `composite_no_risk` = clip(core + modifiers), with no multiplier and no veto;
+- `composite_risk_inverted` = the multiplier flipped, so riskier names are amplified.
+
+| Replay (8,058 calls) | Desk IC | No-risk IC | Inverted IC | Top third: desk / no-risk / inverted |
+|---|---|---|---|---|
+| 5d | +0.011 | +0.016 | +0.021 | +58% / +67% / +65% |
+| 20d | +0.006 | +0.007 | +0.010 | +260% / +280% / +286% |
+| 60d | +0.009 | +0.013 | +0.018 (**reliably better**, t = −2.14, 35 windows) | +229% / +250% / +281% |
+| 126d | −0.001 | +0.005 (t = −3.33, 16 windows) | +0.013 (t = −4.00, 16 windows) | +298% / +316% / +298% |
+
+On the live calls (1d and 5d) there is no difference yet.
+
+**Reading it:**
+- The risk step is a consistent drag on history. Removing it helps at every horizon.
+- Even without it, the ranking signal is tiny (IC ≈ 0.01–0.02), so this removes a drag; it does not
+  create an edge.
+- Changing the live scoring is a decision left to the owner. The challengers keep measuring it on live
+  calls in the meantime.
+
 ## Daily run reliability
 
 The 2–3 hour runs (2026-09-25, 10-01, 10-02) were not slow code; a ticker takes 5–8 s.
