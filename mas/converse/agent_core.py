@@ -372,6 +372,29 @@ class EpisodicMemory:
         return [{"at": r[0], "session": r[1], "question": r[2], "outcome": r[3], "answer": r[4],
                  "agents": json.loads(r[5] or "[]"), "ms": r[6]} for r in rows]
 
+    def search(self, words: Sequence[str], limit: int = 3, session: Optional[str] = None,
+               exclude_question: Optional[str] = None) -> List[Dict[str, Any]]:
+        """Earlier answered turns whose question or answer contains every word."""
+        words = [w.lower() for w in words if w]
+        if not words:
+            return []
+        q = "SELECT at, session, question, outcome, answer FROM episodes WHERE outcome = 'ANSWERED'"
+        args: List[Any] = []
+        for w in words:
+            q += " AND (lower(question) LIKE ? OR lower(answer) LIKE ?)"
+            args += [f"%{w}%", f"%{w}%"]
+        if session:
+            q += " AND session = ?"
+            args.append(session)
+        if exclude_question:
+            q += " AND question != ?"
+            args.append(exclude_question)
+        q += " ORDER BY id DESC LIMIT ?"
+        args.append(limit)
+        with self._c() as c:
+            rows = c.execute(q, args).fetchall()
+        return [{"at": r[0], "session": r[1], "question": r[2], "outcome": r[3], "answer": r[4]} for r in rows]
+
     def stats(self) -> Dict[str, Any]:
         """Per-agent run counts, OK rate and median latency — the team's report card."""
         per: Dict[str, Dict[str, Any]] = {}
@@ -386,6 +409,40 @@ class EpisodicMemory:
                     d["ms"].append(t["ms"])
         return {k: {"runs": v["runs"], "ok_rate": round(v["ok"] / v["runs"], 3) if v["runs"] else None,
                     "median_ms": sorted(v["ms"])[len(v["ms"]) // 2] if v["ms"] else None} for k, v in per.items()}
+
+
+class RecallAgent(Agent):
+    """Memory as a specialist: 'what did you tell me about NVDA earlier?' is
+    answered from the episodic log — the question asked then, when, and the
+    start of what was answered. Nothing is re-derived or re-worded."""
+    name, role, priority, timeout_s = "recall", "what was asked and answered before (episodic memory)", 1, 5.0
+    RX = re.compile(r"\b(what did (you|i) (say|tell|ask|answer)|you (told|said)|earlier|last time|before|"
+                    r"remind me what|did i ask|previously)\b", re.I)
+    FILLER = {"what", "did", "you", "say", "tell", "told", "said", "me", "about", "earlier", "last", "time", "before",
+              "remind", "ask", "asked", "answer", "answered", "i", "previously", "the", "a", "on", "of", "my", "is"}
+
+    def __init__(self, episodic_path: Callable[[], Optional[str]]):
+        self._path = episodic_path
+
+    def bid(self, task):
+        return 0.95 if self.RX.search(task.question) else 0.0
+
+    def run(self, task, board):
+        path = self._path()
+        if not path:
+            return self.decline("no episodic memory configured")
+        words = [w for w in re.findall(r"[a-z0-9$.%-]+", task.text) if w not in self.FILLER and len(w) > 1][:4]
+        if not words:
+            return self.decline("nothing named to look for")
+        hits = EpisodicMemory(path).search(words, exclude_question=task.question)
+        if not hits:
+            return self.finding(lines=[f"I have no earlier answer about {' '.join(words)} in my memory."])
+        lines = [f"**From memory** ({len(hits)} earlier answer{'s' if len(hits) > 1 else ''} about {' '.join(words)}):"]
+        for h in hits:
+            when = time.strftime("%Y-%m-%d %H:%M", time.localtime(h["at"]))
+            first = h["answer"].strip().split("\n")[0][:300]
+            lines.append(f"- {when} — you asked \"{h['question'][:120]}\"; the answer began: {first}")
+        return self.finding(lines=lines)
 
 
 # ── Orchestrator ──────────────────────────────────────────────────────────
