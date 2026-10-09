@@ -164,6 +164,7 @@ class QuoteFeed(Feed):
     def poll(self):
         syms = list(dict.fromkeys(s.upper() for s in (self.symbols() or []) if s))[: self.max_symbols]
         out: List[Event] = []
+        self._last_error = None
         with cf.ThreadPoolExecutor(max_workers=8) as ex:
             for sym, q in zip(syms, ex.map(self._safe, syms)):
                 if not q:
@@ -173,12 +174,17 @@ class QuoteFeed(Feed):
                                  f"{sym} last traded at ${q['price']:,.2f}{chg} (as of {q.get('as_of') or 'now'}).",
                                  source="Yahoo Finance chart", url=f"https://finance.yahoo.com/quote/{sym}", ttl_s=900,
                                  doc_source="quote", doc_title=f"{sym} price"))
+        if syms and not out:
+            # Every symbol failed — usually a rate limit. Raising makes it visible
+            # in the hub's health and backs the feed off, instead of a quiet gap.
+            raise IOError(f"no quote for any of {len(syms)} symbols ({self._last_error or 'empty responses'})")
         return out
 
     def _safe(self, sym):
         try:
             return self.quote(sym)
-        except Exception:
+        except Exception as e:
+            self._last_error = f"{type(e).__name__}: {str(e)[:80]}"
             return None
 
 
@@ -250,12 +256,79 @@ class HeadlineFeed(Feed):
         return out
 
 
+# ── Standing price watches ────────────────────────────────────────────────
+
+class PriceWatches:
+    """'Tell me if NVDA falls below 200' as a standing rule: stored in SQLite,
+    checked against every streamed quote, fired ONCE when the price crosses
+    (an 'alert' event), then marked triggered. Read-only: a watch notifies, it
+    never trades."""
+
+    def __init__(self, db_path: str):
+        self.db_path = db_path
+        Path(db_path).parent.mkdir(parents=True, exist_ok=True)
+        with self._c() as c:
+            c.execute("""CREATE TABLE IF NOT EXISTS price_watches (id INTEGER PRIMARY KEY, symbol TEXT NOT NULL,
+                         op TEXT NOT NULL CHECK (op IN ('above', 'below')), level REAL NOT NULL, note TEXT,
+                         created_at REAL NOT NULL, triggered_at REAL, triggered_price REAL)""")
+
+    def _c(self):
+        return sqlite3.connect(self.db_path, timeout=10)
+
+    def add(self, symbol: str, op: str, level: float, note: str = "") -> Dict[str, Any]:
+        if op not in ("above", "below") or not level or level <= 0:
+            raise ValueError("a watch needs 'above' or 'below' and a positive level")
+        with self._c() as c:
+            cur = c.execute("INSERT INTO price_watches (symbol, op, level, note, created_at) VALUES (?,?,?,?,?)",
+                            (symbol.upper(), op, float(level), note, time.time()))
+            wid = cur.lastrowid
+        return {"id": wid, "symbol": symbol.upper(), "op": op, "level": float(level)}
+
+    def list(self, active_only: bool = True) -> List[Dict[str, Any]]:
+        q = "SELECT id, symbol, op, level, note, created_at, triggered_at, triggered_price FROM price_watches"
+        if active_only:
+            q += " WHERE triggered_at IS NULL"
+        with self._c() as c:
+            rows = c.execute(q + " ORDER BY id").fetchall()
+        return [{"id": r[0], "symbol": r[1], "op": r[2], "level": r[3], "note": r[4], "created_at": r[5],
+                 "triggered_at": r[6], "triggered_price": r[7]} for r in rows]
+
+    def remove(self, wid: int) -> bool:
+        with self._c() as c:
+            return c.execute("DELETE FROM price_watches WHERE id = ?", (int(wid),)).rowcount > 0
+
+    def symbols(self) -> List[str]:
+        return sorted({w["symbol"] for w in self.list()})
+
+    def check(self, ev: "Event") -> List["Event"]:
+        """Alert events for active watches this quote crosses."""
+        if ev.kind != "quote" or not ev.value.get("price"):
+            return []
+        sym, price = ev.key.split(":", 1)[1], float(ev.value["price"])
+        fired = []
+        for w in self.list():
+            if w["symbol"] != sym:
+                continue
+            if (w["op"] == "below" and price < w["level"]) or (w["op"] == "above" and price > w["level"]):
+                with self._c() as c:
+                    n = c.execute("UPDATE price_watches SET triggered_at = ?, triggered_price = ? "
+                                  "WHERE id = ? AND triggered_at IS NULL", (time.time(), price, w["id"])).rowcount
+                if n:
+                    text = (f"{sym} is ${price:,.2f}, {w['op']} your ${w['level']:,.2f} watch"
+                            + (f" ({w['note']})" if w.get("note") else "") + ".")
+                    fired.append(Event("watches", "alert", f"alert:watch:{w['id']}",
+                                       {"level": "high", "kind": "price_watch", "text": text, "watch_id": w["id"],
+                                        "symbol": sym, "price": price}, "", ttl_s=24 * 3600))
+        return fired
+
+
 # ── Hub ───────────────────────────────────────────────────────────────────
 
 class FeedHub:
     def __init__(self, feeds: Sequence[Feed], store: Any = None, db_path: Optional[str] = None,
-                 ring: int = 1000, max_log_rows: int = 20000):
+                 ring: int = 1000, max_log_rows: int = 20000, watches: Optional[PriceWatches] = None):
         self.feeds = {f.name: f for f in feeds}
+        self.watches = watches
         self.store, self.db_path, self.max_log_rows = store, db_path, max_log_rows
         self._ring: collections.deque = collections.deque(maxlen=ring)
         self._latest: Dict[str, Event] = {}
@@ -347,6 +420,12 @@ class FeedHub:
         return self._publish(ev)
 
     def _publish(self, ev: Event) -> bool:
+        if self.watches is not None and ev.kind == "quote":
+            try:
+                for alert in self.watches.check(ev):
+                    self._publish(alert)
+            except Exception:
+                pass
         vh = _vhash(ev.value)
         with self._lock:
             if self._hash.get(ev.key) == vh:
