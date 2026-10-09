@@ -86,7 +86,7 @@ def pipeline() -> lk.Pipeline:
                     for i, part in enumerate(re.split(r"\n(?=#{1,3} )", p.read_text(errors="ignore"))):
                         if part.strip():
                             head = part.strip().splitlines()[0].lstrip("# ").strip()
-                            docs.append(lk.Doc("local:docs", f"{rel} — {head}", re.sub(r"[#`*|]", " ", part),
+                            docs.append(lk.Doc("local:docs", f"{rel} — {head}", " ".join(re.sub(r"[#`*|]", " ", part).split()),
                                                f"{rel}#{i}", "local", ttl_s=10 * 365 * 86400))
             store.add(docs)
             _pipe = lk.Pipeline(store, [

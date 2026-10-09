@@ -51,7 +51,7 @@ UA = "live-knowledge/1.0 (personal research app)"
 STOP = set("""a an and are as at be by can do does for from has have how i in is it its me my of on or our
 should so than that the their them then there these this to us was we what when where which who why will with
 would you your tell about please give show explain define meaning mean get much many any some current currently
-now today latest recent what's how's it's where's who's that's there's""".split())
+now today latest recent what's how's it's where's who's that's there's today's""".split())
 LIVE_WORDS = re.compile(r"\b(now|today|tonight|current(ly)?|latest|recent|this (week|month|morning)|"
                         r"news|headlines?|price|quote|trading at|yield|rate|rates)\b", re.I)
 
@@ -196,19 +196,37 @@ class WikipediaFetcher(Fetcher):
     def applies(self, question, ctx):
         return not ctx.get("only_live_facts")
 
-    def fetch(self, question, ctx):
-        q = " ".join(terms(question)) + (f" {self.suffix}" if self.suffix else "")
-        data = json.loads(self.http("https://en.wikipedia.org/w/api.php?" + urllib.parse.urlencode(
-            {"action": "query", "list": "search", "srsearch": q, "format": "json", "srlimit": self.top})))
-        out = []
-        for hit in (data.get("query") or {}).get("search", [])[: self.top]:
-            title = hit["title"]
+    def _summary(self, title: str) -> Optional[Doc]:
+        try:
             s = json.loads(self.http("https://en.wikipedia.org/api/rest_v1/page/summary/"
                                      + urllib.parse.quote(title.replace(" ", "_"))))
-            if s.get("extract"):
-                out.append(Doc("wikipedia", title, s["extract"],
-                               (s.get("content_urls") or {}).get("desktop", {}).get("page", ""),
-                               "reference", ttl_s=30 * 86400))
+        except Exception:
+            return None
+        if not s.get("extract") or s.get("type") == "disambiguation":
+            return None
+        return Doc("wikipedia", s.get("title") or title, s["extract"],
+                   (s.get("content_urls") or {}).get("desktop", {}).get("page", ""), "reference", ttl_s=30 * 86400)
+
+    def fetch(self, question, ctx):
+        key = terms(question)
+        out: List[Doc] = []
+        # "what is a nakshatra" -> the article "Nakshatra" itself, before search
+        # (which ranks specific pages like "Revati (nakshatra)" above the general one).
+        if 1 <= len(key) <= 4:
+            d = self._summary(" ".join(key).capitalize())
+            if d:
+                out.append(d)
+        q = " ".join(key) + (f" {self.suffix}" if self.suffix else "")
+        data = json.loads(self.http("https://en.wikipedia.org/w/api.php?" + urllib.parse.urlencode(
+            {"action": "query", "list": "search", "srsearch": q, "format": "json", "srlimit": self.top})))
+        for hit in (data.get("query") or {}).get("search", []):
+            if len(out) >= self.top:
+                break
+            if any(d.title == hit["title"] for d in out):
+                continue
+            d = self._summary(hit["title"])
+            if d:
+                out.append(d)
         return out
 
 
@@ -471,11 +489,54 @@ class Pipeline:
             hits = [h for h in hits if h["kind"] not in ("fact", "news") or h["id"] in now_ids
                     or h["coverage"] >= self.min_coverage]
             hits.sort(key=lambda h: ({"fact": 0, "news": 1}.get(h["kind"], 2), -h["fetched_at"]))   # facts, news, rest
-        return compose(question, hits, trace, used_live, live)
+        out = compose(question, hits, trace, used_live, live)
+        if not out["found"] and not trace:
+            # The local text matched words but held no quotable sentence (a table
+            # of contents, a fragment): one live attempt before saying "not found".
+            trace = self.fetch_live(question, ctx, fetched)
+            if any(t["ok"] and t["docs"] for t in trace):
+                extra = self.store.get(fetched)
+                qt = set(terms(q_for_search))
+                for h in extra:
+                    body = f"{h['title']} {h['text']}".lower()
+                    h["coverage"] = round(sum(1 for t in qt if t in body) / (len(qt) or 1), 3)
+                out = compose(question, extra + hits, trace, True, live)
+            else:
+                out["trace"] = trace
+        return out
 
 
-def _sentences(text: str) -> List[str]:
-    return [s.strip() for s in re.split(r"(?<=[.!?])\s+(?=[A-Z0-9\"(])", text) if len(s.strip()) > 20]
+def _good(s: str, strict: bool = True) -> bool:
+    """A sentence worth quoting: not a table-of-contents line, not a fragment
+    cut mid-word by a chunker, not a wall of digits or rules. Computed facts
+    and headlines are written by code or an editor (dates and figures are the
+    point), so only `strict` text — books, articles — gets the content tests."""
+    if not (20 < len(s) <= 450):
+        return False
+    if not strict:
+        return True
+    if s[0].islower() or s[-1] not in ".!?\"')":
+        return False                                     # cut mid-word, or a chunk's dangling tail
+    if len(re.findall(r"\b\d+\b", s)) >= 5 and len(re.findall(r"\b\d+\b", s)) / len(s.split()) > 0.2:
+        return False                                     # a contents listing: name, page, name, page…
+    if re.search(r"_{3,}|\.{4,}|(\d+\s+){6,}", s):
+        return False
+    return sum(ch.isalpha() for ch in s) / len(s) >= 0.6
+
+
+def _sentences(text: str, strict: bool = True) -> List[str]:
+    out = []
+    for s in re.split(r"(?<=[.!?])\s+(?=[A-Z0-9\"(])", text):
+        s = s.strip()
+        if strict:
+            # PDF text: a run of 3+ spaces is a layout gap, and what precedes the
+            # last one is a running header ("2012   page ~ 36 ~ Book I (7)   ...").
+            tail = re.split(r"\s{3,}", s)[-1]
+            s = tail if len(tail) > 20 else s
+        s = " ".join(s.split())
+        if _good(s, strict):
+            out.append(s)
+    return out
 
 
 def compose(question: str, hits: List[Dict[str, Any]], trace: List[Dict[str, Any]], used_live: bool,
@@ -484,7 +545,9 @@ def compose(question: str, hits: List[Dict[str, Any]], trace: List[Dict[str, Any
     sources: List[Dict[str, Any]] = []
     scored = []
     for rank, h in enumerate(hits):
-        for i, s in enumerate(_sentences(h["text"]) or [h["text"]]):
+        strict = h["kind"] not in ("fact", "news")
+        sents = _sentences(h["text"], strict) or ([h["text"]] if _good(h["text"].strip(), strict) else [])
+        for i, s in enumerate(sents):
             st = set(terms(s))
             hit_terms = len(q & st)
             # Background must share two of the question's key terms (one when it
@@ -498,14 +561,29 @@ def compose(question: str, hits: List[Dict[str, Any]], trace: List[Dict[str, Any
     scored.sort(key=lambda x: -x[0])
     has_fact = live and any(h["kind"] in ("fact", "news") for h in hits)
     chosen, total, seen, background = [], 0, set(), 0
-    # Every fact doc's lead sentence goes in first: a quote or a rate IS the
-    # answer, and six headlines must not crowd it out.
-    for score, rank, i, s, h in sorted(scored, key=lambda x: (x[1], x[2])):
-        if h["kind"] == "fact" and i == 0 and len(chosen) < max_sentences:
-            seen.add(re.sub(r"\W+", " ", s.lower()).strip()[:80])
-            chosen.append((rank, i, s, h))
-            total += len(s)
+    # Each fact doc's best sentence goes in first — a quote or a rate IS the
+    # answer, and six headlines must not crowd it out — when it shares a term
+    # with the question. If no fact sentence does ("my cash vs T-bills" against
+    # "The 3-month Treasury bill rate was…"), the top fact doc's best still goes in.
+    best: Dict[str, tuple] = {}
+    for item in scored:                              # scored is best-first
+        h = item[4]
+        if h["kind"] == "fact" and h["id"] not in best:
+            best[h["id"]] = item
+    relevant = [b for b in best.values() if len(q & set(terms(b[3])))]
+    lead = relevant or sorted(best.values(), key=lambda b: b[1])[:1]
+    for score, rank, i, s, h in sorted(lead, key=lambda b: -b[0])[:max_sentences]:
+        seen.add(re.sub(r"\W+", " ", s.lower()).strip()[:80])
+        chosen.append((rank, i, s, h))
+        total += len(s)
+    lead_ids = {b[4]["id"] for b in lead}
+    n_sents: Dict[str, int] = {}
+    for item in scored:
+        n_sents[item[4]["id"]] = n_sents.get(item[4]["id"], 0) + 1
     for score, rank, i, s, h in scored:
+        if h["kind"] == "fact" and not len(q & set(terms(s))) \
+                and not (h["id"] in lead_ids and n_sents[h["id"]] <= 2):
+            continue        # a fact sentence about something else (a 1-2 sentence fact doc stays whole)
         key = re.sub(r"\W+", " ", s.lower()).strip()[:80]
         if score <= 0 or len(chosen) >= max_sentences or total + len(s) > max_chars or key in seen:
             continue
