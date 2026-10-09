@@ -99,7 +99,7 @@ def pipeline() -> lk.Pipeline:
         return _pipe
 
 
-PULSE = re.compile(r"\b(what'?s moving|top movers|market movers|biggest movers|movers today|how'?s the market (now|today|"
+PULSE = re.compile(r"\b(what('?s| is| are) moving|top movers|market movers|biggest movers|movers today|how'?s the market (now|today|"
                    r"right now|doing)|market (right )?now|stocks? (today|right now))\b", re.I)
 LIVE = re.compile(r"\b(now|today|right now|live|currently|so far|this morning|this afternoon)\b", re.I)
 

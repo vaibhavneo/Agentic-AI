@@ -137,6 +137,7 @@ def test_pulse_question_gets_the_streamed_market(pipe, monkeypatch):
 
 def test_pulse_shape():
     assert kn.shape("what's moving today", parse("what's moving today")) == "PULSE"
+    assert kn.shape("what is moving today", parse("what is moving today")) == "PULSE"
     assert kn.shape("how's the market right now", parse("how's the market right now")) == "PULSE"
     assert kn.shape("what's the best stock to buy", parse("what's the best stock to buy")) is None
 

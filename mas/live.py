@@ -60,6 +60,40 @@ def movers(limit: int = 5) -> Dict[str, List[Dict[str, Any]]]:
             "losers": [r for r in rows if r["change_pct"] < 0][:limit], "priced": len(rows)}
 
 
+_sector_cache: Dict[str, Any] = {"at": 0.0, "map": {}}
+
+
+def sector_map(max_age_s: float = 3600) -> Dict[str, str]:
+    """Ticker -> sector from the desk's own prediction ledger (newest call per ticker)."""
+    import time as _t
+    if _t.time() - _sector_cache["at"] < max_age_s and _sector_cache["map"]:
+        return _sector_cache["map"]
+    out: Dict[str, str] = {}
+    try:
+        from data import prediction_ledger as pl
+        for r in pl.list_snapshots(limit=2000):
+            if r.get("ticker") and r.get("sector") and r["ticker"] not in out:
+                out[r["ticker"]] = r["sector"]
+    except Exception:
+        pass
+    _sector_cache.update(at=_t.time(), map=out)
+    return out
+
+
+def sectors(min_names: int = 2) -> List[Dict[str, Any]]:
+    """Today's average streamed move per sector across the watchlist, best first."""
+    by: Dict[str, List[float]] = {}
+    smap = sector_map()
+    for sym in watchlist():
+        q = quote(sym)
+        sec = smap.get(sym)
+        if q and q.get("change_pct") is not None and sec:
+            by.setdefault(sec, []).append(q["change_pct"])
+    rows = [{"sector": k, "avg_change_pct": round(sum(v) / len(v), 2), "names": len(v)}
+            for k, v in by.items() if len(v) >= min_names]
+    return sorted(rows, key=lambda r: -r["avg_change_pct"])
+
+
 def _mover_events() -> List[lf.Event]:
     out = []
     for side in movers(limit=10).values():

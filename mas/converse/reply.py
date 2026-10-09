@@ -325,6 +325,11 @@ def _say_live(d: Dict[str, Any], symbol: str) -> List[str]:
     if up or dn:
         lines.append(f"Watchlist movers ({mv.get('priced', 0)} names streamed): "
                      + "; ".join(x for x in (f"up {up}" if up else "", f"down {dn}" if dn else "") if x) + ".")
+    secs = d.get("sectors") or []
+    if len(secs) >= 2:
+        fmt = lambda r: f"{r['sector']} {_chg(r['avg_change_pct'])} ({r['names']})"
+        lines.append("Sectors (watchlist average): best " + ", ".join(fmt(r) for r in secs[:2]) +
+                     "; worst " + ", ".join(fmt(r) for r in secs[-2:][::-1]) + ".")
     for h in (d.get("headlines") or [])[:4]:
         lines.append(f"- {h['title']}")
     return lines

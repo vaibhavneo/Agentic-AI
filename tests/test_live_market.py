@@ -94,3 +94,21 @@ def test_endpoints(monkeypatch):
     c = app.test_client()
     assert c.get("/api/live").get_json()["enabled"] is False
     assert c.get("/api/live/stream").status_code == 503
+
+
+def test_sector_heat(hub, monkeypatch):
+    monkeypatch.setattr(live, "sector_map", lambda max_age_s=3600: {"AAA": "Tech", "BBB": "Tech", "CCC": "Energy"})
+    q(hub, "AAA", 10.0, 2.0)
+    q(hub, "BBB", 10.0, 4.0)
+    q(hub, "CCC", 10.0, -1.0)
+    assert live.sectors() == [{"sector": "Tech", "avg_change_pct": 3.0, "names": 2}]       # Energy has one name
+    assert [r["sector"] for r in live.sectors(min_names=1)] == ["Tech", "Energy"]
+
+
+def test_pulse_composer_shows_sectors():
+    from mas.converse.reply import COMPOSERS
+    lines = COMPOSERS["live_market"]({"mode": "pulse", "indexes": {}, "macro": {}, "movers": {},
+                                      "sectors": [{"sector": "Tech", "avg_change_pct": 3.0, "names": 4},
+                                                  {"sector": "Utilities", "avg_change_pct": 0.5, "names": 3},
+                                                  {"sector": "Energy", "avg_change_pct": -1.5, "names": 5}]}, "")
+    assert "best Tech +3.00% (4), Utilities +0.50% (3); worst Energy -1.50% (5), Utilities +0.50% (3)" in " ".join(lines)

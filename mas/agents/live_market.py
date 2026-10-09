@@ -51,6 +51,6 @@ def run(request: AgentRequest) -> AgentResult:
         macro = {s: live.rate(s) for s in ("DGS10", "DGS2", "T10Y2Y")}
         return ok(AGENT_ID, request.capability,
                   {"mode": "pulse", "indexes": idx, "macro": macro, "movers": live.movers(),
-                   "headlines": live.headlines(5)}, price_basis="LIVE_QUOTE")
+                   "sectors": live.sectors(), "headlines": live.headlines(5)}, price_basis="LIVE_QUOTE")
     except Exception as e:
         return error(AGENT_ID, request.capability, e)
