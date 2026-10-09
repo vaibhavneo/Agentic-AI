@@ -112,3 +112,16 @@ def test_pulse_composer_shows_sectors():
                                                   {"sector": "Utilities", "avg_change_pct": 0.5, "names": 3},
                                                   {"sector": "Energy", "avg_change_pct": -1.5, "names": 5}]}, "")
     assert "best Tech +3.00% (4), Utilities +0.50% (3); worst Energy -1.50% (5), Utilities +0.50% (3)" in " ".join(lines)
+
+
+def test_live_market_requotes_a_stale_symbol_in_market_hours(hub, monkeypatch):
+    import time as _t
+    from mas.agents import live_market
+    calls = []
+    hub.feeds["indexes"] = lf.QuoteFeed(lambda: [], name="indexes",
+                                        quote=lambda s: calls.append(s) or {"symbol": s, "price": 12.0, "change_pct": 2.0})
+    q(hub, "AAA", 10.0, 0.0)
+    hub.latest("quote:AAA").ts = _t.time() - 600
+    monkeypatch.setattr(lf, "us_market_open", lambda now=None: True)
+    r = live_market.run(AgentRequest("AAA", "EQUITY", "live_market"))
+    assert calls == ["AAA"] and r.data["quote"]["price"] == 12.0

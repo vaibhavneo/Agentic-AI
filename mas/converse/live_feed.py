@@ -163,6 +163,16 @@ class QuoteFeed(Feed):
 
     def poll(self):
         syms = list(dict.fromkeys(s.upper() for s in (self.symbols() or []) if s))[: self.max_symbols]
+        out = self.fetch(syms)
+        if syms and not out:
+            # Every symbol failed — usually a rate limit. Raising makes it visible
+            # in the hub's health and backs the feed off, instead of a quiet gap.
+            raise IOError(f"no quote for any of {len(syms)} symbols ({self._last_error or 'empty responses'})")
+        return out
+
+    def fetch(self, syms: Sequence[str]) -> List[Event]:
+        """Quote events for exactly these symbols (parallel); failures skipped."""
+        syms = list(dict.fromkeys(s.upper() for s in syms if s))
         out: List[Event] = []
         self._last_error = None
         with cf.ThreadPoolExecutor(max_workers=8) as ex:
@@ -174,10 +184,6 @@ class QuoteFeed(Feed):
                                  f"{sym} last traded at ${q['price']:,.2f}{chg} (as of {q.get('as_of') or 'now'}).",
                                  source="Yahoo Finance chart", url=f"https://finance.yahoo.com/quote/{sym}", ttl_s=900,
                                  doc_source="quote", doc_title=f"{sym} price"))
-        if syms and not out:
-            # Every symbol failed — usually a rate limit. Raising makes it visible
-            # in the hub's health and backs the feed off, instead of a quiet gap.
-            raise IOError(f"no quote for any of {len(syms)} symbols ({self._last_error or 'empty responses'})")
         return out
 
     def _safe(self, sym):
@@ -414,6 +420,29 @@ class FeedHub:
         h["last_ms"] = int((time.time() - t0) * 1000)
         h["next_due"] = time.time() + base
         return published
+
+    def age(self, key: str) -> Optional[float]:
+        """Seconds since this key was last confirmed (changed, or re-seen unchanged)."""
+        ev = self._latest.get(key)
+        if ev is None:
+            return None
+        return time.time() - max(ev.ts, ev.value.get("_seen") or 0)
+
+    def refresh(self, feed_name: str, symbols: Sequence[str], max_age_s: float = 60.0) -> List[str]:
+        """Read-through freshness: re-quote, right now and in parallel, only the
+        symbols whose streamed quote is missing or older than max_age_s. For a
+        question that needs a current price between two scheduled polls.
+        Returns the symbols refreshed."""
+        f = self.feeds.get(feed_name)
+        if not isinstance(f, QuoteFeed):
+            return []
+        stale = [s.upper() for s in symbols if s and ((self.age(f"quote:{s.upper()}") is None)
+                                                    or self.age(f"quote:{s.upper()}") > max_age_s)]
+        if not stale:
+            return []
+        for ev in f.fetch(stale):
+            self._publish(ev)
+        return stale
 
     def publish(self, ev: Event) -> bool:
         """Publish an event from outside a feed (e.g. an app computing one)."""

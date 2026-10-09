@@ -36,6 +36,7 @@ def run(request: AgentRequest) -> AgentResult:
     from mas import live
     try:
         sym = (request.symbol or "").upper()
+        live.ensure_fresh([sym] if sym else live.INDEXES)
         if sym:
             q = _quote(sym)
             if not q:

@@ -50,7 +50,7 @@ import time
 import uuid
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
+from typing import Any, Callable, Dict, Iterator, List, Optional, Sequence, Tuple
 
 VERSION = "1.0.0"
 
@@ -544,12 +544,26 @@ class Orchestrator:
         return f
 
     def execute(self, task: Task, plan: Dict[str, Any], board: Blackboard) -> None:
+        for _ in self._execute_iter(task, plan, board):
+            pass
+
+    def _execute_iter(self, task: Task, plan: Dict[str, Any], board: Blackboard) -> Iterator[Finding]:
+        """Run the plan layer by layer; yield each finding the moment it lands."""
         deadline = time.time() + self.budget_s
         for layer in plan["layers"]:
             with cf.ThreadPoolExecutor(max_workers=max(1, len(layer))) as ex:
                 futs = {ex.submit(self._run_agent, n, task, board, deadline): n for n in layer}
                 for fut in cf.as_completed(futs):
-                    board.post(fut.result())
+                    f = fut.result()
+                    board.post(f)
+                    yield f
+
+    def _checked_section(self, task: Task, f: Finding, board: Blackboard) -> Tuple[List[str], List[Dict[str, Any]]]:
+        """One finding's lines after the critics — what may be streamed now.
+        The same critics run again on the whole draft at the end."""
+        d = Draft(headline=f.headline, sections=[(f.agent, list(f.lines))], sources=list(f.sources))
+        d, issues, vetoed = self.critique(task, d, board)
+        return ([] if vetoed else (d.sections[0][1] if d.sections else [])), issues
 
     # Composition --------------------------------------------------------
     def compose(self, task: Task, board: Blackboard, bids: Dict[str, float]) -> Draft:
@@ -592,6 +606,21 @@ class Orchestrator:
 
     # The loop -----------------------------------------------------------
     def run(self, question: str, ctx: Optional[Dict[str, Any]] = None, session_id: Optional[str] = None) -> Dict[str, Any]:
+        result: Dict[str, Any] = {}
+        for ev in self.run_stream(question, ctx, session_id, stream_sections=False):
+            if ev["type"] == "final":
+                result = ev["result"]
+        return result
+
+    def run_stream(self, question: str, ctx: Optional[Dict[str, Any]] = None, session_id: Optional[str] = None,
+                   stream_sections: bool = True) -> Iterator[Dict[str, Any]]:
+        """The same loop as run(), as events — for answers that arrive as they are ready:
+
+            {"type": "plan", "session_id", "chosen", "layers", "bids"}
+            {"type": "section", "agent", "role", "lines", "status", "ms"}   one per finding, as it lands,
+                                                                             already through the critics
+            {"type": "final", "result": <what run() returns>}               the composed, renumbered answer
+        A guardrail stop yields only the final event."""
         t0 = time.time()
         sid, sess = self.sessions.get(session_id)
         task = Task(question=(question or "").strip(), ctx={**sess["slots"], **(ctx or {})}, session_id=sid,
@@ -606,18 +635,31 @@ class Orchestrator:
             stop = g.check(task)
             if stop:
                 outcome, msg = stop
-                return self._finish(task, sid, outcome, msg, None, [], [], {"bids": {}, "chosen": [], "layers": []},
-                                    t0, guardrail=getattr(g, "name", "guardrail"))
+                yield {"type": "final", "result": self._finish(
+                    task, sid, outcome, msg, None, [], [], {"bids": {}, "chosen": [], "layers": []}, t0,
+                    guardrail=getattr(g, "name", "guardrail"))}
+                return
 
         plan = self.plan(task)
         board = Blackboard()
+        if stream_sections:
+            yield {"type": "plan", "session_id": sid, "chosen": plan["chosen"], "layers": plan["layers"],
+                   "bids": {k: v for k, v in plan["bids"].items() if v > 0}}
         if plan["chosen"]:
-            self.execute(task, plan, board)
+            for f in self._execute_iter(task, plan, board):
+                if stream_sections:
+                    lines, _ = self._checked_section(task, f, board) if f.ok else ([], [])
+                    yield {"type": "section", "agent": f.agent, "role": getattr(self.agents.get(f.agent), "role", ""),
+                           "status": f.status, "lines": lines, "reason": f.reason, "ms": f.ms}
         if not board.ok() and self.fallback is not None:
             fb = self._run_agent(self.fallback.name, task, board, time.time() + self.budget_s) \
                 if self.fallback.name in self.agents else self._run_fallback(task, board)
             board.post(fb)
             plan["fallback"] = self.fallback.name
+            if stream_sections:
+                lines, _ = self._checked_section(task, fb, board) if fb.ok else ([], [])
+                yield {"type": "section", "agent": fb.agent, "role": getattr(self.fallback, "role", ""),
+                       "status": fb.status, "lines": lines, "reason": fb.reason, "ms": fb.ms}
 
         draft = self.compose(task, board, plan["bids"])
         draft, issues, vetoed = self.critique(task, draft, board)
@@ -633,7 +675,8 @@ class Orchestrator:
                     + (f", {s['fetched_at']}" if s.get("fetched_at") else "") for s in draft.sources)
         trace = [{"agent": n, "bid": plan["bids"].get(n), "status": f.status, "ms": f.ms, "reason": f.reason}
                  for n, f in board.findings.items()]
-        return self._finish(task, sid, outcome, text, draft, trace, issues, plan, t0, board=board)
+        yield {"type": "final", "result": self._finish(task, sid, outcome, text, draft, trace, issues, plan, t0,
+                                                      board=board)}
 
     def _run_fallback(self, task: Task, board: Blackboard) -> Finding:
         a = self.fallback
@@ -669,6 +712,15 @@ class Orchestrator:
             "guardrail": guardrail,
             "ms": ms,
         }
+
+
+def sse(events: Iterator[Dict[str, Any]], heartbeat: bool = True) -> Iterator[str]:
+    """Format run_stream() events as Server-Sent Events for a streaming HTTP
+    response (Flask: Response(stream_with_context(sse(...)), mimetype="text/event-stream"))."""
+    if heartbeat:
+        yield ": stream open\n\n"
+    for ev in events:
+        yield f"event: {ev['type']}\ndata: {json.dumps(ev, default=str)}\n\n"
 
 
 def _jsonable(x: Any) -> Any:

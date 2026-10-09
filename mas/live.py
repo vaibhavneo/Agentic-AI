@@ -139,6 +139,17 @@ def start_if_enabled() -> bool:
     return False
 
 
+def ensure_fresh(symbols) -> List[str]:
+    """Read-through: in market hours, re-quote now whatever a question needs
+    that is older than 60 s. Closed market: the last close stands."""
+    if _hub is None or not lf.us_market_open():
+        return []
+    try:
+        return _hub.refresh("indexes", list(symbols), 60.0)
+    except Exception:
+        return []
+
+
 def quote(sym: str) -> Optional[Dict[str, Any]]:
     return _hub.latest_value(f"quote:{sym.upper()}") if _hub is not None else None
 
