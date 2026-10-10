@@ -8,6 +8,8 @@
     GET  /api/quant/scan         ?symbols=A,B — today's intraday signals, each with its rule's record
     GET  /api/quant/backtest     ?symbols=A,B — every rule replayed on ~60 sessions of 5-minute bars
     GET  /api/quant/journal      the paper journal: recent signals, outcomes, per-rule stats
+    GET  /api/quant/swing        ?symbols=A,B — daily swing rules that fired on the last close, and each
+                                 rule's 5-year record against its own baseline
 
 The live signal board streams from /api/live/stream?kinds=signal,signal_close
 (when LIVE_FEEDS=1). Holdings are {symbol, shares} or {symbol, value}.
@@ -155,3 +157,9 @@ def quant_backtest():
 def quant_journal():
     from quant import live as QL
     return _run(lambda: QL.journal_summary(int(request.args.get("limit") or 30)))
+
+
+@bp.route("/api/quant/swing")
+def quant_swing():
+    from quant import swing as QS
+    return _run(lambda: QS.scan(_symbols(request.args.get("symbols")) or None))

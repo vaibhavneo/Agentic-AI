@@ -24,7 +24,9 @@ OPTIMIZE = re.compile(r"\b(optimi[sz]\w*|rebalanc\w*|allocat\w*|weights?|weighti
 PROJECT = re.compile(r"\b(project\w*|in \d+ years?|retire\w*|grow|growth|be worth|future value|goal|monte carlo|"
                      r"long[- ]term|\d+ years? from now)\b", re.I)
 SIGNALS = re.compile(r"\b(intraday|setups?|signals?|breakouts?|breakdowns?|vwap|rsi|gap[- ]and[- ]go|gappers?|"
-                     r"day[- ]?trad\w*|scalp\w*|opening[- ]range|orb)\b", re.I)
+                     r"day[- ]?trad\w*|scalp\w*|opening[- ]range|orb|swing\w*|pullbacks?|oversold)\b", re.I)
+SWING = re.compile(r"\b(swing\w*|multi[- ]?day|daily (setups?|signals?|chart)|overnight|this week|pullbacks?|"
+                   r"oversold|20[- ]day)\b", re.I)
 
 
 def _usd(x: float) -> str:
@@ -67,10 +69,18 @@ ASKS_FOR_SETUPS = re.compile(r"\b(setups?|signals?|any|today|now|right now|scan\
                              r"trades?|ideas?|plays?|levels?)\b", re.I)
 
 
+CONCEPT = re.compile(r"^\s*(what('s| is| are)( an?| the)?|define|definition of|explain|how (does|do)|why (does|do))\b",
+                     re.I)
+LIVE_ASK = re.compile(r"\b(setups?|signals?|today|now|right now|any|firing|triggered|this week|(?-i:on [A-Z]{1,5}\b))",
+                      re.I)
+
+
 def wants_signals(question: str) -> bool:
     """Today's setups, not the concept: "any VWAP setups?" or "breakouts on TSLA",
     but "what is VWAP?" is a definition for the desk and the web."""
     q = question or ""
+    if CONCEPT.search(q) and not LIVE_ASK.search(q):
+        return False                                  # "what is a swing trade?" is a definition
     return bool(SIGNALS.search(q) and (ASKS_FOR_SETUPS.search(q) or named_symbols(q)))
 
 
@@ -177,6 +187,8 @@ class QuantSignalsAgent(ac.Agent):
         return 0.9 if wants_signals(task.question) else 0.0
 
     def run(self, task, board):
+        if SWING.search(task.question):
+            return self._swing(task)
         from quant import live as QL
         syms = named_symbols(task.question)
         res = QL.scan_all(syms or None)
@@ -213,3 +225,42 @@ class QuantSignalsAgent(ac.Agent):
                              f"treat these as watch-list levels, not trades [1].")
         lines.append("Signals are paper-tracked research in the ⚡ Quant Lab journal; nothing here places an order.")
         return self.finding(lines=lines, sources=src, facts={"signals": len(sigs), "edge_rules": [k for k, _ in edge]})
+
+    def _swing(self, task):
+        from quant import swing as QS
+        syms = named_symbols(task.question)
+        res = QS.scan(syms or None)
+        bt = res["backtest"]
+        src = [{"n": 1, "title": f"Quant Lab swing rules — daily bars, {bt['symbols']} large caps, ~5 years "
+                f"(split {bt['split_date']})", "source": "Yahoo Finance daily adjusted bars", "url": "/quant",
+                "fetched_at": res["as_of"]}]
+        scope = ", ".join(syms) if syms else f"the {res['symbols']}-name universe"
+        rank = {"skill": 0, "mixed": 1, "no edge": 2}
+        sigs = sorted(res["signals"], key=lambda r: (rank.get((r.get("record") or {}).get("verdict"), 3), r["symbol"]))
+        lines: List[str] = []
+        if not sigs:
+            lines.append(f"No swing rule fired on {scope} at the {res['as_of']} close [1].")
+        else:
+            lines.append(f"Swing rules that fired on {scope} at the {res['as_of']} close — entry would be the next "
+                         f"open [1]:")
+            for r in sigs[:6]:
+                lines.append(f"- {r['symbol']} {r['label']}: close ${r['close']:,.2f}, stop near ${r['stop_ref']:,.2f}"
+                             + (f", 2R target near ${r['target_ref']:,.2f}" if r.get("target_ref") else "")
+                             + f"; exit: {r['exit_rule']}"
+                             + (" — the one rule with measured skill" if (r.get("record") or {}).get("verdict") == "skill"
+                                else "") + " [1].")
+        skill = [(k, v) for k, v in bt["by_rule"].items() if v["verdict"] == "skill"]
+        none_ = [QS.LABEL[k].split(" (")[0] for k, v in bt["by_rule"].items() if v["verdict"] == "no edge"]
+        for k, v in skill:
+            lines.append(f"Only {QS.LABEL[k].split(' (')[0]} has shown skill: {v['avg_r']:+.3f}R a trade over "
+                         f"{v['n']:,} trades (t-stat {v['t_stat']}), {v['edge_vs_baseline']:+.3f}R better than its "
+                         f"own baseline in both halves — about {v['edge_pct_per_trade']:.2f}% a trade, thin next to "
+                         f"costs [1].")
+        if not skill:
+            lines.append("No swing rule has beaten its own baseline in both halves of the last ~5 years [1].")
+        if none_:
+            lines.append(f"No edge over random entries with the same filter: {', '.join(none_)} [1].")
+        lines.append("The universe is today's large caps (survivorship flatters long rules) and costs are not "
+                     "included. Research only; nothing here places an order.")
+        return self.finding(lines=lines, sources=src, facts={"swing_signals": len(sigs),
+                                                             "skill_rules": [k for k, _ in skill]})

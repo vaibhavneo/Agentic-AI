@@ -142,6 +142,17 @@
   </section>
 
   <section class="card span2">
+    <h2>Swing signals — daily close <span class="grow"></span>
+      <span class="muted" id="swAsOf" style="text-transform:none;letter-spacing:0"></span></h2>
+    <div id="swBody" class="empty">Loading the daily scan…</div>
+  </section>
+
+  <section class="card span2">
+    <h2>Does each swing rule work? ~5 years, against its own baseline</h2>
+    <div id="swBtBody" class="empty">Loading…</div>
+  </section>
+
+  <section class="card span2">
     <h2>Paper journal <span class="grow"></span><span class="muted" id="jOpen" style="text-transform:none;letter-spacing:0"></span></h2>
     <div id="jBody" class="empty">Loading…</div>
   </section>
@@ -373,6 +384,34 @@ async function journal() {
 }
 $('goScan').onclick = () => busy($('goScan'), scan);
 
+// ── Swing (daily) ───────────────────────────────────────────────────────
+const VERDICT = {skill: '<span class="tag edge">skill</span>', mixed: '<span class="tag noedge">mixed</span>',
+                 'no edge': '<span class="tag noedge">no edge</span>'};
+const r3 = (x) => x == null ? '—' : (x >= 0 ? '+' : '') + x.toFixed(3) + 'R';
+async function swing() {
+  try {
+    const d = await (await fetch('/api/quant/swing')).json();
+    if (d.error) throw new Error(d.error);
+    const bt = d.backtest, rank = {skill: 0, mixed: 1, 'no edge': 2};
+    $('swAsOf').textContent = `${d.symbols} symbols · close of ${d.as_of}`;
+    const sigs = d.signals.slice().sort((a, b) => (rank[(a.record || {}).verdict] ?? 3) - (rank[(b.record || {}).verdict] ?? 3));
+    $('swBody').className = '';
+    $('swBody').innerHTML = sigs.length ? `<div class="scroll"><table><tr><th>Symbol</th><th>Rule</th><th class="num">Close</th><th class="num">Stop near</th><th class="num">Target near</th><th>Exit</th><th>Rule's record</th></tr>
+      ${sigs.map(r => `<tr><td><b>${esc(r.symbol)}</b></td><td>${esc(r.label)}</td><td class="num">${usd(r.close, 2)}</td><td class="num down">${usd(r.stop_ref, 2)}</td>
+        <td class="num">${r.target_ref ? usd(r.target_ref, 2) : '—'}</td><td class="muted">${esc(r.exit_rule)}</td>
+        <td>${r.record ? `${r3(r.record.avg_r)} vs baseline ${r3(r.record.baseline.avg_r)} ${VERDICT[r.record.verdict] || ''}` : '—'}</td></tr>`).join('')}</table></div>
+      <p class="note">Signals on the last daily close; the entry would be the next open. Levels are references from the close (risk unit 2 × ATR). Research only.</p>`
+      : '<div class="empty">No swing rule fired on the last close.</div>';
+    const rows = Object.entries(bt.by_rule).map(([k, v]) => `<tr><td>${esc(v.label)}</td><td class="num">${v.n.toLocaleString()}</td><td class="num">${pct(v.win_rate, 0)}</td>
+      <td class="num ${v.avg_r >= 0 ? 'up' : 'down'}">${r3(v.avg_r)}</td><td class="num">${v.t_stat ?? '—'}</td><td class="num muted">${r3(v.baseline.avg_r)}</td>
+      <td class="num ${v.edge_vs_baseline > 0 ? 'up' : 'down'}">${r3(v.edge_vs_baseline)}</td><td class="num">${r3(v.first_half.avg_r)} / ${r3(v.second_half.avg_r)}</td>
+      <td class="num">${v.edge_pct_per_trade >= 0 ? '+' : ''}${v.edge_pct_per_trade.toFixed(2)}%</td><td class="num">${v.avg_days}</td><td>${VERDICT[v.verdict] || ''}</td></tr>`).join('');
+    $('swBtBody').className = '';
+    $('swBtBody').innerHTML = `<div class="scroll"><table><tr><th>Rule</th><th class="num">Trades</th><th class="num">Won</th><th class="num">Avg R</th><th class="num">t-stat</th><th class="num">Baseline</th><th class="num">Edge</th><th class="num">1st / 2nd half</th><th class="num">Edge / trade</th><th class="num">Days held</th><th></th></tr>${rows}</table></div>
+      <p class="note">${bt.trades.toLocaleString()} trades on ${bt.symbols} names, split at ${esc(bt.split_date)}. ${esc(bt.note)}</p>`;
+  } catch (e) { $('swBody').innerHTML = `<div class="err">${esc(e.message)}</div>`; $('swBtBody').innerHTML = ''; }
+}
+
 // Live: new signals and closed paper trades stream in when the feed is on.
 fetch('/api/live').then(r => r.json()).then(s => {
   const on = s.enabled && s.running;
@@ -389,7 +428,7 @@ fetch('/api/live').then(r => r.json()).then(s => {
   }
 }).catch(() => { $('livePill').textContent = 'live feed: off'; });
 
-scan(); journal();
+scan(); journal(); swing();
 </script>
 </body>
 </html>
