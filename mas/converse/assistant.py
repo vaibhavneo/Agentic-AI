@@ -211,8 +211,12 @@ def verify(answer: str, evidence: str, question: str = "") -> Dict[str, Any]:
         good = []
         for s in sents:
             bad = _unsupported(s, allowed)
-            if bad or FORBIDDEN.search(s):
-                removed.append({"sentence": s, "unsupported": bad, "forbidden": bool(FORBIDDEN.search(s))})
+            hit = FORBIDDEN.search(s)
+            # Reporting a cited source's price targets is not the app setting one.
+            if hit and re.search(r"\[\d+\]", s) and re.fullmatch(r"price target", hit.group(0), re.I):
+                hit = None
+            if bad or hit:
+                removed.append({"sentence": s, "unsupported": bad, "forbidden": bool(hit)})
             else:
                 good.append(s)
         kept.append(" ".join(good))

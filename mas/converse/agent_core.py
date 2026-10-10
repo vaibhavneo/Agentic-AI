@@ -260,6 +260,10 @@ class ForbiddenClaimsCritic(Critic):
     DEFAULT = (r"\bguarantee(d|s)?\b", r"\brisk[- ]free\b", r"\bcan(?:'|no)t lose\b", r"\bsure thing\b",
                r"\bprice target\b", r"\byou should (buy|sell|short)\b", r"\bwill definitely\b")
 
+    # Reporting what a cited source says ("analysts' price targets [2]") is
+    # not the app making the claim; these patterns are allowed on cited lines.
+    QUOTED_OK = (r"\bprice target\b",)
+
     def __init__(self, patterns: Sequence[str] = DEFAULT):
         self.rx = [re.compile(p, re.I) for p in patterns]
 
@@ -267,7 +271,9 @@ class ForbiddenClaimsCritic(Critic):
         issues = []
         for agent, lines in draft.sections:
             for line in lines:
-                hit = next((r.pattern for r in self.rx if r.search(line)), None)
+                cited = bool(re.search(r"\[\d+\]", line))
+                hit = next((r.pattern for r in self.rx if r.search(line)
+                            and not (cited and r.pattern in self.QUOTED_OK)), None)
                 if hit and not _quoted_source_line(line):
                     issues.append({"critic": self.name, "agent": agent, "drop": line, "why": f"matches {hit}"})
         return issues
@@ -605,6 +611,7 @@ class Orchestrator:
                 if it.get("drop"):
                     draft.sections = [(a, [ln for ln in ls if ln != it["drop"]]) for a, ls in draft.sections]
         draft.sections = [(a, ls) for a, ls in draft.sections if ls]
+        _prune_sources(draft)
         return draft, issues, vetoed
 
     # The loop -----------------------------------------------------------
@@ -715,6 +722,20 @@ class Orchestrator:
             "guardrail": guardrail,
             "ms": ms,
         }
+
+
+def _prune_sources(draft: "Draft") -> None:
+    """After the critics: drop sources no remaining line cites, renumber the rest."""
+    if not draft.sources:
+        return
+    cited = {int(n) for _, ls in draft.sections for ln in ls for n in re.findall(r"\[(\d+)\]", ln)}
+    keep = [s for s in draft.sources if s.get("n") in cited]
+    if len(keep) == len(draft.sources):
+        return
+    remap = {s["n"]: i + 1 for i, s in enumerate(keep)}
+    draft.sources = [{**s, "n": remap[s["n"]]} for s in keep]
+    draft.sections = [(a, [re.sub(r"\[(\d+)\]", lambda m: f"[{remap.get(int(m.group(1)), m.group(1))}]", ln)
+                           for ln in ls]) for a, ls in draft.sections]
 
 
 def _norm_sentence(s: str) -> str:
