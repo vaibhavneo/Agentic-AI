@@ -95,6 +95,7 @@ def pipeline() -> lk.Pipeline:
                 lk.GoogleNewsFetcher(query_fn=_news_query),
                 lk.SecFullTextFetcher(_sec_ua()),
                 lk.WikipediaFetcher(),
+                lk.WebSearchFetcher(top=5, pages=2),
             ])
         return _pipe
 

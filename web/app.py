@@ -2136,6 +2136,34 @@ def live_stream_endpoint():
                     mimetype="text/event-stream", headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
 
 
+# ── AI Chat: the desk + web research, then grounded synthesis ─────────────────
+@app.route("/api/assistant/status")
+def assistant_status_endpoint():
+    """Which model (if any) writes the AI Chat's answers from the research."""
+    from mas.converse import assistant
+    return jsonify(assistant.status())
+
+
+@app.route("/api/assistant/stream", methods=["POST"])
+def assistant_stream_endpoint():
+    """AI Chat (SSE): the desk's specialists and web research run in parallel,
+    each section streaming as it lands; then, when a model is available, a
+    grounded, verified write-up of that research (mas/converse/assistant.py)."""
+    from mas.converse import assistant, assistant_team
+    from mas.converse.agent_core import sse
+    data = request.json or {}
+    q = (data.get("question") or data.get("message") or "").strip()
+    if not q:
+        return jsonify({"error": "No question"}), 400
+    if len(q) > 500:
+        return jsonify({"error": "Message too long (500 characters max)"}), 400
+    history = data.get("history") if isinstance(data.get("history"), list) else None
+    events = assistant.stream(assistant_team.run_stream(q, data.get("session_id")), q,
+                              assistant_team.APP_DESCRIPTION, history=history)
+    return Response(stream_with_context(sse(events)), mimetype="text/event-stream",
+                    headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
+
+
 @app.route("/api/mas/agents")
 def mas_agents_endpoint():
     """The sub-agent roster. Reads the registry; touches no specialist."""

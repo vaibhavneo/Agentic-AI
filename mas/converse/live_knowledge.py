@@ -404,6 +404,76 @@ class SecFullTextFetcher(Fetcher):
         return out
 
 
+_BROWSER_UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36"
+
+
+def _page_text(raw: str) -> str:
+    raw = re.sub(r"(?is)<(script|style|noscript|svg|header|footer|nav|form)\b.*?</\1>", " ", raw)
+    paras = re.findall(r"(?is)<(?:p|li|h2|h3)\b[^>]*>(.*?)</(?:p|li|h2|h3)>", raw)
+    out = []
+    for p in paras:
+        t = " ".join(html.unescape(re.sub(r"<[^>]+>", " ", p)).split())
+        if len(t) > 40:
+            out.append(t)
+    return "\n".join(out)
+
+
+class WebSearchFetcher(Fetcher):
+    """General web research: DuckDuckGo's HTML results (keyless) — titles and
+    snippets of the top results — and, for depth, the text of the top pages,
+    kept only where it shares the question's terms. Kind "web": cited like any
+    source, quoted not invented. Never runs for a personal question (apps pass
+    ctx['only'] without it)."""
+    name, kinds, timeout = "web", ("web",), 14.0
+
+    def __init__(self, top: int = 5, pages: int = 2, http: Callable = http_get, suffix: str = ""):
+        self.top, self.pages, self.http, self.suffix = top, pages, http, suffix
+
+    def applies(self, question, ctx):
+        return len(terms(question)) >= 2 and not ctx.get("only_live_facts")
+
+    def search(self, query: str) -> List[Dict[str, str]]:
+        raw = self.http("https://html.duckduckgo.com/html/?" + urllib.parse.urlencode({"q": query}),
+                        headers={"User-Agent": _BROWSER_UA}).decode("utf-8", "ignore")
+        out = []
+        for m in re.finditer(r'(?s)class="result__a" href="([^"]+)"[^>]*>(.*?)</a>.*?class="result__snippet"[^>]*>(.*?)</a>', raw):
+            href, title, snip = m.group(1), m.group(2), m.group(3)
+            q = urllib.parse.parse_qs(urllib.parse.urlparse(html.unescape(href)).query)
+            url = (q.get("uddg") or [html.unescape(href)])[0]
+            if "duckduckgo.com/y.js" in url or not url.startswith("http"):
+                continue                                              # ads
+            out.append({"url": url, "title": " ".join(html.unescape(re.sub("<[^>]+>", "", title)).split()),
+                        "snippet": " ".join(html.unescape(re.sub("<[^>]+>", "", snip)).split())})
+            if len(out) >= self.top:
+                break
+        return out
+
+    def fetch(self, question, ctx):
+        q = " ".join(terms(question)) + (f" {self.suffix}" if self.suffix else "")
+        results = self.search(q)
+        docs = []
+        for r in results:
+            text = r["snippet"] if r["snippet"].endswith((".", "!", "?")) else r["snippet"] + "."
+            docs.append(Doc("web", r["title"], text, r["url"], "web", ttl_s=86400))
+        # Depth: the top pages' own paragraphs that share the question's terms.
+        qt = set(terms(question))
+        with cf.ThreadPoolExecutor(max_workers=max(1, self.pages)) as ex:
+            futs = {ex.submit(self._page, r["url"]): r for r in results[: self.pages]}
+            for fut, r in futs.items():
+                try:
+                    body = fut.result(timeout=6)
+                except Exception:
+                    continue
+                keep = [p for p in body.split("\n") if len(qt & set(terms(p))) >= min(2, len(qt))][:6]
+                if keep:
+                    docs.append(Doc("web", r["title"], " ".join(keep), r["url"] + "#page", "web", ttl_s=86400))
+        return docs
+
+    def _page(self, url: str) -> str:
+        raw = self.http(url, timeout=6, headers={"User-Agent": _BROWSER_UA})[:800_000]
+        return _page_text(raw.decode("utf-8", "ignore"))
+
+
 # ── Pipeline ──────────────────────────────────────────────────────────────
 
 class Pipeline:
@@ -482,7 +552,7 @@ class Pipeline:
             # A definition needs a reference or a knowledge corpus (kind "local",
             # e.g. a library of books). An app's own documentation ("appdoc")
             # that merely uses the words is not a definition.
-            enough = any(h["kind"] in ("reference", "local") and h["coverage"] >= self.min_coverage for h in hits)
+            enough = any(h["kind"] in ("reference", "local", "web") and h["coverage"] >= self.min_coverage for h in hits)
         elif live:
             want_fact = [f for f in applicable if "fact" in f.kinds]
             want_news = any("news" in f.kinds for f in applicable)
@@ -517,8 +587,8 @@ class Pipeline:
                     or (h["kind"] == "news" and h["coverage"] >= self.min_coverage)
                     or h["kind"] not in ("fact", "news")]
             hits.sort(key=lambda h: ({"fact": 0, "news": 1}.get(h["kind"], 2), -h["coverage"], -h["fetched_at"]))
-        if definition and any(h["kind"] in ("reference", "local") for h in hits):
-            hits = [h for h in hits if h["kind"] in ("reference", "local")]
+        if definition and any(h["kind"] in ("reference", "local", "web") for h in hits):
+            hits = [h for h in hits if h["kind"] in ("reference", "local", "web")]
         out = compose(question, hits, trace, used_live, live)
         if not out["found"] and not trace:
             # The local text matched words but held no quotable sentence (a table
@@ -569,14 +639,25 @@ def _sentences(text: str, strict: bool = True) -> List[str]:
     return out
 
 
+QUANTITY = re.compile(r"\b(how (much|many|long|high|low|big)|limits?|rates?|price|cost|fees?|yield|percent|"
+                      r"amount|threshold|caps?|maximum|minimum|when|what year|how old|age)\b", re.I)
+BLURB = re.compile(r"^(learn|discover|find out|find the|explore|read|see|get|check out|track|browse|compare|"
+                   r"this (guide|article|page|post)|(a |the )?(complete|ultimate|comprehensive) guide|here'?s|"
+                   r"in this|click|sign up|subscribe|below (you will|you'll) find|we (cover|explain|break down))\b", re.I)
+
+
 def compose(question: str, hits: List[Dict[str, Any]], trace: List[Dict[str, Any]], used_live: bool,
             live: bool = False, max_sentences: int = 4, max_chars: int = 900) -> Dict[str, Any]:
     q = set(terms(question))
     sources: List[Dict[str, Any]] = []
     scored = []
+    wants_figure = bool(QUANTITY.search(question))
+    q_core = q - {"news", "headline", "headlines", "latest", "update", "updates", "happening", "stories"}
+    q_tickers = {w.lower() for w in re.findall(r"\b[A-Z]{2,5}\b", question)}
+    doc_terms: Dict[str, set] = {}
     by_doc: Dict[str, List[str]] = {}
     for rank, h in enumerate(hits):
-        strict = h["kind"] not in ("fact", "news")
+        strict = h["kind"] not in ("fact", "news", "web")
         sents = _sentences(h["text"], strict) or ([h["text"]] if _good(h["text"].strip(), strict) else [])
         by_doc[h["id"]] = sents
         for i, s in enumerate(sents):
@@ -587,8 +668,23 @@ def compose(question: str, hits: List[Dict[str, Any]], trace: List[Dict[str, Any
             # covered calls.
             if h["kind"] not in ("fact", "news") and hit_terms < min(2, len(q)):
                 continue
+            # A headline must be about the question, not share one word with it:
+            # two core terms ("news", "latest" don't count) unless there is only
+            # one — or a ticker the question names.
+            if h["kind"] == "news":
+                doc_t = doc_terms.setdefault(h["id"], set(terms(f"{h['title']} {h['text']}")))
+                shared = q_core & doc_t
+                if len(shared) < min(2, len(q_core)) and not (shared & q_tickers):
+                    continue
             overlap = hit_terms / (len(q) or 1)
             facty = 0.3 if h["kind"] in ("fact", "news") else 0.0
+            # A question asking for a quantity is answered by a sentence with a
+            # figure in it; a page's own blurb ("Learn how…", "This guide…") is
+            # not an answer.
+            if wants_figure and re.search(r"\d", s):
+                facty += 0.25
+            if BLURB.match(s):
+                continue                        # a page's blurb is never the answer
             scored.append((overlap + facty - 0.03 * rank, rank, i, s, h))
     scored.sort(key=lambda x: -x[0])
     has_fact = live and any(h["kind"] in ("fact", "news") for h in hits)
@@ -623,7 +719,7 @@ def compose(question: str, hits: List[Dict[str, Any]], trace: List[Dict[str, Any
             # A live answer leads with the live facts; background is one
             # encyclopedia sentence at most — never an app's own docs or a
             # book aside that happens to share the words.
-            if background >= 1 or score < 0.5 or h["kind"] != "reference":
+            if background >= 1 or score < 0.5 or h["kind"] not in ("reference", "web"):
                 continue
             background += 1
         seen.add(key)
@@ -635,7 +731,7 @@ def compose(question: str, hits: List[Dict[str, Any]], trace: List[Dict[str, Any
     # the page would have seen.
     have = {(h["id"], i) for _, i, _, h in chosen}
     for rank, i, s, h in list(chosen):
-        if h["kind"] in ("local", "reference") and i > 0 and (h["id"], i - 1) not in have \
+        if h["kind"] in ("local", "reference", "web") and i > 0 and (h["id"], i - 1) not in have \
                 and len(chosen) < max_sentences:
             prev = by_doc.get(h["id"], [])[i - 1]
             if q & set(terms(prev)) and total + len(prev) <= max_chars:

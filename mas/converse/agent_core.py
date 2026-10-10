@@ -569,8 +569,11 @@ class Orchestrator:
     def compose(self, task: Task, board: Blackboard, bids: Dict[str, float]) -> Draft:
         ok = sorted(board.ok(), key=lambda f: (f.priority, -bids.get(f.agent, 0)))
         sections, sources, seen_src = [], [], {}
+        said: set = set()          # sentences already in the answer, citations ignored
         for f in ok:
-            lines = list(f.lines)
+            lines = _unsaid(list(f.lines), said)
+            if not lines:
+                continue
             if f.sources:
                 # Renumber this agent's [n] citations into one answer-wide list.
                 remap = {}
@@ -712,6 +715,30 @@ class Orchestrator:
             "guardrail": guardrail,
             "ms": ms,
         }
+
+
+def _norm_sentence(s: str) -> str:
+    return re.sub(r"\s+", " ", re.sub(r"\[\d+\]", "", s)).strip().lower()
+
+
+def _unsaid(lines: List[str], said: set) -> List[str]:
+    """Drop sentences another specialist already stated (two agents reading the
+    same source must not say it twice); keep headers and short lines."""
+    out = []
+    for ln in lines:
+        parts = re.split(r"(?<=[.!?])\s+(?=\S)", ln)
+        keep = []
+        for p in parts:
+            key = _norm_sentence(p)
+            if len(key) >= 30 and key in said:
+                continue
+            if len(key) >= 30:
+                said.add(key)
+            keep.append(p)
+        joined = " ".join(keep).strip()
+        if joined and not (re.fullmatch(r"(\s*\[\d+\])+", joined)):
+            out.append(joined)
+    return out
 
 
 def sse(events: Iterator[Dict[str, Any]], heartbeat: bool = True) -> Iterator[str]:

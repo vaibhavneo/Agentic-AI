@@ -418,6 +418,10 @@
     <button class="btn-analyze" id="portfolioToggleBtn" onclick="togglePortfolioCard()"
       style="background:var(--bg3);color:var(--accent2);border:1px solid var(--border)"
       title="Track your holdings and get a signal on each">💼 My Portfolio</button>
+    <!-- AI Chat: the desk + web research, written up by a model when one is available -->
+    <button class="btn-analyze" id="aiChatToggleBtn" onclick="toggleAiChat()"
+      style="background:linear-gradient(135deg,#7c3aed,#00d4ff);color:#fff;font-weight:700"
+      title="Ask anything — researched by the desk's specialists and the web, every claim cited">🤖 AI Chat</button>
     <!-- Position context. All three are OPTIONAL and none is ever inferred:
          leaving them blank produces POSITION_CONTEXT_NOT_PROVIDED and both
          ownership branches, rather than an assumed holding. Shares unlocks
@@ -454,6 +458,94 @@
     <button class="qbtn" onclick="quickAnalyze('BTC-USD')">BTC</button>
   </div>
 </div>
+
+<div class="card" id="aiChatCard" style="display:none;margin:16px 24px;max-width:1400px;margin-left:auto;margin-right:auto">
+  <div class="card-title" style="display:flex;justify-content:space-between;align-items:center">
+    <span>🤖 AI Chat <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--muted)">— researched by the desk's specialists and the web; every claim cited</span></span>
+    <button onclick="toggleAiChat()" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:16px">✕</button>
+  </div>
+  <div id="aiChatStatus" style="font-size:11px;color:var(--muted);margin-bottom:8px"></div>
+  <div id="aiChatLog" style="min-height:40vh;max-height:60vh;overflow-y:auto;display:flex;flex-direction:column;gap:10px;padding:4px 2px 8px"></div>
+  <div style="display:flex;flex-wrap:wrap;gap:6px;margin:8px 0" id="aiChatTry"></div>
+  <form onsubmit="event.preventDefault();sendAiChat()" style="display:flex;gap:8px">
+    <input id="aiChatInput" autocomplete="off" placeholder="Ask about a stock, the market, a concept, the news…"
+      style="flex:1;min-width:0;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:10px 12px;border-radius:8px;font-size:14px;outline:none">
+    <button class="btn-analyze" id="aiChatSend" style="padding:8px 18px;font-size:13px">Send</button>
+  </form>
+</div>
+<script>
+(function () {
+  const AI_TRY = ["Should I buy NVDA?", "What's moving today?", "What is a stock buyback and why do companies do it?",
+                  "Latest news on AAPL", "What is the 10-year Treasury yield?", "What are analysts saying about Tesla?"];
+  const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const md = (t) => esc(t).replace(/\*\*([^*\n]+)\*\*/g, '<b>$1</b>');
+  let session = null, history = [];
+  const box = (who, html) => {
+    const d = document.createElement('div');
+    d.style.cssText = who === 'you'
+      ? 'align-self:flex-end;max-width:85%;background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:8px 12px;white-space:pre-wrap'
+      : 'background:var(--bg2,transparent);border:1px solid var(--border);border-radius:10px;padding:10px 12px;white-space:pre-wrap;overflow-wrap:anywhere;font-size:13px;line-height:1.55';
+    d.innerHTML = html; document.getElementById('aiChatLog').appendChild(d); d.scrollIntoView({block: 'end'}); return d;
+  };
+  window.toggleAiChat = function () {
+    const c = document.getElementById('aiChatCard');
+    const open = c.style.display === 'none';
+    c.style.display = open ? 'block' : 'none';
+    if (!open) return;
+    if (!document.getElementById('aiChatLog').children.length) {
+      box('bot', "Ask anything about stocks or markets. The desk's specialists (research, options, regime, live market, filings) and a live web search run in parallel; the answer cites every source.");
+      document.getElementById('aiChatTry').innerHTML = AI_TRY.map((q, i) => `<button type="button" data-i="${i}" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);border-radius:999px;padding:3px 10px;font-size:12px;cursor:pointer">${esc(q)}</button>`).join('');
+      document.getElementById('aiChatTry').onclick = (e) => { const i = e.target.dataset.i; if (i != null) { document.getElementById('aiChatInput').value = AI_TRY[i]; sendAiChat(); } };
+      fetch((window.API_BASE || '') + '/api/assistant/status').then((r) => r.json()).then((d) => {
+        document.getElementById('aiChatStatus').textContent = d.available
+          ? `✦ AI writing: ${d.provider} (${d.model}) — researched first, then written from the research and checked.`
+          : `⚙ AI writing is off (${d.reason}). Answers are the research itself — the desk's specialists and cited web sources.`;
+      }).catch(() => {});
+    }
+    document.getElementById('aiChatInput').focus();
+  };
+  window.sendAiChat = async function () {
+    const inp = document.getElementById('aiChatInput'), q = inp.value.trim();
+    if (!q) return;
+    inp.value = ''; box('you', esc(q));
+    const m = box('bot', '…'); document.getElementById('aiChatSend').disabled = true;
+    try {
+      const res = await fetch((window.API_BASE || '') + '/api/assistant/stream', {method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({question: q, session_id: session, history: history.slice(-6)})});
+      const reader = res.body.getReader(), dec = new TextDecoder();
+      let buf = '', waiting = [], parts = {}, final = null, writing = null;
+      const render = () => { m.innerHTML = Object.values(parts).map((p) => md(p.lines.join('\n'))).join('\n\n')
+        + (waiting.length ? `<div style="color:var(--muted);font-size:11px">researching: ${esc(waiting.join(', '))}…</div>` : '')
+        + (writing ? `<div style="color:var(--muted);font-size:11px">✦ writing the answer with ${esc(writing)}…</div>` : ''); m.scrollIntoView({block: 'end'}); };
+      for (;;) {
+        const {value, done} = await reader.read();
+        if (done) break;
+        buf += dec.decode(value, {stream: true});
+        let i;
+        while ((i = buf.indexOf('\n\n')) >= 0) {
+          const mm = buf.slice(0, i).match(/^event: (\w+)\ndata: ([\s\S]*)$/);
+          buf = buf.slice(i + 2);
+          if (!mm) continue;
+          const ev = JSON.parse(mm[2]);
+          if (mm[1] === 'plan') { waiting = ev.chosen.slice(); session = ev.session_id || session; render(); }
+          else if (mm[1] === 'section') { waiting = waiting.filter((a) => a !== ev.agent); if (ev.lines.length) parts[ev.agent] = ev; render(); }
+          else if (mm[1] === 'synthesizing') { writing = ev.provider + ' (' + ev.model + ')'; render(); }
+          else if (mm[1] === 'final') final = ev.result;
+        }
+      }
+      if (!final) { m.textContent = 'No answer came back.'; return; }
+      session = final.session_id || session;
+      const who = (final.trace || []).map((t) => t.agent + (t.status === 'OK' ? ' ✓' : ' ' + t.status.toLowerCase()) + (t.ms != null ? ' ' + t.ms + ' ms' : '')).join(' · ');
+      const syn = final.synthesis
+        ? `<div style="color:var(--muted);font-size:11px;margin-top:6px">✦ AI-written by ${esc(final.synthesis.provider)} from the research — numbers checked</div><details style="color:var(--muted);font-size:11px"><summary>the research</summary>${md(final.research_answer || '')}</details>`
+        : (final.outcome === 'ANSWERED' ? `<div style="color:var(--muted);font-size:11px;margin-top:6px">⚙ researched answer</div>` : '');
+      m.innerHTML = md(final.answer) + syn + (who ? `<div style="color:var(--muted);font-size:11px">${esc(who)} · ${final.ms} ms</div>` : '');
+      history.push({role: 'user', content: q}, {role: 'assistant', content: final.answer});
+    } catch (e) { m.textContent = 'The question could not be answered: ' + e.message; }
+    finally { document.getElementById('aiChatSend').disabled = false; }
+  };
+})();
+</script>
 
 <div class="card" id="chatCard" style="display:none;margin:16px 24px;max-width:1400px;margin-left:auto;margin-right:auto">
   <div class="card-title" style="display:flex;justify-content:space-between;align-items:center">
