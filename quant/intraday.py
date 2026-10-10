@@ -50,6 +50,26 @@ def _rsi(close: pd.Series, n: int = 14) -> pd.Series:
     return 100 - 100 / (1 + rs)
 
 
+def _rsi_by_day(close: np.ndarray, day_start: np.ndarray, n: int = 14) -> np.ndarray:
+    """Wilder RSI(n) that restarts every session — one pass, no groupby."""
+    out = np.full(len(close), np.nan)
+    a = 1.0 / n
+    up = dn = 0.0
+    for i in range(len(close)):
+        if day_start[i]:
+            up = dn = 0.0
+            seeded = False
+            continue
+        d = close[i] - close[i - 1]
+        g, l = (d, 0.0) if d > 0 else (0.0, -d)
+        if not seeded:
+            up, dn, seeded = g, l, True
+        else:
+            up, dn = up + a * (g - up), dn + a * (l - dn)
+        out[i] = np.nan if dn == 0 else 100 - 100 / (1 + up / dn)     # no down move yet: undefined, as before
+    return out
+
+
 def prepare(bars: pd.DataFrame) -> pd.DataFrame:
     """Regular-session bars with per-day VWAP, RSI, slot and relative volume."""
     df = bars.copy()
@@ -58,9 +78,16 @@ def prepare(bars: pd.DataFrame) -> pd.DataFrame:
     df["slot"] = df.index.strftime("%H:%M")
     tp = (df["high"] + df["low"] + df["close"]) / 3
     df["vwap"] = (tp * df["volume"]).groupby(df["day"]).cumsum() / df["volume"].groupby(df["day"]).cumsum()
-    df["rsi"] = df.groupby("day")["close"].transform(lambda c: _rsi(c))
-    slot_avg = df.groupby("slot")["volume"].transform(lambda v: v.shift(1).rolling(20, min_periods=5).mean())
-    df["rvol"] = df["volume"] / slot_avg
+    day = df["day"].to_numpy()
+    start = np.r_[True, day[1:] != day[:-1]] if len(day) else np.array([], bool)
+    df["rsi"] = _rsi_by_day(df["close"].to_numpy(float), start)
+    # Relative volume: this bar over the same 5-minute slot's average in the prior 20 sessions,
+    # from a session x slot matrix rather than 78 grouped rolling windows.
+    vol = df.pivot_table(index="day", columns="slot", values="volume", aggfunc="last")
+    avg = vol.shift(1).rolling(20, min_periods=5).mean()
+    stacked = avg.stack()
+    keys = pd.MultiIndex.from_arrays([df["day"], df["slot"]])
+    df["rvol"] = df["volume"].to_numpy() / stacked.reindex(keys).to_numpy()
     return df
 
 

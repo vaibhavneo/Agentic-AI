@@ -90,3 +90,16 @@ def test_journal_dedupes_and_settles_at_the_next_session(tmp_path):
     row = j.recent()[0]
     assert row["status"] == "close" and row["r"] == pytest.approx(0.8)
     assert j.stats()["orb_long"] == {"n": 1, "win_rate": 1.0, "avg_r": 0.8}
+
+
+def test_fast_rsi_matches_the_pandas_reference_and_restarts_each_day():
+    import numpy as np
+    rng = np.random.default_rng(5)
+    history, _ = _flat_days(3)
+    bars = pd.concat(history)
+    bars["close"] = 100 + np.cumsum(rng.normal(0, 0.3, len(bars)))
+    fast = I.prepare(bars)["rsi"].to_numpy()
+    ref = bars.groupby(bars.index.date)["close"].transform(lambda c: I._rsi(c)).to_numpy()
+    assert np.array_equal(np.isnan(fast), np.isnan(ref)) and np.nanmax(np.abs(fast - ref)) < 1e-9
+    starts = np.r_[True, bars.index.date[1:] != bars.index.date[:-1]]
+    assert np.isnan(fast[starts]).all()                         # no carry-over from yesterday's close
