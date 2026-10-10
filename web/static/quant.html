@@ -80,7 +80,7 @@
   <div class="col">
     <section class="card">
       <h2>Holdings</h2>
-      <textarea id="holdings" spellcheck="false" placeholder="One per line: SYMBOL SHARES or SYMBOL $VALUE&#10;NVDA 40&#10;AAPL 30&#10;MSFT $8000"></textarea>
+      <textarea id="holdings" spellcheck="false" placeholder="One per line: SYMBOL SHARES [@ COST] or SYMBOL $VALUE&#10;NVDA 40 @ 120&#10;AAPL 30&#10;MSFT $8000"></textarea>
       <div class="row" style="margin-top:8px">
         <label>History<select id="years"><option value="1">1 year</option><option value="3" selected>3 years</option><option value="5">5 years</option></select></label>
         <label>Max per name<select id="cap"><option value="0.25">25%</option><option value="0.35" selected>35%</option><option value="0.5">50%</option><option value="1">no cap</option></select></label>
@@ -91,7 +91,7 @@
         <button class="ghost" id="goImport" title="Copy the holdings from the desk's 💼 My Portfolio (this browser)">Use My Portfolio</button>
       </div>
       <div class="err" id="holdErr"></div>
-      <p class="note">Saved in this browser only. Prices are the last settled close (Yahoo Finance daily, adjusted).</p>
+      <p class="note">Saved in this browser only. "@ cost" (your average cost) is optional and only used to estimate the gains a rebalance would realize. Prices are the last settled close (Yahoo Finance daily, adjusted).</p>
     </section>
 
     <section class="card">
@@ -123,6 +123,31 @@
       <div id="projBody" class="empty">Press <b>Project</b> to simulate 4,000 paths of this portfolio.</div>
     </section>
   </div>
+
+  <section class="card span2" id="stressCard">
+    <h2>Stress test — past crashes on today's holdings <span class="grow"></span>
+      <button class="ghost" id="goStress" style="padding:4px 10px;font-size:12px">Run</button></h2>
+    <div id="stressBody" class="empty">Replays 2008, the 2018 Q4 selloff, the 2020 crash, the 2022 bear market and the 2023 rate shock on your holdings.</div>
+  </section>
+
+  <section class="card span2" id="planCard">
+    <h2>Plan — a goal, or spending from the portfolio</h2>
+    <div class="row">
+      <label>Goal ($)<input id="gGoal" type="number" min="1" step="1000" value="250000"></label>
+      <label>In years<input id="gYears" type="number" min="1" max="40" value="10"></label>
+      <label>With odds of<select id="gProb"><option value="0.5">50%</option><option value="0.7" selected>70%</option><option value="0.9">90%</option></select></label>
+      <button id="goGoal">Monthly amount needed</button>
+    </div>
+    <div id="goalBody" class="note"></div>
+    <div class="row" style="margin-top:12px">
+      <label>Spend per year ($)<input id="wSpend" type="number" min="1" step="500" placeholder="e.g. 4% of the value"></label>
+      <label>For years<input id="wYears" type="number" min="1" max="50" value="30"></label>
+      <label>Real return<select id="wExp"><option value="0.03">3% avg / yr</option><option value="0.05" selected>5% avg / yr</option><option value="0.07">7% avg / yr</option></select></label>
+      <button class="ghost" id="goWithdraw">Does it last?</button>
+    </div>
+    <div id="withdrawBody" class="note"></div>
+    <p class="note">2,000 block-bootstrap paths of this portfolio's own daily returns. Spending is flat in today's dollars, so use a real (after-inflation) return. Taxes and fees not included. A range of outcomes, not a plan.</p>
+  </section>
 
   <section class="card span2" id="optCard">
     <h2>Optimizer <span class="grow"></span><span class="muted" id="optAsOf" style="text-transform:none;letter-spacing:0"></span></h2>
@@ -178,7 +203,7 @@ $('goImport').onclick = () => {
         rows = JSON.parse(localStorage.getItem(src === 'robinhood' ? 'stockAgentPortfolioRobinhood' : 'stockAgentPortfolio')) || []; } catch (e) {}
   rows = rows.filter(h => h && h.ticker && +h.shares > 0);
   if (!rows.length) { $('holdErr').textContent = 'My Portfolio is empty in this browser — add holdings there, or type them here.'; return; }
-  $('holdings').value = rows.map(h => `${String(h.ticker).toUpperCase()} ${+h.shares}`).join('\n');
+  $('holdings').value = rows.map(h => `${String(h.ticker).toUpperCase()} ${+h.shares}${+h.avg_cost > 0 ? ' @ ' + (+h.avg_cost) : ''}`).join('\n');
   store.set('quant.holdings', $('holdings').value); $('holdErr').textContent = '';
 };
 
@@ -187,11 +212,13 @@ function parseHoldings() {
   for (const raw of $('holdings').value.split('\n')) {
     const line = raw.trim().replace(/,/g, ' ');
     if (!line || line.startsWith('#')) continue;
-    const m = line.match(/^([A-Za-z0-9.\-^=]{1,10})\s+(\$)?\s*([\d.]+)\s*$/);
+    const m = line.match(/^([A-Za-z0-9.\-^=]{1,10})\s+(\$)?\s*([\d.]+)\s*(?:@\s*\$?\s*([\d.]+))?\s*$/);
     if (!m) { bad.push(raw.trim()); continue; }
-    out.push(m[2] ? {symbol: m[1].toUpperCase(), value: +m[3]} : {symbol: m[1].toUpperCase(), shares: +m[3]});
+    const h = m[2] ? {symbol: m[1].toUpperCase(), value: +m[3]} : {symbol: m[1].toUpperCase(), shares: +m[3]};
+    if (m[4] && !m[2]) h.avg_cost = +m[4];
+    out.push(h);
   }
-  $('holdErr').textContent = bad.length ? `Couldn't read: ${bad.join(', ')} — use "NVDA 40" or "NVDA $5000".` : '';
+  $('holdErr').textContent = bad.length ? `Couldn't read: ${bad.join(', ')} — use "NVDA 40", "NVDA 40 @ 120" or "NVDA $5000".` : '';
   if (!bad.length) store.set('quant.holdings', $('holdings').value);   // the desk's AI Chat reads this list
   return bad.length ? null : out;
 }
@@ -259,7 +286,9 @@ function renderOpt() {
   const body = syms.map(s => `<tr><td><b>${esc(s)}</b></td>${rb ? `<td class="num muted">${pct(now[s] || 0)}</td>` : ''}${methods.map(m => `<td class="num">${pct(d[m].weights[s] || 0)}</td>`).join('')}</tr>`).join('');
   const foot = ['expected_return_ann', 'vol_ann', 'sharpe'].map(k => `<tr><td class="muted">${{expected_return_ann: 'In-sample return / yr', vol_ann: 'Volatility / yr', sharpe: 'In-sample Sharpe'}[k]}</td>${rb ? '<td></td>' : ''}${methods.map(m => `<td class="num">${k === 'sharpe' ? d[m][k] : pct(d[m][k])}</td>`).join('')}</tr>`).join('');
   const r = d[optPick].rebalance;
-  const trades = r ? (r.trades.length ? `<div class="scroll"><table><tr><th>Symbol</th><th>Change</th><th class="num">$</th><th class="num">Shares</th><th class="num">At</th><th class="num">Weight</th></tr>${r.trades.map(t => `<tr><td><b>${esc(t.symbol)}</b></td><td class="${t.action === 'add' ? 'up' : 'down'}">${t.action}</td><td class="num">${usd(t.usd)}</td><td class="num">${t.shares.toFixed(2)}</td><td class="num">${usd(t.price, 2)}</td><td class="num">${pct(t.from_weight)} → ${pct(t.to_weight)}</td></tr>`).join('')}</table></div><p class="note">Turnover ${pct(r.turnover)}. ${esc(r.note)}</p>` : '<p class="note">Already within $50 of these weights.</p>') : '';
+  const gains = r && r.est_realized_gain != null;
+  const trades = r ? (r.trades.length ? `<div class="scroll"><table><tr><th>Symbol</th><th>Change</th><th class="num">$</th><th class="num">Shares</th><th class="num">At</th><th class="num">Weight</th>${gains ? '<th class="num">Est. gain realized</th>' : ''}</tr>${r.trades.map(t => `<tr><td><b>${esc(t.symbol)}</b></td><td class="${t.action === 'add' ? 'up' : 'down'}">${t.action}</td><td class="num">${usd(t.usd)}</td><td class="num">${t.shares.toFixed(2)}</td><td class="num">${usd(t.price, 2)}</td><td class="num">${pct(t.from_weight)} → ${pct(t.to_weight)}</td>${gains ? `<td class="num">${t.est_realized_gain != null ? usd(t.est_realized_gain) : ''}</td>` : ''}</tr>`).join('')}</table></div>
+    <p class="note">Turnover ${pct(r.turnover)}.${gains ? ` Selling would realize about <b>${usd(r.est_realized_gain)}</b> of gains (average-cost estimate, before tax).` : ''}${r.add_only_cash != null ? ` To get there by adding money only (no sales): about <b>${usd(r.add_only_cash)}</b> of new cash.` : ''} ${esc(r.note)}</p>` : '<p class="note">Already within $50 of these weights.</p>') : '';
   $('optBody').className = '';
   $('optBody').innerHTML = `<div class="scroll"><table>${head}${body}${foot}</table></div>
     ${r ? `<h2 style="margin-top:14px">Moves to reach <span class="seg" id="optSeg">${methods.map(m => `<button data-m="${m}" class="${m === optPick ? 'on' : ''}">${MNAME[m]}</button>`).join('')}</span></h2>${trades}` : ''}
@@ -334,6 +363,39 @@ $('goProj').onclick = () => { const h = parseHoldings(); if (!h) return; busy($(
     });
     hit.addEventListener('mouseleave', () => { tip.style.display = 'none'; xl.setAttribute('visibility', 'hidden'); });
   } catch (e) { $('projBody').innerHTML = `<div class="err">${esc(e.message)}</div>`; }
+}); };
+
+// ── Stress test and planning ────────────────────────────────────────────
+$('goStress').onclick = () => { const h = parseHoldings(); if (!h) return; busy($('goStress'), async () => {
+  $('stressBody').innerHTML = '<div class="empty">Replaying…</div>';
+  try {
+    const d = await post('/api/quant/stress', {holdings: h});
+    const worst = Math.min(...d.scenarios.map(s => s.portfolio));
+    $('stressBody').className = '';
+    $('stressBody').innerHTML = `<div class="scroll"><table><tr><th>Scenario</th><th>Window</th><th class="num">S&amp;P 500</th><th class="num">Your holdings</th><th class="num">In dollars</th><th>Basis</th></tr>
+      ${d.scenarios.map(s => `<tr><td><b>${esc(s.scenario)}</b></td><td class="muted">${esc(s.from)} → ${esc(s.to)}</td><td class="num down">${pct(s.sp500)}</td>
+        <td class="num down"${s.portfolio === worst ? ' style="font-weight:700"' : ''}>${pct(s.portfolio)}</td><td class="num">${usd(s.portfolio_usd)}</td>
+        <td class="muted">${s.estimated_share ? pct(s.estimated_share, 0) + ' estimated from beta' : 'actual prices'}</td></tr>`).join('')}</table></div>
+      <p class="note">${esc(d.note)}</p>`;
+  } catch (e) { $('stressBody').innerHTML = `<div class="err">${esc(e.message)}</div>`; }
+}); };
+$('goGoal').onclick = () => { const h = parseHoldings(); if (!h) return; busy($('goGoal'), async () => {
+  $('goalBody').textContent = 'Simulating…';
+  try {
+    const g = await post('/api/quant/goal', {holdings: h, goal: +$('gGoal').value, years: +$('gYears').value, probability: +$('gProb').value});
+    $('goalBody').innerHTML = g.monthly_needed > 0
+      ? `About <b>${usd(g.monthly_needed)} a month</b> reaches ${usd(g.goal)} in ${g.years} years in ${pct(g.probability, 0)} of paths (from ${usd(g.start_value)} today; you'd put in ${usd(g.invested)} in all). Without adding, ${pct(g.chance_without_adding, 0)} of paths get there.`
+      : `Already on track: ${pct(g.chance_without_adding, 0)} of paths reach ${usd(g.goal)} in ${g.years} years without adding anything.`;
+  } catch (e) { $('goalBody').innerHTML = `<span class="err">${esc(e.message)}</span>`; }
+}); };
+$('goWithdraw').onclick = () => { const h = parseHoldings(); if (!h) return; busy($('goWithdraw'), async () => {
+  $('withdrawBody').textContent = 'Simulating…';
+  try {
+    let spend = +$('wSpend').value;
+    if (!spend) { const r = await post('/api/quant/risk', {holdings: h}); spend = Math.round(r.total_value * 0.04); $('wSpend').value = spend; }
+    const w = await post('/api/quant/withdraw', {holdings: h, annual_spend: spend, years: +$('wYears').value, expected_return: +$('wExp').value});
+    $('withdrawBody').innerHTML = `Spending <b>${usd(w.annual_spend)} a year</b> (${pct(w.withdrawal_rate)} of ${usd(w.start_value)}) lasts ${w.years} years in <b>${pct(w.chance_it_lasts, 0)}</b> of paths${w.median_year_depleted != null ? `; where it runs out, the median is year ${w.median_year_depleted}` : ''}. The amount that lasts in 90% of paths: about <b>${usd(w.sustainable_spend)} a year</b>.`;
+  } catch (e) { $('withdrawBody').innerHTML = `<span class="err">${esc(e.message)}</span>`; }
 }); };
 
 // ── Signals, backtest, journal ──────────────────────────────────────────

@@ -142,23 +142,187 @@ def optimize(symbols: Sequence[str], method: str = "max_sharpe", max_weight: flo
 def rebalance(holdings: Sequence[Dict[str, Any]], target: Dict[str, float], cash: float = 0.0,
               min_trade_usd: float = 50.0, http=None) -> Dict[str, Any]:
     vals = _values(holdings, http)
+    cost = {}
+    for h in holdings:
+        if h.get("avg_cost") is not None and h.get("shares") is not None:
+            cost[str(h["symbol"]).upper()] = float(h["avg_cost"])
     total = sum(vals.values()) + cash
     syms = sorted(set(vals) | set(target))
     px = {s: float(P.daily(s, 5, http)["close"].iloc[-1]) for s in syms}
     trades = []
+    realized = 0.0
     for s in syms:
         cur, want = vals.get(s, 0.0), target.get(s, 0.0) * total
         d = want - cur
         if abs(d) < min_trade_usd:
             continue
-        trades.append({"symbol": s, "action": "add" if d > 0 else "reduce", "usd": round(d, 2),
-                       "shares": round(d / px[s], 4), "price": round(px[s], 2),
-                       "from_weight": round(cur / total, 4), "to_weight": round(target.get(s, 0.0), 4)})
+        t = {"symbol": s, "action": "add" if d > 0 else "reduce", "usd": round(d, 2),
+             "shares": round(d / px[s], 4), "price": round(px[s], 2),
+             "from_weight": round(cur / total, 4), "to_weight": round(target.get(s, 0.0), 4)}
+        if d < 0 and s in cost:
+            # Average-cost estimate: the lots actually sold (and their holding periods) decide the real figure.
+            t["est_realized_gain"] = round(-d / px[s] * (px[s] - cost[s]), 2)
+            realized += t["est_realized_gain"]
+        trades.append(t)
     turnover = sum(abs(t["usd"]) for t in trades) / 2 / total if total else 0
-    return {"total_value": round(total, 2), "trades": sorted(trades, key=lambda t: t["usd"]),
-            "current_weights": {s: round(vals.get(s, 0.0) / total, 4) for s in syms} if total else {},
-            "turnover": round(turnover, 4), "note": "Trades to move from current to target weights at the last close. "
-                                                    "Taxes and costs are not included."}
+    # Rebalancing by adding money only: the new money that brings every name to its target without a sale.
+    held = [s for s in vals if vals[s] > 0]
+    if held and all(target.get(s, 0) > 0 for s in held):
+        add_only = max(0.0, max(vals[s] / target[s] for s in held) - total)
+    else:
+        add_only = None                                  # a name with a 0% target can only be reached by selling
+    out = {"total_value": round(total, 2), "trades": sorted(trades, key=lambda t: t["usd"]),
+           "current_weights": {s: round(vals.get(s, 0.0) / total, 4) for s in syms} if total else {},
+           "turnover": round(turnover, 4), "add_only_cash": round(add_only, 2) if add_only is not None else None,
+           "note": "Trades to move from current to target weights at the last close. Costs are not included"
+                   + ("; realized gains are average-cost estimates, before tax." if cost else "; add a cost basis "
+                      "to see the gains a sale would realize.")}
+    if cost:
+        out["est_realized_gain"] = round(realized, 2)
+    return out
+
+
+def _portfolio_returns(holdings, history_years: int, drift: str, expected_return: float, http=None):
+    vals = _values(holdings, http)
+    syms = list(vals)
+    r = P.returns(syms, history_years, http)
+    syms = [s for s in syms if s in r.columns]
+    if not syms or len(r) < 120:
+        raise ValueError("not enough overlapping price history to simulate")
+    total = sum(vals[s] for s in syms)
+    w = np.array([vals[s] / total for s in syms])
+    port = r[syms].values @ w
+    hist_ret = float((1 + port).prod() ** (TRADING_DAYS / len(port)) - 1)
+    if drift == "conservative":
+        port = port - port.mean() + ((1 + expected_return) ** (1 / TRADING_DAYS) - 1)
+    return port, total, hist_ret, r
+
+
+def _simulate(port: np.ndarray, start: float, years: int, monthly: float, paths: int, block: int,
+              seed: int) -> np.ndarray:
+    """Year-end wealth per path (paths x years+1). Monthly flows (negative = withdrawals) are spread
+    over the trading days; a path that hits zero stays at zero."""
+    n_days = years * TRADING_DAYS
+    rng = np.random.default_rng(seed)
+    starts = rng.integers(0, len(port) - block, size=(paths, int(np.ceil(n_days / block))))
+    idx = (starts[:, :, None] + np.arange(block)[None, None, :]).reshape(paths, -1)[:, :n_days]
+    daily = port[idx]
+    wealth = np.empty((paths, years + 1))
+    wealth[:, 0] = start
+    v = np.full(paths, float(start))
+    flow = monthly * 12 / TRADING_DAYS
+    for y in range(years):
+        for d in range(y * TRADING_DAYS, (y + 1) * TRADING_DAYS):
+            v = np.maximum(v * (1 + daily[:, d]) + flow, 0.0)
+        wealth[:, y + 1] = v
+    return wealth
+
+
+def plan_goal(holdings: Sequence[Dict[str, Any]], goal: float, years: int = 10, probability: float = 0.7,
+              paths: int = 2000, history_years: int = 5, drift: str = "conservative",
+              expected_return: float = 0.07, seed: int = 7, http=None) -> Dict[str, Any]:
+    """The monthly amount that reaches `goal` in `probability` of simulated paths.
+    The same random paths for every candidate amount, so more money never
+    looks worse (a bisection on a monotone curve)."""
+    port, total, hist_ret, r = _portfolio_returns(holdings, history_years, drift, expected_return, http)
+
+    def chance(m):
+        return float((_simulate(port, total, years, m, paths, 21, seed)[:, -1] >= goal).mean())
+    base = chance(0.0)
+    if base >= probability:
+        need = 0.0
+    else:
+        lo, hi = 0.0, max(100.0, goal / (years * 12))
+        while chance(hi) < probability and hi < 1e7:
+            hi *= 2
+        for _ in range(16):
+            mid = (lo + hi) / 2
+            lo, hi = (lo, mid) if chance(mid) >= probability else (mid, hi)
+        need = hi
+    return {"goal": goal, "years": years, "probability": probability, "start_value": round(total, 2),
+            "monthly_needed": round(need, 0), "chance_without_adding": round(base, 3),
+            "invested": round(total + need * 12 * years, 2), "paths": paths, "drift": drift,
+            "expected_return": expected_return if drift == "conservative" else round(hist_ret, 4),
+            "assumptions": f"{paths:,} block-bootstrap paths of this portfolio's daily returns"
+                           + (f", the average year re-centred on {expected_return:.0%}" if drift == "conservative"
+                              else ", the window's own average") + ". A range of outcomes, not a promise."}
+
+
+def withdrawal(holdings: Sequence[Dict[str, Any]], annual_spend: float, years: int = 30, paths: int = 2000,
+               history_years: int = 5, drift: str = "conservative", expected_return: float = 0.07,
+               success: float = 0.9, seed: int = 7, http=None) -> Dict[str, Any]:
+    """Spending `annual_spend` a year (monthly, flat in today's dollars — so the
+    expected return should be a REAL one) from this portfolio: the chance the
+    money lasts `years`, and the yearly amount that lasts in `success` of paths."""
+    port, total, hist_ret, r = _portfolio_returns(holdings, history_years, drift, expected_return, http)
+
+    def lasts(spend):
+        w = _simulate(port, total, years, -spend / 12, paths, 21, seed)
+        return w, float((w[:, -1] > 0).mean())
+    w, p_ok = lasts(annual_spend)
+    lo, hi = 0.0, total
+    for _ in range(16):
+        mid = (lo + hi) / 2
+        lo, hi = (mid, hi) if lasts(mid)[1] >= success else (lo, mid)
+    depleted = (w <= 0).argmax(axis=1).astype(float)
+    depleted[(w > 0).all(axis=1)] = np.nan
+    return {"annual_spend": annual_spend, "years": years, "start_value": round(total, 2),
+            "withdrawal_rate": round(annual_spend / total, 4) if total else None,
+            "chance_it_lasts": round(p_ok, 3), "sustainable_spend": round(lo, 0), "success_target": success,
+            "median_end": round(float(np.median(w[:, -1])), 0),
+            "median_year_depleted": None if np.isnan(depleted).all() else float(np.nanmedian(depleted)),
+            "percentiles": {q: [round(float(x), 0) for x in np.percentile(w, q, axis=0)] for q in (5, 50, 95)},
+            "assumptions": f"{paths:,} block-bootstrap paths; spending flat each year (use a real, after-inflation "
+                           f"expected return: {expected_return:.0%} here); taxes and fees not included. "
+                           "A range of outcomes, not a plan."}
+
+
+STRESS = [
+    ("2008 financial crisis", "2007-10-09", "2009-03-09"),
+    ("2018 Q4 selloff", "2018-09-20", "2018-12-24"),
+    ("2020 COVID crash", "2020-02-19", "2020-03-23"),
+    ("2022 bear market", "2022-01-03", "2022-10-12"),
+    ("2023 rate shock", "2023-07-31", "2023-10-27"),
+]
+
+
+def stress(holdings: Sequence[Dict[str, Any]], http=None) -> Dict[str, Any]:
+    """Each historical drawdown replayed on today's holdings: a holding's own
+    return over the window when it traded then, otherwise its beta (last 3
+    years) times the S&P 500's move — marked as an estimate."""
+    vals = _values(holdings, http)
+    total = sum(vals.values())
+    hist = {s: P.daily(s, 20, http)["adjclose"] for s in list(vals) + [BENCH]}
+    r3 = P.returns(list(vals) + [BENCH], 3, http)
+    beta = {}
+    for s in vals:
+        if s in r3 and BENCH in r3:
+            beta[s] = float(np.cov(r3[s], r3[BENCH])[0, 1] / np.var(r3[BENCH], ddof=1))
+    out = []
+    for name, a, b in STRESS:
+        spy = hist[BENCH]
+        sa, sb = spy[spy.index >= a], spy[spy.index <= b]
+        if sa.empty or sb.empty:
+            continue
+        spy_ret = float(sb.iloc[-1] / sa.iloc[0] - 1)
+        rows, port = [], 0.0
+        for s, v in vals.items():
+            px = hist[s]
+            pa, pb = px[px.index >= a], px[px.index <= b]
+            if len(px) and px.index[0] <= pd.Timestamp(a) and not pa.empty and not pb.empty:
+                ret, how = float(pb.iloc[-1] / pa.iloc[0] - 1), "actual"
+            else:
+                ret, how = max(-0.95, beta.get(s, 1.0) * spy_ret), "beta estimate"
+            port += v / total * ret
+            rows.append({"symbol": s, "return": round(ret, 4), "basis": how})
+        out.append({"scenario": name, "from": a, "to": b, "sp500": round(spy_ret, 4), "portfolio": round(port, 4),
+                    "portfolio_usd": round(port * total, 2), "holdings": rows,
+                    "estimated_share": round(sum(vals[r['symbol']] for r in rows if r["basis"] != "actual") / total, 3)})
+    worst = min(out, key=lambda x: x["portfolio"]) if out else None
+    return {"total_value": round(total, 2), "scenarios": out, "worst": worst and worst["scenario"],
+            "note": "Today's holdings replayed through past drawdowns (start to end of each window, adjusted "
+                    "closes). A holding that did not trade then is estimated from its 3-year beta to the S&P 500. "
+                    "History, not a forecast; the next drawdown will not match any of these."}
 
 
 def project(holdings: Sequence[Dict[str, Any]], years: int = 10, monthly_contribution: float = 0.0,

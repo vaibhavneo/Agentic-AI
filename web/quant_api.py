@@ -5,6 +5,9 @@
     POST /api/quant/optimize     {symbols | holdings, method: min_variance|max_sharpe|risk_parity|all,
                                   max_weight?, years?, cash?} — with holdings, the rebalance trades too
     POST /api/quant/project      {holdings, years?, monthly_contribution?, goal?, drift?, expected_return?}
+    POST /api/quant/stress       {holdings} — 2008, 2018 Q4, 2020, 2022, 2023 replayed on today's holdings
+    POST /api/quant/goal         {holdings, goal, years?, probability?} — the monthly amount for those odds
+    POST /api/quant/withdraw     {holdings, annual_spend, years?, expected_return?} — does the money last
     GET  /api/quant/scan         ?symbols=A,B — today's intraday signals, each with its rule's record
     GET  /api/quant/backtest     ?symbols=A,B — every rule replayed on ~60 sessions of 5-minute bars
     GET  /api/quant/journal      the paper journal: recent signals, outcomes, per-rule stats
@@ -60,8 +63,14 @@ def _holdings(raw) -> list:
             else:
                 v = float(h.get("shares"))
                 item = {"symbol": sym[0], "shares": v}
-        except (TypeError, ValueError):
-            raise BadRequest(f"{sym[0]}: shares or value must be a number")
+            if h.get("avg_cost") not in (None, "") and "shares" in item:
+                item["avg_cost"] = float(h["avg_cost"])
+                if item["avg_cost"] < 0:
+                    raise BadRequest(f"{sym[0]}: cost basis can't be negative")
+        except (TypeError, ValueError) as e:
+            if isinstance(e, BadRequest):
+                raise
+            raise BadRequest(f"{sym[0]}: shares, value and cost must be numbers")
         if v <= 0:
             raise BadRequest(f"{sym[0]}: shares or value must be positive")
         out.append(item)
@@ -163,3 +172,29 @@ def quant_journal():
 def quant_swing():
     from quant import swing as QS
     return _run(lambda: QS.scan(_symbols(request.args.get("symbols")) or None))
+
+
+@bp.route("/api/quant/stress", methods=["POST"])
+def quant_stress():
+    from quant import portfolio as Q
+    data = request.json or {}
+    return _run(lambda: Q.stress(_holdings(data.get("holdings"))))
+
+
+@bp.route("/api/quant/goal", methods=["POST"])
+def quant_goal():
+    from quant import portfolio as Q
+    data = request.json or {}
+    return _run(lambda: Q.plan_goal(_holdings(data.get("holdings")), _num(data, "goal", 0, 1, 1e12),
+                                    years=_num(data, "years", 10, 1, 40, int),
+                                    probability=_num(data, "probability", 0.7, 0.5, 0.95),
+                                    expected_return=_num(data, "expected_return", 0.07, -0.2, 0.3)))
+
+
+@bp.route("/api/quant/withdraw", methods=["POST"])
+def quant_withdraw():
+    from quant import portfolio as Q
+    data = request.json or {}
+    return _run(lambda: Q.withdrawal(_holdings(data.get("holdings")), _num(data, "annual_spend", 0, 1, 1e9),
+                                     years=_num(data, "years", 30, 1, 50, int),
+                                     expected_return=_num(data, "expected_return", 0.05, -0.2, 0.3)))

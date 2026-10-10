@@ -23,6 +23,12 @@ OPTIMIZE = re.compile(r"\b(optimi[sz]\w*|rebalanc\w*|allocat\w*|weights?|weighti
                       r"risk[- ]parity|efficient frontier)\b", re.I)
 PROJECT = re.compile(r"\b(project\w*|in \d+ years?|retire\w*|grow|growth|be worth|future value|goal|monte carlo|"
                      r"long[- ]term|\d+ years? from now)\b", re.I)
+STRESS = re.compile(r"\b(stress[- ]?test\w*|crash\w*|2008|financial crisis|recession|bear market|"
+                    r"market (falls?|drops?|tanks?|crash\w*)|worst case|downturn|covid)\b", re.I)
+GOAL = re.compile(r"\bhow much (do i need|should i|must i|to)\b.{0,30}\b(save|invest|put (in|away)|contribute|add)\b|"
+                  r"\b(monthly|a month|per month)\b.{0,40}\b(reach|hit|get to)\b", re.I)
+WITHDRAW = re.compile(r"\b(retire\w*|withdraw\w*|live off|draw ?down|spend \$?[\d,.]+k? (a|per) year|"
+                      r"last(s)? \d+ years|safe (withdrawal|spending)|income from my portfolio)\b", re.I)
 SIGNALS = re.compile(r"\b(intraday|setups?|signals?|breakouts?|breakdowns?|vwap|rsi|gap[- ]and[- ]go|gappers?|"
                      r"day[- ]?trad\w*|scalp\w*|opening[- ]range|orb|swing\w*|pullbacks?|oversold)\b", re.I)
 SWING = re.compile(r"\b(swing\w*|multi[- ]?day|daily (setups?|signals?|chart)|overnight|this week|pullbacks?|"
@@ -111,7 +117,7 @@ class QuantPortfolioAgent(ac.Agent):
         q = task.question
         if not (PORTFOLIO.search(q) or task.ctx.get("holdings") and re.search(r"\bportfolio\b", q, re.I)):
             return 0.0
-        return 0.95 if (RISK.search(q) or OPTIMIZE.search(q) or PROJECT.search(q)) else 0.0
+        return 0.95 if any(rx.search(q) for rx in (RISK, OPTIMIZE, PROJECT, STRESS, GOAL, WITHDRAW)) else 0.0
 
     def run(self, task, board):
         from quant import portfolio as Q
@@ -124,8 +130,12 @@ class QuantPortfolioAgent(ac.Agent):
         lines: List[str] = []
         facts: Dict[str, Any] = {}
         sources: List[Dict[str, Any]] = []
-        want_opt, want_proj = bool(OPTIMIZE.search(q)), bool(PROJECT.search(q))
-        want_risk = bool(RISK.search(q)) or not (want_opt or want_proj)
+        want_stress, want_withdraw = bool(STRESS.search(q)), bool(WITHDRAW.search(q))
+        want_goal = bool(GOAL.search(q)) and not want_withdraw
+        want_opt = bool(OPTIMIZE.search(q))
+        want_proj = bool(PROJECT.search(q)) and not (want_goal or want_withdraw)
+        want_risk = bool(RISK.search(q)) and not want_stress or not (want_opt or want_proj or want_stress or
+                                                                      want_goal or want_withdraw)
         if want_risk:
             r = Q.risk(holdings)
             p, top = r["portfolio"], max(r["holdings"], key=lambda h: h["risk_share"])
@@ -177,6 +187,50 @@ class QuantPortfolioAgent(ac.Agent):
                 f"{_pct(pr['hist_return_ann'])} a year, which is not assumed to repeat [{n}].",
             ]
             facts["project"] = {"median_end": pr["median_end"], "prob_loss": pr["prob_loss"]}
+        if want_stress:
+            n = len(sources) + 1
+            st = Q.stress(holdings)
+            sources.append({"n": n, "title": "Quant Lab stress test — past drawdowns replayed on today's holdings",
+                            "source": "Yahoo Finance daily adjusted closes, 20 years", "url": "/quant"})
+            for sc in st["scenarios"]:
+                est = f" ({_pct(sc['estimated_share'], 0)} of it estimated from beta)" if sc["estimated_share"] else ""
+                lines.append(f"{sc['scenario']} ({sc['from']} to {sc['to']}): your holdings {_pct(sc['portfolio'])} "
+                             f"({_usd(sc['portfolio_usd'])}) vs the S&P 500 {_pct(sc['sp500'])}{est} [{n}].")
+            lines.append("History, not a forecast — the next drawdown won't match any of these.")
+            facts["stress_worst"] = st["worst"]
+        if want_goal:
+            n = len(sources) + 1
+            pp = _projection_params(q)
+            if not pp.get("goal"):
+                lines.append("Tell me the goal amount (\"how much a month to reach $250k in 10 years?\") and I'll "
+                             "work out the monthly amount.")
+            else:
+                g = Q.plan_goal(holdings, pp["goal"], years=pp.get("years", 10))
+                sources.append({"n": n, "title": f"Quant Lab goal planner — {g['paths']:,} paths", "source":
+                                "Yahoo Finance daily adjusted closes", "url": "/quant"})
+                lines.append(f"To reach {_usd(g['goal'])} in {g['years']} years in {_pct(g['probability'], 0)} of "
+                             f"simulated paths, you'd add about {_usd(g['monthly_needed'])} a month (from "
+                             f"{_usd(g['start_value'])} today; without adding, {_pct(g['chance_without_adding'], 0)} "
+                             f"of paths get there) [{n}].")
+                lines.append(f"It assumes a {_pct(g['expected_return'], 0)} average year for this mix — a range, "
+                             f"not a promise [{n}].")
+        if want_withdraw:
+            n = len(sources) + 1
+            m = re.search(r"\$?\s*([\d,]+(?:\.\d+)?)\s*(k)?\s*(?:a|per|each|every|/)\s*year", q, re.I)
+            spend = float(m.group(1).replace(",", "")) * (1000 if m.group(2) else 1) if m else None
+            yrs = int(re.search(r"\b(\d{1,2})\s*years?\b", q).group(1)) if re.search(r"\b(\d{1,2})\s*years?\b", q) else 30
+            total = sum(Q._values(holdings).values())
+            w = Q.withdrawal(holdings, spend or round(total * 0.04, 0), years=min(max(yrs, 1), 50),
+                             expected_return=0.05)
+            sources.append({"n": n, "title": f"Quant Lab withdrawal planner — {w['years']} years, 2,000 paths",
+                            "source": "Yahoo Finance daily adjusted closes", "url": "/quant"})
+            lines.append(f"Spending {_usd(w['annual_spend'])} a year ({_pct(w['withdrawal_rate'])} of "
+                         f"{_usd(w['start_value'])}) lasts {w['years']} years in {_pct(w['chance_it_lasts'], 0)} of "
+                         f"simulated paths [{n}].")
+            lines.append(f"The amount that lasts in 90% of paths is about {_usd(w['sustainable_spend'])} a year — this "
+                         f"mix's volatility is what pulls it down [{n}].")
+            lines.append("It assumes a 5% real (after-inflation) average year and flat spending; taxes and fees are "
+                         "not included.")
         return self.finding(lines=lines, sources=sources, facts=facts)
 
 

@@ -108,3 +108,16 @@ def test_endpoint_keeps_a_personal_portfolio_answer_on_a_local_model(monkeypatch
     res = json.loads([e for e in body.split("\n\n") if e.startswith("event:")][-1].split("data: ", 1)[1])["result"]
     assert seen["holdings"] == [{"symbol": "NVDA", "shares": 3}]
     assert called == [] and "local model" in res["synthesis_skipped"]
+
+
+@pytest.mark.parametrize("q,want", [
+    ("stress test my portfolio", "stress"),
+    ("what if 2008 happens to my portfolio", "stress"),
+    ("how much do I need to save a month to reach $1m with my portfolio", "goal"),
+    ("can my portfolio let me retire on $40k a year", "withdraw"),
+    ("how risky is my portfolio", "risk"),
+])
+def test_portfolio_questions_reach_the_right_tool(q, want):
+    hits = {"stress": QA.STRESS.search(q), "goal": QA.GOAL.search(q) and not QA.WITHDRAW.search(q),
+            "withdraw": QA.WITHDRAW.search(q), "risk": QA.RISK.search(q)}
+    assert hits[want] and QA.QuantPortfolioAgent().bid(_task(q, [{"symbol": "AAA", "shares": 1}])) > 0.5

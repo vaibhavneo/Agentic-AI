@@ -130,3 +130,54 @@ def test_todays_empty_daily_row_is_filled_from_the_same_day_quote(tmp_path, monk
     live = payload(1791560000)                                          # mid-session
     live["chart"]["result"][0]["meta"]["currentTradingPeriod"] = {"regular": {"end": 1791576000}}
     assert str(P.daily("ZZZ", 3, http=lambda url: live).index[-1].date()) == "2026-10-08"
+
+
+def test_stress_uses_actual_returns_and_beta_for_names_not_yet_listed(market, monkeypatch):
+    http, closes = market
+    # "NEW" lists in mid-2022, after the 2022 bear market began: it must be a beta estimate.
+    full_ts = (1600000000 + np.arange(DAYS) * 86400).tolist()
+    cut = 650
+
+    def http2(url):
+        sym = url.split("/chart/")[1].split("?")[0]
+        if sym != "NEW":
+            return http(url)
+        c = closes["AAA"][cut:].tolist()
+        return {"chart": {"result": [{"timestamp": full_ts[cut:], "meta": {"currency": "USD"},
+                                      "indicators": {"quote": [{"open": c, "high": c, "low": c, "close": c,
+                                                                "volume": [1000] * len(c)}],
+                                                     "adjclose": [{"adjclose": c}]}}]}}
+    H = [{"symbol": "AAA", "value": 6000}, {"symbol": "NEW", "value": 4000}]
+    st = Q.stress(H, http=http2)
+    bear = [s for s in st["scenarios"] if s["scenario"] == "2022 bear market"][0]
+    rows = {r["symbol"]: r for r in bear["holdings"]}
+    assert rows["AAA"]["basis"] == "actual" and rows["NEW"]["basis"] == "beta estimate"
+    assert bear["portfolio"] == pytest.approx(0.6 * rows["AAA"]["return"] + 0.4 * rows["NEW"]["return"], abs=1e-3)
+    assert bear["estimated_share"] == pytest.approx(0.4) and "not a forecast" in st["note"]
+    assert all(s["scenario"] != "2008 financial crisis" for s in st["scenarios"])      # no data that far back
+
+
+def test_goal_planner_and_withdrawals_respond_to_the_inputs(market):
+    http, _ = market
+    H = [{"symbol": "BBB", "shares": 100}, {"symbol": "CCC", "shares": 50}]
+    start = sum(Q._values(H, http).values())
+    easy = Q.plan_goal(H, start * 0.5, years=5, http=http)
+    hard = Q.plan_goal(H, start * 4, years=5, http=http)
+    assert easy["monthly_needed"] == 0 and easy["chance_without_adding"] >= 0.7
+    assert hard["monthly_needed"] > 0 and hard["invested"] > start
+    none = Q.withdrawal(H, 1.0, years=10, http=http)
+    lots = Q.withdrawal(H, start, years=10, http=http)
+    assert none["chance_it_lasts"] == 1.0 and lots["chance_it_lasts"] == 0.0
+    assert lots["sustainable_spend"] < start and lots["median_year_depleted"] is not None
+
+
+def test_rebalance_estimates_realized_gains_and_the_add_only_cash(market):
+    http, closes = market
+    px = closes["AAA"][-1]
+    H = [{"symbol": "AAA", "shares": 10, "avg_cost": px / 2}, {"symbol": "BBB", "shares": 10}]
+    rb = Q.rebalance(H, {"AAA": 0.2, "BBB": 0.8}, http=http)
+    sell = [t for t in rb["trades"] if t["symbol"] == "AAA"][0]
+    assert sell["action"] == "reduce" and sell["est_realized_gain"] == pytest.approx(-sell["shares"] * px / 2, rel=1e-3)
+    vals = Q._values(H, http)
+    assert rb["add_only_cash"] == pytest.approx(vals["AAA"] / 0.2 - sum(vals.values()), rel=1e-3)
+    assert "average-cost" in rb["note"]

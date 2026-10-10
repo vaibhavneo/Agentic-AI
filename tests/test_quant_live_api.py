@@ -91,3 +91,16 @@ def test_an_open_paper_trade_settles_into_a_close_event(live_bars):
               if e.kind == "signal_close"]
     assert any(e.value["rule"] == "orb_long" and e.value["r"] == pytest.approx(0.8) for e in closes)
     assert QL.journal_summary()["stats"]["orb_long"]["n"] == 1
+
+
+def test_stress_goal_and_withdraw_endpoints(client):
+    st = client.post("/api/quant/stress", json={"holdings": H}).get_json()
+    assert "scenarios" in st
+    g = client.post("/api/quant/goal", json={"holdings": H, "goal": 50000, "years": 5}).get_json()
+    assert g["years"] == 5 and "monthly_needed" in g
+    w = client.post("/api/quant/withdraw", json={"holdings": H, "annual_spend": 100}).get_json()
+    assert w["years"] == 30 and 0 <= w["chance_it_lasts"] <= 1
+    assert client.post("/api/quant/goal", json={"holdings": H}).status_code == 400            # no goal
+    assert client.post("/api/quant/withdraw", json={"holdings": H, "annual_spend": 100, "years": 99}).status_code == 400
+    bad = client.post("/api/quant/risk", json={"holdings": [{"symbol": "AAA", "shares": 1, "avg_cost": -3}]})
+    assert bad.status_code == 400 and "cost basis" in bad.get_json()["error"]
