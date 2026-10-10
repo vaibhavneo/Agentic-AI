@@ -52,3 +52,7 @@ data/replay_wide.db-*
 # Live-knowledge cache (rebuilt on demand)
 data/knowledge.db
 data/knowledge.db-*
+
+# Quant lab bar cache and paper journal (rebuildable / runtime)
+data/quant_cache/
+data/quant_journal.db*
