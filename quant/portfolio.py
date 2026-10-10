@@ -39,6 +39,43 @@ def _values(holdings: Sequence[Dict[str, Any]], http=None) -> Dict[str, float]:
     return out
 
 
+MIN_HISTORY = 250          # trading days a name needs to take part in the joint statistics
+
+
+def _aligned(symbols: Sequence[str], years: int, http=None, bench: bool = False):
+    """Daily returns of the names with enough history, aligned on common dates.
+    A recent listing would otherwise cut every other name's history down to
+    its own few months; it is set aside and named instead.
+    Returns (returns, short_history [{symbol, since, days}], missing)."""
+    want = list(dict.fromkeys([s.upper() for s in symbols] + ([BENCH] if bench else [])))
+    frames, missing = {}, []
+    for s in want:
+        try:
+            frames[s] = P.daily(s, years, http)["adjclose"]
+        except Exception:
+            missing.append(s)
+    if not frames:
+        return pd.DataFrame(), [], missing
+    longest = max(len(f) for f in frames.values())
+    need = min(MIN_HISTORY, int(0.8 * longest))
+    short = [{"symbol": s, "since": str(f.index[0].date()), "days": int(len(f))}
+             for s, f in frames.items() if len(f) < need and s != BENCH]
+    keep = {s: f for s, f in frames.items() if len(f) >= need or s == BENCH}
+    r = pd.DataFrame(keep).sort_index().pct_change().dropna(how="all").dropna()
+    return r, short, missing
+
+
+def _beta(sym: str, years: int = 3, http=None) -> Optional[float]:
+    """Beta to the S&P 500 on the name's own available history (pairwise)."""
+    try:
+        r = P.returns([sym, BENCH], years, http)
+        if len(r) < 40:
+            return None
+        return float(np.cov(r[sym.upper()], r[BENCH])[0, 1] / np.var(r[BENCH], ddof=1))
+    except Exception:
+        return None
+
+
 def _shrunk_cov(r: pd.DataFrame, delta: float = 0.2) -> np.ndarray:
     """Sample covariance shrunk toward its diagonal — fewer spurious hedges."""
     s = r.cov().values * TRADING_DAYS
@@ -53,12 +90,13 @@ def _max_drawdown(series: pd.Series) -> float:
 def risk(holdings: Sequence[Dict[str, Any]], years: int = 3, http=None) -> Dict[str, Any]:
     vals = _values(holdings, http)
     syms = [s for s, v in vals.items() if v > 0]
-    r = P.returns(syms + [BENCH], years, http)
-    missing = [s for s in syms if s not in r.columns]
+    r, short, missing = _aligned(syms, years, http, bench=True)
+    missing = [s for s in syms if s in missing]
     syms = [s for s in syms if s in r.columns]
     if len(syms) < 1 or len(r) < 60:
         raise ValueError("not enough overlapping price history to measure risk")
     total = sum(vals[s] for s in syms)
+    excluded_value = sum(vals[x["symbol"]] for x in short)
     w = np.array([vals[s] / total for s in syms])
     R = r[syms]
     port = R.values @ w
@@ -92,7 +130,8 @@ def risk(holdings: Sequence[Dict[str, Any]], years: int = 3, http=None) -> Dict[
                       "largest_risk": per and max(per, key=lambda x: x["risk_share"])["symbol"]},
         "most_correlated_pair": {"a": top_pair[1], "b": top_pair[2], "corr": float(top_pair[0])} if top_pair else None,
         "correlation": {"symbols": syms, "matrix": corr.values.tolist()},
-        "missing": missing, "source": "Yahoo Finance daily adjusted closes",
+        "missing": missing, "short_history": short, "excluded_value": round(excluded_value, 2),
+        "source": "Yahoo Finance daily adjusted closes",
     }
 
 
@@ -100,7 +139,7 @@ def optimize(symbols: Sequence[str], method: str = "max_sharpe", max_weight: flo
              rf: float = 0.04, http=None) -> Dict[str, Any]:
     from scipy.optimize import minimize
     syms = [s.upper() for s in dict.fromkeys(symbols)]
-    r = P.returns(syms, years, http)
+    r, short, _missing = _aligned(syms, years, http)
     syms = [s for s in syms if s in r.columns]
     n = len(syms)
     if n < 2:
@@ -133,7 +172,7 @@ def optimize(symbols: Sequence[str], method: str = "max_sharpe", max_weight: flo
         "risk_share": {s: round(float(x), 4) for s, x in zip(syms, rc)},
         "expected_return_ann": round(float(w @ mu), 4), "vol_ann": round(vol(w), 4),
         "sharpe": round(float((w @ mu - rf) / vol(w)), 2), "rf": rf, "max_weight": round(cap, 4),
-        "converged": bool(res.success),
+        "converged": bool(res.success), "short_history": short,
         "assumptions": "in-sample: historical returns shrunk 50% toward their average, covariance shrunk 20% toward "
                        "its diagonal; long-only with a per-name cap. Past co-movement is not a promise.",
     }
@@ -184,17 +223,20 @@ def rebalance(holdings: Sequence[Dict[str, Any]], target: Dict[str, float], cash
 
 def _portfolio_returns(holdings, history_years: int, drift: str, expected_return: float, http=None):
     vals = _values(holdings, http)
-    syms = list(vals)
-    r = P.returns(syms, history_years, http)
-    syms = [s for s in syms if s in r.columns]
+    r, short, _missing = _aligned(list(vals), history_years, http)
+    syms = [s for s in vals if s in r.columns]
     if not syms or len(r) < 120:
         raise ValueError("not enough overlapping price history to simulate")
-    total = sum(vals[s] for s in syms)
-    w = np.array([vals[s] / total for s in syms])
+    w = np.array([vals[s] for s in syms])
+    w = w / w.sum()
     port = r[syms].values @ w
+    # The whole portfolio's value is simulated; names with too little history
+    # (listed recently) are assumed to move like the rest of it.
+    total = sum(vals.values())
     hist_ret = float((1 + port).prod() ** (TRADING_DAYS / len(port)) - 1)
     if drift == "conservative":
         port = port - port.mean() + ((1 + expected_return) ** (1 / TRADING_DAYS) - 1)
+    r.attrs["short_history"] = short
     return port, total, hist_ret, r
 
 
@@ -293,11 +335,7 @@ def stress(holdings: Sequence[Dict[str, Any]], http=None) -> Dict[str, Any]:
     vals = _values(holdings, http)
     total = sum(vals.values())
     hist = {s: P.daily(s, 20, http)["adjclose"] for s in list(vals) + [BENCH]}
-    r3 = P.returns(list(vals) + [BENCH], 3, http)
-    beta = {}
-    for s in vals:
-        if s in r3 and BENCH in r3:
-            beta[s] = float(np.cov(r3[s], r3[BENCH])[0, 1] / np.var(r3[BENCH], ddof=1))
+    beta = {s: b for s in vals for b in [_beta(s, 3, http)] if b is not None}
     out = []
     for name, a, b in STRESS:
         spy = hist[BENCH]
@@ -334,31 +372,8 @@ def project(holdings: Sequence[Dict[str, Any]], years: int = 10, monthly_contrib
     re-centres the average on `expected_return` a year — a five-year window
     can hold an exceptional run, and replaying it as the expectation would
     overstate a decade. drift="historical" replays the window's own mean."""
-    vals = _values(holdings, http)
-    syms = list(vals)
-    r = P.returns(syms, history_years, http)
-    syms = [s for s in syms if s in r.columns]
-    total = sum(vals[s] for s in syms)
-    w = np.array([vals[s] / total for s in syms])
-    port = r[syms].values @ w
-    hist_ret = float((1 + port).prod() ** (TRADING_DAYS / len(port)) - 1)
-    if drift == "conservative":
-        port = port - port.mean() + ((1 + expected_return) ** (1 / TRADING_DAYS) - 1)
-    n_days = years * TRADING_DAYS
-    rng = np.random.default_rng(seed)
-    n_blocks = int(np.ceil(n_days / block))
-    starts = rng.integers(0, len(port) - block, size=(paths, n_blocks))
-    idx = (starts[:, :, None] + np.arange(block)[None, None, :]).reshape(paths, -1)[:, :n_days]
-    daily = port[idx]
-    wealth = np.empty((paths, years + 1))
-    wealth[:, 0] = total
-    v = np.full(paths, total)
-    contrib = monthly_contribution * 12 / TRADING_DAYS
-    for y in range(years):
-        seg = daily[:, y * TRADING_DAYS:(y + 1) * TRADING_DAYS]
-        for d in range(seg.shape[1]):
-            v = v * (1 + seg[:, d]) + contrib
-        wealth[:, y + 1] = v
+    port, total, hist_ret, r = _portfolio_returns(holdings, history_years, drift, expected_return, http)
+    wealth = _simulate(port, total, years, monthly_contribution, paths, block, seed)
     invested = total + monthly_contribution * 12 * years
     pct = {p: [round(float(x), 0) for x in np.percentile(wealth, p, axis=0)] for p in (5, 25, 50, 75, 95)}
     out = {"years": years, "start_value": round(total, 2), "monthly_contribution": monthly_contribution,
@@ -376,7 +391,11 @@ def project(holdings: Sequence[Dict[str, Any]], years: int = 10, monthly_contrib
                             f"{hist_ret:.1%} a year)" if drift == "conservative" else "the window's own average")
                            + f"; at this volatility the typical compounded growth is "
                              f"{float(np.expm1(np.log1p(port).mean() * TRADING_DAYS)):.1%} a year"
-                           + ". A range of outcomes, not a forecast.")}
+                           + ". A range of outcomes, not a forecast."
+                           + (" Recently listed " + ", ".join(x["symbol"] for x in r.attrs.get("short_history", []))
+                              + " assumed to move like the rest." if r.attrs.get("short_history") else ""))}
+    if r.attrs.get("short_history"):
+        out["short_history"] = r.attrs["short_history"]
     if goal:
         out["goal"] = goal
         out["prob_goal"] = round(float((wealth[:, -1] >= goal).mean()), 3)

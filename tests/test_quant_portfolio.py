@@ -181,3 +181,25 @@ def test_rebalance_estimates_realized_gains_and_the_add_only_cash(market):
     vals = Q._values(H, http)
     assert rb["add_only_cash"] == pytest.approx(vals["AAA"] / 0.2 - sum(vals.values()), rel=1e-3)
     assert "average-cost" in rb["note"]
+
+
+def test_a_recent_listing_is_set_aside_not_allowed_to_shrink_the_window(market):
+    http, closes = market
+    full_ts = (1600000000 + np.arange(DAYS) * 86400).tolist()
+
+    def http2(url):
+        sym = url.split("/chart/")[1].split("?")[0]
+        if sym != "NEW":
+            return http(url)
+        c = closes["CCC"][-60:].tolist()                                   # 60 days of history
+        return {"chart": {"result": [{"timestamp": full_ts[-60:], "meta": {"currency": "USD"},
+                                      "indicators": {"quote": [{"open": c, "high": c, "low": c, "close": c,
+                                                                "volume": [1000] * 60}],
+                                                     "adjclose": [{"adjclose": c}]}}]}}
+    H = [{"symbol": "AAA", "shares": 10}, {"symbol": "BBB", "shares": 10}, {"symbol": "NEW", "value": 500}]
+    r = Q.risk(H, years=3, http=http2)
+    assert [x["symbol"] for x in r["short_history"]] == ["NEW"] and r["excluded_value"] == 500
+    assert {h["symbol"] for h in r["holdings"]} == {"AAA", "BBB"} and "(799 days)" in r["window"]
+    p = Q.project(H, years=2, http=http2)
+    assert p["start_value"] == pytest.approx(sum(Q._values(H, http2).values()), abs=0.01)
+    assert "NEW assumed to move like the rest" in p["assumptions"]
