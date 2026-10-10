@@ -181,6 +181,7 @@ function parseHoldings() {
     out.push(m[2] ? {symbol: m[1].toUpperCase(), value: +m[3]} : {symbol: m[1].toUpperCase(), shares: +m[3]});
   }
   $('holdErr').textContent = bad.length ? `Couldn't read: ${bad.join(', ')} — use "NVDA 40" or "NVDA $5000".` : '';
+  if (!bad.length) store.set('quant.holdings', $('holdings').value);   // the desk's AI Chat reads this list
   return bad.length ? null : out;
 }
 
