@@ -75,7 +75,8 @@ def prepare(bars: pd.DataFrame) -> pd.DataFrame:
     df = bars.copy()
     df = df[(df.index.time >= dtime(9, 30)) & (df.index.time < dtime(16, 0))]
     df["day"] = df.index.date
-    df["slot"] = df.index.strftime("%H:%M")
+    # Minutes after midnight, not strftime: formatting tz-aware stamps costs ~0.3 s a symbol under gunicorn.
+    df["slot"] = df.index.hour * 60 + df.index.minute
     tp = (df["high"] + df["low"] + df["close"]) / 3
     df["vwap"] = (tp * df["volume"]).groupby(df["day"]).cumsum() / df["volume"].groupby(df["day"]).cumsum()
     day = df["day"].to_numpy()
