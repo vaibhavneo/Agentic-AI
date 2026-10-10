@@ -57,6 +57,7 @@ def _fetch(sym: str, rng: str, interval: str, ttl_s: float, http: Optional[Calla
     if not res or not res.get("timestamp"):
         raise ValueError(f"no bars for {sym}")
     q = res["indicators"]["quote"][0]
+    _fill_today(res, interval)
     df = pd.DataFrame({"open": q.get("open"), "high": q.get("high"), "low": q.get("low"), "close": q.get("close"),
                        "volume": q.get("volume")},
                       index=pd.to_datetime(res["timestamp"], unit="s", utc=True).tz_convert("America/New_York"))
@@ -67,6 +68,32 @@ def _fetch(sym: str, rng: str, interval: str, ttl_s: float, http: Optional[Calla
     df.attrs.update(symbol=sym, source="Yahoo Finance chart API", stale=stale,
                     as_of=str(df.index[-1]) if len(df) else None, currency=res.get("meta", {}).get("currency"))
     return df
+
+
+def _fill_today(res: dict, interval: str) -> None:
+    """Yahoo's daily series often carries today's row with no close for hours
+    after the bell; the quote's own regular-session price fills it, but only
+    once the session has ended and when that price is stamped on the same day."""
+    if interval != "1d":
+        return
+    q, meta = res["indicators"]["quote"][0], res.get("meta") or {}
+    px, t = meta.get("regularMarketPrice"), meta.get("regularMarketTime")
+    if not q.get("close") or q["close"][-1] is not None or px is None or t is None:
+        return
+    end = ((meta.get("currentTradingPeriod") or {}).get("regular") or {}).get("end")
+    if end and t < end:
+        return                                     # the session is still trading: not a settled close
+    ny = "America/New_York"
+    if pd.Timestamp(res["timestamp"][-1], unit="s", tz="UTC").tz_convert(ny).date() != \
+            pd.Timestamp(t, unit="s", tz="UTC").tz_convert(ny).date():
+        return
+    q["close"][-1] = px
+    for k, mk in (("open", None), ("high", "regularMarketDayHigh"), ("low", "regularMarketDayLow")):
+        if q.get(k) and q[k][-1] is None:
+            q[k][-1] = meta.get(mk) if mk and meta.get(mk) is not None else px
+    adj = (res["indicators"].get("adjclose") or [{}])[0].get("adjclose")
+    if adj and adj[-1] is None:
+        adj[-1] = px
 
 
 def daily(sym: str, years: int = 5, http: Optional[Callable] = None) -> pd.DataFrame:

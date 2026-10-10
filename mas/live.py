@@ -9,6 +9,8 @@ it; tests, the heartbeat and hosted copies leave it off):
     macro       FRED: 10-year, 2-year, 10y-2y curve, fed funds, VIX close — every 6 h
     headlines   Google News: the market today, and the watchlist's biggest movers — every 20 min
     movers      a watchlist name moving 4% or more on the day becomes a "mover" event
+    signals     the quant lab's intraday scanner (quant/live.py) — every 5 min in market hours: new
+                setups ("signal") and settled paper trades ("signal_close"); research, never orders
 
 Every event also lands in the knowledge store (data/knowledge.db) under the
 knowledge fetchers' own identity (quotes, FRED), so the converse layer's
@@ -107,6 +109,13 @@ def _mover_events() -> List[lf.Event]:
     return out
 
 
+def _signal_events() -> List[lf.Event]:
+    """The quant lab's intraday scanner (quant/live.py): fresh setups and
+    settled paper trades. Out of hours it only settles what is still open."""
+    from quant import live as quant_live
+    return quant_live.signal_events()
+
+
 def _headline_queries() -> List[str]:
     m = movers(limit=3)
     return ["stock market today"] + [f"{r['symbol']} stock" for r in m["gainers"][:2] + m["losers"][:2]]
@@ -123,6 +132,8 @@ def hub() -> lf.FeedHub:
                 lf.FredFeed(MACRO, name="macro"),
                 lf.HeadlineFeed(_headline_queries, name="headlines", per_query=4),
                 lf.FnFeed("movers", _mover_events, interval_s=300, closed_interval_s=1800),
+                lf.FnFeed("signals", _signal_events, interval_s=300, closed_interval_s=3600,
+                          active=lf.us_market_open),
             ], store=pipeline().store, db_path=str(ROOT / "data" / "live_events.db"))
             _hub.feeds["headlines"].interval_s = 1200
         return _hub

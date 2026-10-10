@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Quant Lab — Stock Desk</title>
+<style>
+  :root {
+    --bg: #080c14; --bg2: #0d1220; --bg3: #111827; --card: #0f1929; --border: #1e2d45;
+    --text: #e0e6f0; --muted: #8796b5; --faint: #4a5a78;
+    --accent: #00d4ff; --c1: #3b9eff; --c2: #f59e0b;           /* series: weight (blue), risk share (orange) */
+    --good: #00e676; --bad: #ff5252; --warn: #ffd54f;
+    --neg: #3b82f6; --mid: #2b3648; --pos: #f97316;           /* correlation: diverging around a neutral gray */
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font: 14px/1.45 -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+  a { color: var(--accent); text-decoration: none; }
+  header { position: sticky; top: 0; z-index: 10; display: flex; align-items: center; gap: 14px; padding: 12px 24px;
+           background: linear-gradient(135deg, #0a0f1e, #0d1a2d); border-bottom: 1px solid var(--border); flex-wrap: wrap; }
+  header h1 { font-size: 18px; }
+  header .sub { color: var(--muted); font-size: 12px; }
+  header .right { margin-left: auto; display: flex; gap: 8px; align-items: center; font-size: 12px; }
+  .pill { padding: 3px 10px; border-radius: 999px; border: 1px solid var(--border); color: var(--muted); font-size: 11px; font-weight: 600; }
+  .pill.on { color: var(--good); border-color: var(--good); }
+  main { max-width: 1400px; margin: 0 auto; padding: 18px 24px 60px; display: grid; gap: 16px; grid-template-columns: 340px 1fr; }
+  @media (max-width: 980px) { main { grid-template-columns: 1fr; padding: 16px; } }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 16px; min-width: 0; }
+  .card h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin-bottom: 10px; display: flex; gap: 8px; align-items: center; }
+  .card h2 .grow { flex: 1; }
+  .span2 { grid-column: 1 / -1; }
+  .col { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+  textarea, input, select { background: var(--bg3); border: 1px solid var(--border); color: var(--text); border-radius: 8px; padding: 8px 10px; font: inherit; }
+  textarea { width: 100%; min-height: 150px; font-family: ui-monospace, Menlo, monospace; font-size: 13px; resize: vertical; }
+  label { font-size: 12px; color: var(--muted); display: flex; flex-direction: column; gap: 4px; }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: end; }
+  .row > label { flex: 1; min-width: 90px; }
+  .row input, .row select { width: 100%; }
+  button { background: linear-gradient(135deg, #00b4d8, #7c3aed); border: 0; color: #fff; padding: 8px 14px; border-radius: 8px; font-weight: 700; cursor: pointer; font-size: 13px; }
+  button.ghost { background: var(--bg3); border: 1px solid var(--border); color: var(--text); font-weight: 600; }
+  button:disabled { opacity: .5; cursor: wait; }
+  .seg { display: inline-flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+  .seg button { background: transparent; border-radius: 0; color: var(--muted); font-weight: 600; padding: 6px 10px; }
+  .seg button.on { background: var(--bg3); color: var(--text); }
+  .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px; margin-bottom: 12px; }
+  .kpi { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 10px; }
+  .kpi .v { font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .kpi .l { font-size: 11px; color: var(--muted); }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; font-variant-numeric: tabular-nums; }
+  th { text-align: left; font-size: 11px; color: var(--muted); font-weight: 600; padding: 6px 8px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+  td { padding: 6px 8px; border-bottom: 1px solid rgba(30,45,69,.5); white-space: nowrap; }
+  td.num, th.num { text-align: right; }
+  .scroll { overflow-x: auto; }
+  .note { font-size: 12px; color: var(--muted); margin-top: 10px; }
+  .err { color: var(--bad); font-size: 13px; margin: 6px 0; }
+  .muted { color: var(--muted); }
+  .up { color: var(--good); } .down { color: var(--bad); }
+  .bar { position: relative; height: 8px; background: var(--bg3); border-radius: 4px; min-width: 80px; }
+  .bar i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 4px; }
+  .legend { display: flex; gap: 14px; font-size: 12px; color: var(--muted); margin: 6px 0; flex-wrap: wrap; }
+  .legend span::before { content: ""; display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; vertical-align: -1px; background: var(--sw); }
+  .heat td { text-align: center; font-size: 12px; padding: 5px; border: 2px solid var(--card); }
+  .tag { display: inline-block; padding: 1px 7px; border-radius: 999px; font-size: 11px; font-weight: 700; border: 1px solid; }
+  .tag.long { color: var(--good); border-color: var(--good); } .tag.short { color: var(--bad); border-color: var(--bad); }
+  .tag.edge { color: var(--good); border-color: var(--good); } .tag.noedge { color: var(--muted); border-color: var(--faint); }
+  .flash { animation: flash 2s ease-out; } @keyframes flash { from { background: rgba(0,212,255,.18); } to { background: transparent; } }
+  #fanWrap { position: relative; }
+  #fanTip { position: absolute; pointer-events: none; background: var(--bg2); border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; font-size: 12px; display: none; white-space: nowrap; }
+  svg text { fill: var(--muted); font-size: 11px; }
+  .empty { color: var(--muted); font-size: 13px; padding: 14px 0; }
+</style>
+</head>
+<body>
+<header>
+  <h1>⚡ Quant Lab</h1>
+  <span class="sub">portfolio risk · optimizer · long-term projection · intraday signals — research, paper-tracked, never orders</span>
+  <div class="right"><span class="pill" id="livePill">live feed: checking…</span><a href="/">← Desk</a></div>
+</header>
+
+<main>
+  <div class="col">
+    <section class="card">
+      <h2>Holdings</h2>
+      <textarea id="holdings" spellcheck="false" placeholder="One per line: SYMBOL SHARES or SYMBOL $VALUE&#10;NVDA 40&#10;AAPL 30&#10;MSFT $8000"></textarea>
+      <div class="row" style="margin-top:8px">
+        <label>History<select id="years"><option value="1">1 year</option><option value="3" selected>3 years</option><option value="5">5 years</option></select></label>
+        <label>Max per name<select id="cap"><option value="0.25">25%</option><option value="0.35" selected>35%</option><option value="0.5">50%</option><option value="1">no cap</option></select></label>
+      </div>
+      <div class="row" style="margin-top:10px">
+        <button id="goRisk">Analyze risk</button>
+        <button class="ghost" id="goOpt">Optimize</button>
+        <button class="ghost" id="goImport" title="Copy the holdings from the desk's 💼 My Portfolio (this browser)">Use My Portfolio</button>
+      </div>
+      <div class="err" id="holdErr"></div>
+      <p class="note">Saved in this browser only. Prices are the last settled close (Yahoo Finance daily, adjusted).</p>
+    </section>
+
+    <section class="card">
+      <h2>Long-term projection</h2>
+      <div class="row">
+        <label>Years<input id="pYears" type="number" min="1" max="40" value="10"></label>
+        <label>Monthly add ($)<input id="pMonthly" type="number" min="0" step="100" value="500"></label>
+      </div>
+      <div class="row" style="margin-top:8px">
+        <label>Goal ($, optional)<input id="pGoal" type="number" min="0" step="1000" placeholder="e.g. 250000"></label>
+        <label>Expected return<select id="pExp"><option value="0.05">5% avg / yr</option><option value="0.07" selected>7% avg / yr</option><option value="0.09">9% avg / yr</option></select></label>
+      </div>
+      <div class="row" style="margin-top:10px;align-items:center">
+        <div class="seg" id="pDrift"><button class="on" data-v="conservative">Conservative</button><button data-v="historical">Replay history</button></div>
+        <button id="goProj">Project</button>
+      </div>
+      <p class="note">Conservative keeps the portfolio's own volatility and crashes but centres the average on the expected return; replaying a strong window's average would overstate a decade.</p>
+    </section>
+  </div>
+
+  <div class="col">
+    <section class="card" id="riskCard">
+      <h2>Portfolio risk <span class="grow"></span><span class="muted" id="riskAsOf" style="text-transform:none;letter-spacing:0"></span></h2>
+      <div id="riskBody" class="empty">Enter holdings and press <b>Analyze risk</b>.</div>
+    </section>
+
+    <section class="card" id="projCard">
+      <h2>Projection <span class="grow"></span><span class="muted" id="projAsOf" style="text-transform:none;letter-spacing:0"></span></h2>
+      <div id="projBody" class="empty">Press <b>Project</b> to simulate 4,000 paths of this portfolio.</div>
+    </section>
+  </div>
+
+  <section class="card span2" id="optCard">
+    <h2>Optimizer <span class="grow"></span><span class="muted" id="optAsOf" style="text-transform:none;letter-spacing:0"></span></h2>
+    <div id="optBody" class="empty">Press <b>Optimize</b> to compare min-variance, max-Sharpe and risk-parity weights for your holdings.</div>
+  </section>
+
+  <section class="card span2">
+    <h2>Intraday signal board <span class="grow"></span>
+      <span class="muted" id="sigAsOf" style="text-transform:none;letter-spacing:0"></span>
+      <button class="ghost" id="goScan" style="padding:4px 10px;font-size:12px">Rescan</button></h2>
+    <div id="sigBody" class="empty">Loading today's setups…</div>
+  </section>
+
+  <section class="card span2">
+    <h2>Does each rule work? Last ~60 sessions, 5-minute bars</h2>
+    <div id="btBody" class="empty">Loading the backtest…</div>
+  </section>
+
+  <section class="card span2">
+    <h2>Paper journal <span class="grow"></span><span class="muted" id="jOpen" style="text-transform:none;letter-spacing:0"></span></h2>
+    <div id="jBody" class="empty">Loading…</div>
+  </section>
+</main>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const pct = (x, d = 1) => x == null ? '—' : (x * 100).toFixed(d) + '%';
+const usd = (x, d = 0) => x == null ? '—' : (x < 0 ? '-$' : '$') + Math.abs(x).toLocaleString(undefined, {maximumFractionDigits: d, minimumFractionDigits: d});
+const short = (x) => Math.abs(x) >= 1e6 ? '$' + (x / 1e6).toFixed(1) + 'M' : Math.abs(x) >= 1e3 ? '$' + Math.round(x / 1e3) + 'k' : '$' + Math.round(x);
+const store = { get(k, d) { try { return localStorage.getItem(k) ?? d; } catch (e) { return d; } }, set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} } };
+const RULE = {orb_long: 'Opening-range breakout', orb_short: 'Opening-range breakdown', vwap_reclaim: 'VWAP reclaim', vwap_loss: 'VWAP loss',
+              rsi_bounce: 'RSI(14) back above 30', rsi_fade: 'RSI(14) back below 70', gap_and_go: 'Gap-and-go'};
+
+$('holdings').value = store.get('quant.holdings', 'NVDA 40\nAAPL 30\nMSFT 15\nJPM 20\nXOM 25');
+$('holdings').addEventListener('input', () => store.set('quant.holdings', $('holdings').value));
+
+// The desk's 💼 My Portfolio keeps holdings in this browser (same origin): manual or Robinhood-synced.
+$('goImport').onclick = () => {
+  let src = 'manual', rows = [];
+  try { src = localStorage.getItem('stockAgentPortfolioSource') || 'manual';
+        rows = JSON.parse(localStorage.getItem(src === 'robinhood' ? 'stockAgentPortfolioRobinhood' : 'stockAgentPortfolio')) || []; } catch (e) {}
+  rows = rows.filter(h => h && h.ticker && +h.shares > 0);
+  if (!rows.length) { $('holdErr').textContent = 'My Portfolio is empty in this browser — add holdings there, or type them here.'; return; }
+  $('holdings').value = rows.map(h => `${String(h.ticker).toUpperCase()} ${+h.shares}`).join('\n');
+  store.set('quant.holdings', $('holdings').value); $('holdErr').textContent = '';
+};
+
+function parseHoldings() {
+  const out = [], bad = [];
+  for (const raw of $('holdings').value.split('\n')) {
+    const line = raw.trim().replace(/,/g, ' ');
+    if (!line || line.startsWith('#')) continue;
+    const m = line.match(/^([A-Za-z0-9.\-^=]{1,10})\s+(\$)?\s*([\d.]+)\s*$/);
+    if (!m) { bad.push(raw.trim()); continue; }
+    out.push(m[2] ? {symbol: m[1].toUpperCase(), value: +m[3]} : {symbol: m[1].toUpperCase(), shares: +m[3]});
+  }
+  $('holdErr').textContent = bad.length ? `Couldn't read: ${bad.join(', ')} — use "NVDA 40" or "NVDA $5000".` : '';
+  return bad.length ? null : out;
+}
+
+async function post(url, body) {
+  const r = await fetch(url, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)});
+  const d = await r.json();
+  if (!r.ok) throw new Error(d.error || r.statusText);
+  return d;
+}
+async function busy(btn, fn) { btn.disabled = true; try { await fn(); } finally { btn.disabled = false; } }
+
+// ── Risk ────────────────────────────────────────────────────────────────
+function corrColor(c) {            // diverging: blue (−1) … neutral gray (0) … orange (+1)
+  const mix = (a, b, t) => a.map((x, i) => Math.round(x + (b[i] - x) * t));
+  const neg = [59, 130, 246], mid = [43, 54, 72], pos = [249, 115, 22];
+  const rgb = c >= 0 ? mix(mid, pos, Math.min(1, c)) : mix(mid, neg, Math.min(1, -c));
+  return `rgb(${rgb.join(',')})`;
+}
+$('goRisk').onclick = () => { const h = parseHoldings(); if (!h) return; busy($('goRisk'), async () => {
+  $('riskBody').innerHTML = '<div class="empty">Measuring…</div>';
+  try {
+    const d = await post('/api/quant/risk', {holdings: h, years: +$('years').value});
+    const p = d.portfolio;
+    $('riskAsOf').textContent = `${d.window} · as of ${d.as_of}`;
+    const maxW = Math.max(...d.holdings.map(x => Math.max(x.weight, x.risk_share)));
+    const rows = d.holdings.map(x => `<tr><td><b>${esc(x.symbol)}</b></td><td class="num">${usd(x.value)}</td>
+      <td style="min-width:160px"><div class="bar" title="weight ${pct(x.weight)}"><i style="width:${x.weight / maxW * 100}%;background:var(--c1)"></i></div>
+        <div class="bar" style="margin-top:3px" title="risk share ${pct(x.risk_share)}"><i style="width:${Math.max(0, x.risk_share) / maxW * 100}%;background:var(--c2)"></i></div></td>
+      <td class="num">${pct(x.weight)}</td><td class="num">${pct(x.risk_share)}</td><td class="num">${pct(x.vol_ann)}</td>
+      <td class="num">${x.beta ?? '—'}</td><td class="num down">${pct(x.max_drawdown)}</td></tr>`).join('');
+    const S = d.correlation.symbols, M = d.correlation.matrix;
+    const heat = `<table class="heat" style="width:auto"><tr><th></th>${S.map(s => `<th>${esc(s)}</th>`).join('')}</tr>` +
+      M.map((r, i) => `<tr><th>${esc(S[i])}</th>${r.map((c, j) => `<td title="${esc(S[i])} vs ${esc(S[j])}: ${c.toFixed(2)}" style="background:${i === j ? 'var(--bg3)' : corrColor(c)}">${i === j ? '' : c.toFixed(2)}</td>`).join('')}</tr>`).join('') + '</table>';
+    $('riskBody').className = '';
+    $('riskBody').innerHTML = `
+      <div class="kpis">
+        <div class="kpi"><div class="v">${usd(d.total_value)}</div><div class="l">value</div></div>
+        <div class="kpi"><div class="v">${pct(p.vol_ann)}</div><div class="l">volatility / yr</div></div>
+        <div class="kpi"><div class="v">${p.beta ?? '—'}</div><div class="l">beta vs SPY</div></div>
+        <div class="kpi"><div class="v down">${pct(p.max_drawdown)}</div><div class="l">worst drawdown in window</div></div>
+        <div class="kpi"><div class="v">${usd(p.var95_1d_usd)}</div><div class="l">1-day 95% VaR (${pct(p.var95_1d, 2)})</div></div>
+        <div class="kpi"><div class="v">${pct(p.cvar95_1d, 2)}</div><div class="l">avg loss on the worst 5% of days</div></div>
+        <div class="kpi"><div class="v">${p.diversification_ratio ?? '—'}×</div><div class="l">diversification ratio</div></div>
+      </div>
+      <div class="legend"><span style="--sw:var(--c1)">weight</span><span style="--sw:var(--c2)">share of portfolio risk</span></div>
+      <div class="scroll"><table><tr><th>Symbol</th><th class="num">Value</th><th>Weight vs risk</th><th class="num">Weight</th><th class="num">Risk share</th><th class="num">Vol / yr</th><th class="num">Beta</th><th class="num">Max DD</th></tr>${rows}</table></div>
+      <p class="note"><b>${esc(p.largest_risk)}</b> carries the most risk.${d.most_correlated_pair ? ` Most correlated pair: <b>${esc(d.most_correlated_pair.a)}</b> & <b>${esc(d.most_correlated_pair.b)}</b> (${d.most_correlated_pair.corr.toFixed(2)}) — they tend to fall together.` : ''}
+      ${d.missing.length ? ` No price history for ${esc(d.missing.join(', '))}.` : ''}</p>
+      <h2 style="margin-top:14px">Correlation (daily returns)</h2>
+      <div class="legend"><span style="--sw:rgb(59,130,246)">moves opposite (−1)</span><span style="--sw:rgb(43,54,72)">unrelated (0)</span><span style="--sw:rgb(249,115,22)">moves together (+1)</span></div>
+      <div class="scroll">${heat}</div>
+      <p class="note">Historical: ${esc(d.window)}. VaR is the 5th-percentile day of the portfolio's own history at today's weights. ${esc(d.source)}.</p>`;
+  } catch (e) { $('riskBody').innerHTML = `<div class="err">${esc(e.message)}</div>`; }
+}); };
+
+// ── Optimizer ───────────────────────────────────────────────────────────
+let OPT = null, optPick = 'max_sharpe';
+const MNAME = {min_variance: 'Min variance', max_sharpe: 'Max Sharpe', risk_parity: 'Risk parity'};
+function renderOpt() {
+  const d = OPT, methods = Object.keys(MNAME);
+  const rb = d[methods[0]].rebalance, now = rb ? rb.current_weights : {};
+  const syms = [...new Set([...Object.keys(now), ...methods.flatMap(m => Object.keys(d[m].weights))])];
+  const head = `<tr><th>Symbol</th>${rb ? '<th class="num">Now</th>' : ''}${methods.map(m => `<th class="num">${MNAME[m]}</th>`).join('')}</tr>`;
+  const body = syms.map(s => `<tr><td><b>${esc(s)}</b></td>${rb ? `<td class="num muted">${pct(now[s] || 0)}</td>` : ''}${methods.map(m => `<td class="num">${pct(d[m].weights[s] || 0)}</td>`).join('')}</tr>`).join('');
+  const foot = ['expected_return_ann', 'vol_ann', 'sharpe'].map(k => `<tr><td class="muted">${{expected_return_ann: 'In-sample return / yr', vol_ann: 'Volatility / yr', sharpe: 'In-sample Sharpe'}[k]}</td>${rb ? '<td></td>' : ''}${methods.map(m => `<td class="num">${k === 'sharpe' ? d[m][k] : pct(d[m][k])}</td>`).join('')}</tr>`).join('');
+  const r = d[optPick].rebalance;
+  const trades = r ? (r.trades.length ? `<div class="scroll"><table><tr><th>Symbol</th><th>Change</th><th class="num">$</th><th class="num">Shares</th><th class="num">At</th><th class="num">Weight</th></tr>${r.trades.map(t => `<tr><td><b>${esc(t.symbol)}</b></td><td class="${t.action === 'add' ? 'up' : 'down'}">${t.action}</td><td class="num">${usd(t.usd)}</td><td class="num">${t.shares.toFixed(2)}</td><td class="num">${usd(t.price, 2)}</td><td class="num">${pct(t.from_weight)} → ${pct(t.to_weight)}</td></tr>`).join('')}</table></div><p class="note">Turnover ${pct(r.turnover)}. ${esc(r.note)}</p>` : '<p class="note">Already within $50 of these weights.</p>') : '';
+  $('optBody').className = '';
+  $('optBody').innerHTML = `<div class="scroll"><table>${head}${body}${foot}</table></div>
+    ${r ? `<h2 style="margin-top:14px">Moves to reach <span class="seg" id="optSeg">${methods.map(m => `<button data-m="${m}" class="${m === optPick ? 'on' : ''}">${MNAME[m]}</button>`).join('')}</span></h2>${trades}` : ''}
+    <p class="note">${esc(d[methods[0]].assumptions)} Cap per name: ${pct(d[methods[0]].max_weight, 0)}. A comparison, not advice.</p>`;
+  const seg = $('optSeg'); if (seg) seg.onclick = (e) => { if (e.target.dataset.m) { optPick = e.target.dataset.m; renderOpt(); } };
+}
+$('goOpt').onclick = () => { const h = parseHoldings(); if (!h) return; busy($('goOpt'), async () => {
+  $('optBody').innerHTML = '<div class="empty">Optimizing…</div>';
+  try {
+    OPT = await post('/api/quant/optimize', {holdings: h, method: 'all', max_weight: +$('cap').value, years: +$('years').value});
+    $('optAsOf').textContent = `${OPT.max_sharpe.window} · as of ${OPT.max_sharpe.as_of}`;
+    renderOpt();
+  } catch (e) { $('optBody').innerHTML = `<div class="err">${esc(e.message)}</div>`; }
+}); };
+
+// ── Projection (fan chart) ──────────────────────────────────────────────
+let drift = 'conservative';
+$('pDrift').onclick = (e) => { if (!e.target.dataset.v) return; drift = e.target.dataset.v; [...$('pDrift').children].forEach(b => b.classList.toggle('on', b.dataset.v === drift)); };
+function fan(d, W) {
+  const H = 300, L = 58, R = 16, T = 14, B = 30, n = d.years;
+  const P = d.percentiles, inv = Array.from({length: n + 1}, (_, y) => d.start_value + d.monthly_contribution * 12 * y);
+  const top = Math.max(...P[95], d.goal || 0) * 1.05;
+  const x = (y) => L + (W - L - R) * y / n, yv = (v) => T + (H - T - B) * (1 - v / top);
+  const area = (lo, hi) => 'M' + lo.map((v, i) => `${x(i)},${yv(v)}`).join('L') + 'L' + hi.map((v, i) => `${x(n - i)},${yv(hi[n - i])}`).join('L') + 'Z';
+  const line = (a) => 'M' + a.map((v, i) => `${x(i)},${yv(v)}`).join('L');
+  const ticks = 4, grid = Array.from({length: ticks + 1}, (_, i) => top * i / ticks);
+  const xt = Array.from({length: n + 1}, (_, i) => i).filter(i => n <= 10 || i % Math.ceil(n / 10) === 0 || i === n);
+  return `<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" style="max-width:100%;height:auto" role="img" aria-label="Projected portfolio value by year">
+    ${grid.map(g => `<line x1="${L}" x2="${W - R}" y1="${yv(g)}" y2="${yv(g)}" stroke="#1e2d45" stroke-width="1"/><text x="${L - 6}" y="${yv(g) + 4}" text-anchor="end">${short(g)}</text>`).join('')}
+    ${xt.map(i => `<text x="${x(i)}" y="${H - 10}" text-anchor="middle">${i === 0 ? 'now' : 'yr ' + i}</text>`).join('')}
+    <path d="${area(P[5], P[95])}" fill="#3b9eff" opacity=".16"/>
+    <path d="${area(P[25], P[75])}" fill="#3b9eff" opacity=".32"/>
+    <path d="${line(inv)}" fill="none" stroke="#8796b5" stroke-width="2" stroke-dasharray="5 4"/>
+    ${d.goal ? `<line x1="${L}" x2="${W - R}" y1="${yv(d.goal)}" y2="${yv(d.goal)}" stroke="#f59e0b" stroke-width="1.5" stroke-dasharray="2 4"/><text x="${W - R}" y="${yv(d.goal) - 5}" text-anchor="end" style="fill:#f59e0b">goal ${short(d.goal)}</text>` : ''}
+    <path d="${line(P[50])}" fill="none" stroke="#3b9eff" stroke-width="2.5"/>
+    <line id="fanX" x1="0" x2="0" y1="${T}" y2="${H - B}" stroke="#8796b5" stroke-width="1" visibility="hidden"/>
+    <rect id="fanHit" x="${L}" y="${T}" width="${W - L - R}" height="${H - T - B}" fill="transparent"/>
+  </svg>`;
+}
+$('goProj').onclick = () => { const h = parseHoldings(); if (!h) return; busy($('goProj'), async () => {
+  $('projBody').innerHTML = '<div class="empty">Simulating 4,000 paths…</div>';
+  try {
+    const goal = +$('pGoal').value || null;
+    const d = await post('/api/quant/project', {holdings: h, years: +$('pYears').value, monthly_contribution: +$('pMonthly').value,
+                                                 goal, drift, expected_return: +$('pExp').value});
+    $('projAsOf').textContent = `history ${d.history}`;
+    const P = d.percentiles, n = d.years;
+    $('projBody').className = '';
+    $('projBody').innerHTML = `<div class="kpis">
+        <div class="kpi"><div class="v">${usd(d.median_end)}</div><div class="l">median in ${n} yr</div></div>
+        <div class="kpi"><div class="v">${usd(P[5][n])} – ${usd(P[95][n])}</div><div class="l">90% of paths</div></div>
+        <div class="kpi"><div class="v">${usd(d.invested)}</div><div class="l">you put in</div></div>
+        <div class="kpi"><div class="v ${d.prob_loss > .25 ? 'down' : ''}">${pct(d.prob_loss, 0)}</div><div class="l">chance of ending below that</div></div>
+        ${d.goal ? `<div class="kpi"><div class="v">${pct(d.prob_goal, 0)}</div><div class="l">chance of reaching ${short(d.goal)}</div></div>` : ''}
+      </div>
+      <div class="legend"><span style="--sw:#3b9eff">median path</span><span style="--sw:rgba(59,158,255,.45)">middle 50% of paths</span><span style="--sw:rgba(59,158,255,.2)">90% of paths</span><span style="--sw:#8796b5">amount invested</span>${d.goal ? '<span style="--sw:#f59e0b">goal</span>' : ''}</div>
+      <div id="fanWrap"><div id="fanTip"></div></div>
+      <p class="note">${esc(d.assumptions)} The window's own history: ${pct(d.hist_return_ann)} a year at ${pct(d.hist_vol_ann)} volatility.</p>
+      <details class="note"><summary>Table view</summary><div class="scroll"><table><tr><th>Year</th><th class="num">5th pct</th><th class="num">25th</th><th class="num">Median</th><th class="num">75th</th><th class="num">95th</th></tr>
+      ${P[50].map((_, y) => `<tr><td>${y}</td>${[5, 25, 50, 75, 95].map(p => `<td class="num">${usd(P[p][y])}</td>`).join('')}</tr>`).join('')}</table></div></details>`;
+    const wrap = $('fanWrap'), W = Math.max(320, Math.round(wrap.clientWidth));
+    wrap.insertAdjacentHTML('afterbegin', fan(d, W));
+    const svg = wrap.querySelector('svg'), tip = $('fanTip'), hit = $('fanHit'), xl = $('fanX');
+    const L = 58, R = 16;
+    hit.addEventListener('mousemove', (ev) => {
+      const box = svg.getBoundingClientRect(), sx = W / box.width, px = (ev.clientX - box.left) * sx;
+      const y = Math.max(0, Math.min(n, Math.round((px - L) / (W - L - R) * n))), X = L + (W - L - R) * y / n;
+      xl.setAttribute('x1', X); xl.setAttribute('x2', X); xl.setAttribute('visibility', 'visible');
+      tip.style.display = 'block';
+      tip.innerHTML = `<b>${y === 0 ? 'Now' : 'Year ' + y}</b><br>median ${usd(P[50][y])}<br>middle 50%: ${usd(P[25][y])} – ${usd(P[75][y])}<br>90%: ${usd(P[5][y])} – ${usd(P[95][y])}<br><span class="muted">invested ${usd(d.start_value + d.monthly_contribution * 12 * y)}</span>`;
+      const left = X / sx + 12; tip.style.left = (left + tip.offsetWidth > box.width ? X / sx - tip.offsetWidth - 12 : left) + 'px'; tip.style.top = '10px';
+    });
+    hit.addEventListener('mouseleave', () => { tip.style.display = 'none'; xl.setAttribute('visibility', 'hidden'); });
+  } catch (e) { $('projBody').innerHTML = `<div class="err">${esc(e.message)}</div>`; }
+}); };
+
+// ── Signals, backtest, journal ──────────────────────────────────────────
+const edge = (r) => r && r.avg_r > 0 && r.t_stat != null && r.t_stat >= 2;
+function recCell(r) {
+  if (!r) return '<span class="muted">no record</span>';
+  return `<span class="${r.avg_r >= 0 ? 'up' : 'down'}">${r.avg_r >= 0 ? '+' : ''}${r.avg_r.toFixed(2)}R</span> <span class="muted">· ${r.n} trades · ${pct(r.win_rate, 0)} won</span> ${edge(r) ? '<span class="tag edge">edge</span>' : '<span class="tag noedge">no proven edge</span>'}`;
+}
+function sigRow(s, fresh) {
+  return `<tr class="${fresh ? 'flash' : ''}"><td><b>${esc(s.symbol)}</b></td><td>${esc(RULE[s.rule] || s.rule)} <span class="tag ${s.side}">${s.side}</span></td>
+    <td>${esc(String(s.ts).slice(11, 16))}</td><td class="num">${usd(s.entry, 2)}</td><td class="num down">${usd(s.stop, 2)}</td><td class="num up">${usd(s.target, 2)}</td>
+    <td class="num">${s.rvol != null ? s.rvol.toFixed(1) + '×' : '—'}</td><td>${recCell(s.rule_record)}</td></tr>`;
+}
+let SIGS = [];
+function renderSigs() {
+  $('sigBody').className = '';
+  $('sigBody').innerHTML = SIGS.length ? `<div class="scroll"><table><tr><th>Symbol</th><th>Setup</th><th>ET</th><th class="num">Entry</th><th class="num">Stop</th><th class="num">2R target</th><th class="num">Rel. volume</th><th>This rule's record</th></tr>${SIGS.map(s => sigRow(s, s._fresh)).join('')}</table></div>
+    <p class="note">Signals on the last session's completed 5-minute bars. Research only — paper-tracked in the journal below, never sent anywhere.</p>`
+    : '<div class="empty">No setups on the scan list in the latest session yet.</div>';
+}
+async function scan() {
+  try {
+    const d = await (await fetch('/api/quant/scan')).json();
+    if (d.error) throw new Error(d.error);
+    SIGS = d.signals; renderSigs();
+    $('sigAsOf').textContent = `${d.symbols.length} symbols · last bar ${d.as_of ? d.as_of.slice(0, 16).replace('T', ' ') : '—'}`;
+    renderBt(d.backtest, d.backtest_trades);
+  } catch (e) { $('sigBody').innerHTML = `<div class="err">${esc(e.message)}</div>`; }
+}
+function renderBt(by, trades) {
+  const rows = Object.entries(by).map(([k, r]) => `<tr><td>${esc(RULE[k] || k)}</td><td class="num">${r.n}</td><td class="num">${pct(r.win_rate, 0)}</td>
+    <td class="num ${r.avg_r >= 0 ? 'up' : 'down'}">${r.avg_r >= 0 ? '+' : ''}${r.avg_r.toFixed(2)}R</td><td class="num">${pct(r.target_rate, 0)}</td>
+    <td class="num">${r.total_r >= 0 ? '+' : ''}${r.total_r}R</td><td class="num">${r.t_stat ?? '—'}</td><td>${edge(r) ? '<span class="tag edge">edge</span>' : '<span class="tag noedge">no proven edge</span>'}</td></tr>`).join('');
+  $('btBody').className = '';
+  $('btBody').innerHTML = `<div class="scroll"><table><tr><th>Rule</th><th class="num">Trades</th><th class="num">Won</th><th class="num">Avg R</th><th class="num">Hit 2R</th><th class="num">Total R</th><th class="num">t-stat</th><th></th></tr>${rows}</table></div>
+    <p class="note">${trades} trades. Entry at the signal bar's close; stop counted first when a bar touches both; otherwise out at the day's close. No costs or slippage, so real results would be lower. "Edge" needs a positive average and a t-stat of 2 or more.</p>`;
+}
+async function journal() {
+  try {
+    const d = await (await fetch('/api/quant/journal')).json();
+    $('jOpen').textContent = `${d.open} open`;
+    const st = Object.entries(d.stats);
+    $('jBody').className = '';
+    $('jBody').innerHTML = (st.length ? `<div class="legend">${st.map(([k, s]) => `<b style="color:var(--text)">${esc(RULE[k] || k)}</b>&nbsp;${s.n} closed · ${pct(s.win_rate, 0)} won · ${s.avg_r >= 0 ? '+' : ''}${s.avg_r}R avg`).join(' &nbsp;·&nbsp; ')}</div>` : '') +
+      (d.recent.length ? `<div class="scroll"><table><tr><th>Logged</th><th>Symbol</th><th>Setup</th><th class="num">Entry</th><th class="num">Stop</th><th class="num">Target</th><th>Status</th><th class="num">R</th></tr>${d.recent.map(r => `<tr><td>${esc(String(r.ts).slice(0, 16))}</td><td><b>${esc(r.symbol)}</b></td><td>${esc(RULE[r.rule] || r.rule)}</td><td class="num">${usd(r.entry, 2)}</td><td class="num">${usd(r.stop, 2)}</td><td class="num">${usd(r.target, 2)}</td><td>${esc(r.status)}</td><td class="num ${r.r > 0 ? 'up' : r.r < 0 ? 'down' : ''}">${r.r == null ? '—' : (r.r >= 0 ? '+' : '') + r.r.toFixed(2)}</td></tr>`).join('')}</table></div>`
+        : '<div class="empty">Nothing logged yet. With the live feed on, fresh setups are logged every 5 minutes in market hours and graded at stop, target or the close.</div>');
+  } catch (e) { $('jBody').innerHTML = `<div class="err">${esc(e.message)}</div>`; }
+}
+$('goScan').onclick = () => busy($('goScan'), scan);
+
+// Live: new signals and closed paper trades stream in when the feed is on.
+fetch('/api/live').then(r => r.json()).then(s => {
+  const on = s.enabled && s.running;
+  $('livePill').textContent = on ? 'live feed: on' : 'live feed: off';
+  $('livePill').classList.toggle('on', !!on);
+  if (!s.enabled) return;
+  const es = new EventSource('/api/live/stream?kinds=signal,signal_close');
+  es.addEventListener('message', (m) => handle(m));
+  ['signal', 'signal_close'].forEach(k => es.addEventListener(k, (m) => handle(m)));
+  function handle(m) {
+    let ev; try { ev = JSON.parse(m.data); } catch (e) { return; }
+    if (ev.kind === 'signal') { const v = {...ev.value, _fresh: true}; if (!SIGS.some(s => s.symbol === v.symbol && s.rule === v.rule && s.ts === v.ts)) { SIGS.unshift(v); renderSigs(); } }
+    if (ev.kind === 'signal_close' || ev.kind === 'signal') journal();
+  }
+}).catch(() => { $('livePill').textContent = 'live feed: off'; });
+
+scan(); journal();
+</script>
+</body>
+</html>

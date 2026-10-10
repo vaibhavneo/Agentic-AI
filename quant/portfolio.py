@@ -156,6 +156,7 @@ def rebalance(holdings: Sequence[Dict[str, Any]], target: Dict[str, float], cash
                        "from_weight": round(cur / total, 4), "to_weight": round(target.get(s, 0.0), 4)})
     turnover = sum(abs(t["usd"]) for t in trades) / 2 / total if total else 0
     return {"total_value": round(total, 2), "trades": sorted(trades, key=lambda t: t["usd"]),
+            "current_weights": {s: round(vals.get(s, 0.0) / total, 4) for s in syms} if total else {},
             "turnover": round(turnover, 4), "note": "Trades to move from current to target weights at the last close. "
                                                     "Taxes and costs are not included."}
 
@@ -202,11 +203,15 @@ def project(holdings: Sequence[Dict[str, Any]], years: int = 10, monthly_contrib
            "prob_loss": round(float((wealth[:, -1] < invested).mean()), 3),
            "hist_return_ann": round(hist_ret, 4),
            "hist_vol_ann": round(float(port.std() * np.sqrt(TRADING_DAYS)), 4),
+           # The average year and the typical compounded year differ by the volatility drag.
+           "typical_growth_ann": round(float(np.expm1(np.log1p(port).mean() * TRADING_DAYS)), 4),
            "drift": drift, "expected_return": expected_return if drift == "conservative" else round(hist_ret, 4),
            "assumptions": ("the portfolio's own daily returns over the history window, resampled in 21-day blocks; "
                            "weights held constant; " +
-                           (f"the average re-centred on {expected_return:.0%} a year (the window returned "
+                           (f"the average year re-centred on {expected_return:.0%} (the window returned "
                             f"{hist_ret:.1%} a year)" if drift == "conservative" else "the window's own average")
+                           + f"; at this volatility the typical compounded growth is "
+                             f"{float(np.expm1(np.log1p(port).mean() * TRADING_DAYS)):.1%} a year"
                            + ". A range of outcomes, not a forecast.")}
     if goal:
         out["goal"] = goal

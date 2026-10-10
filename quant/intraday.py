@@ -69,10 +69,14 @@ def _signals_for_day(d: pd.DataFrame, prev_close: Optional[float]) -> List[Dict[
     if len(d) < 8:
         return out
     fired = set()
+    o, h, l, c = (d[k].to_numpy(float) for k in ("open", "high", "low", "close"))
+    vw, rsi = d["vwap"].to_numpy(float), d["rsi"].to_numpy(float)
+    rvol = np.nan_to_num(d["rvol"].to_numpy(float), nan=0.0)
+    mins = d.index.hour * 60 + d.index.minute
+    T10, T1530 = 10 * 60, 15 * 60 + 30
 
     def emit(i, rule, stop):
-        row = d.iloc[i]
-        entry = float(row["close"])
+        entry = float(c[i])
         risk = abs(entry - stop)
         if rule in fired or risk <= 0 or risk / entry < 0.001:
             return
@@ -81,43 +85,33 @@ def _signals_for_day(d: pd.DataFrame, prev_close: Optional[float]) -> List[Dict[
         out.append({"rule": rule, "side": "long" if long else "short", "i": i, "ts": d.index[i],
                     "entry": round(entry, 4), "stop": round(float(stop), 4),
                     "target": round(entry + (R_TARGET * risk if long else -R_TARGET * risk), 4),
-                    "rvol": None if pd.isna(row["rvol"]) else round(float(row["rvol"]), 2)})
+                    "rvol": round(float(rvol[i]), 2) if rvol[i] else None})
 
-    orh, orl = float(d["high"].iloc[:6].max()), float(d["low"].iloc[:6].min())
-    below = 0
-    above = 0
+    orh, orl = float(h[:6].max()), float(l[:6].min())
+    below = above = 0
     for i in range(1, len(d)):
-        row, prev = d.iloc[i], d.iloc[i - 1]
-        t = d.index[i].time()
-        rv = row["rvol"] if not pd.isna(row["rvol"]) else 0
-        lo6, hi6 = float(d["low"].iloc[max(0, i - 5):i + 1].min()), float(d["high"].iloc[max(0, i - 5):i + 1].max())
-        if i >= 6 and t >= dtime(10, 0) and t < dtime(15, 30):
-            if row["close"] > orh and prev["close"] <= orh and rv >= MIN_RVOL:
+        t = mins[i]
+        lo6, hi6 = float(l[max(0, i - 5):i + 1].min()), float(h[max(0, i - 5):i + 1].max())
+        if i >= 6 and T10 <= t < T1530:
+            if c[i] > orh >= c[i - 1] and rvol[i] >= MIN_RVOL:
                 emit(i, "orb_long", orl)
-            if row["close"] < orl and prev["close"] >= orl and rv >= MIN_RVOL:
+            if c[i] < orl <= c[i - 1] and rvol[i] >= MIN_RVOL:
                 emit(i, "orb_short", orh)
-        if t < dtime(15, 30):
-            if prev["close"] < prev["vwap"]:
-                below += 1
-            else:
-                below = 0
-            if prev["close"] > prev["vwap"]:
-                above += 1
-            else:
-                above = 0
-            if below >= 3 and row["close"] > row["vwap"] and rv >= MIN_RVOL:
+        if t < T1530:
+            below = below + 1 if c[i - 1] < vw[i - 1] else 0
+            above = above + 1 if c[i - 1] > vw[i - 1] else 0
+            if below >= 3 and c[i] > vw[i] and rvol[i] >= MIN_RVOL:
                 emit(i, "vwap_reclaim", lo6)
-            if above >= 3 and row["close"] < row["vwap"] and rv >= MIN_RVOL:
+            if above >= 3 and c[i] < vw[i] and rvol[i] >= MIN_RVOL:
                 emit(i, "vwap_loss", hi6)
-            if not pd.isna(prev["rsi"]) and not pd.isna(row["rsi"]):
-                if prev["rsi"] < 30 <= row["rsi"]:
+            if not (np.isnan(rsi[i - 1]) or np.isnan(rsi[i])):
+                if rsi[i - 1] < 30 <= rsi[i]:
                     emit(i, "rsi_bounce", lo6)
-                if prev["rsi"] > 70 >= row["rsi"]:
+                if rsi[i - 1] > 70 >= rsi[i]:
                     emit(i, "rsi_fade", hi6)
         if i == 2 and prev_close:
-            day_open = float(d["open"].iloc[0])
-            if day_open / prev_close - 1 >= 0.02 and row["close"] > day_open:
-                emit(i, "gap_and_go", float(d["low"].iloc[:3].min()))
+            if o[0] / prev_close - 1 >= 0.02 and c[i] > o[0]:
+                emit(i, "gap_and_go", float(l[:3].min()))
     return out
 
 
@@ -125,14 +119,16 @@ def grade(sig: Dict[str, Any], later: pd.DataFrame) -> Dict[str, Any]:
     """Outcome on the bars after the signal: stop first if a bar touches both."""
     entry, stop, target, long = sig["entry"], sig["stop"], sig["target"], sig["side"] == "long"
     risk = abs(entry - stop)
-    for ts, b in later.iterrows():
-        hit_stop = b["low"] <= stop if long else b["high"] >= stop
-        hit_tgt = b["high"] >= target if long else b["low"] <= target
-        if hit_stop:
-            return {"outcome": "stop", "exit": stop, "r": -1.0, "exit_ts": str(ts)}
-        if hit_tgt:
-            return {"outcome": "target", "exit": target, "r": R_TARGET, "exit_ts": str(ts)}
     if len(later):
+        hi, lo = later["high"].to_numpy(float), later["low"].to_numpy(float)
+        hit_stop = lo <= stop if long else hi >= stop
+        hit_tgt = hi >= target if long else lo <= target
+        either = np.flatnonzero(hit_stop | hit_tgt)
+        if len(either):
+            k = int(either[0])
+            if hit_stop[k]:
+                return {"outcome": "stop", "exit": stop, "r": -1.0, "exit_ts": str(later.index[k])}
+            return {"outcome": "target", "exit": target, "r": R_TARGET, "exit_ts": str(later.index[k])}
         last = float(later["close"].iloc[-1])
         r = ((last - entry) if long else (entry - last)) / risk
         return {"outcome": "close", "exit": round(last, 4), "r": round(r, 3), "exit_ts": str(later.index[-1])}

@@ -2136,6 +2136,11 @@ def live_stream_endpoint():
                     mimetype="text/event-stream", headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
 
 
+# ── Quant Lab (web/quant_api.py): risk, optimizer, projection, intraday signals ──
+from web.quant_api import bp as _quant_bp
+app.register_blueprint(_quant_bp)
+
+
 # ── AI Chat: the desk + web research, then grounded synthesis ─────────────────
 @app.route("/api/assistant/status")
 def assistant_status_endpoint():

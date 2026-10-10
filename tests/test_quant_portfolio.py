@@ -107,3 +107,26 @@ def test_conservative_drift_recentres_the_mean(market):
     lo = Q.project(H, years=10, paths=800, history_years=5, expected_return=0.02, http=http)
     hi = Q.project(H, years=10, paths=800, history_years=5, expected_return=0.10, http=http)
     assert lo["median_end"] < hi["median_end"] and "re-centred on 2%" in lo["assumptions"]
+
+
+def test_todays_empty_daily_row_is_filled_from_the_same_day_quote(tmp_path, monkeypatch):
+    monkeypatch.setattr(P, "CACHE", tmp_path)
+    day = 86400
+    t0 = 1791552600 - 2 * day                                  # two sessions before 2026-10-09 09:30 ET
+    payload = lambda when: {"chart": {"result": [{
+        "timestamp": [t0, t0 + day, t0 + 2 * day],
+        "meta": {"regularMarketPrice": 229.28, "regularMarketTime": when, "regularMarketDayHigh": 233.0},
+        "indicators": {"quote": [{"open": [1, 2, None], "high": [1, 2, None], "low": [1, 2, None],
+                                  "close": [237.47, 230.48, None], "volume": [1, 1, None]}],
+                       "adjclose": [{"adjclose": [237.47, 230.48, None]}]}}]}}
+    d = P.daily("ZZZ", 3, http=lambda url: payload(1791576000))          # 16:00 ET the same day
+    assert str(d.index[-1].date()) == "2026-10-09" and d["adjclose"].iloc[-1] == 229.28 and d["high"].iloc[-1] == 233.0
+    for f in tmp_path.iterdir():
+        f.unlink()
+    d = P.daily("ZZZ", 3, http=lambda url: payload(1791576000 - day))    # the quote is yesterday's: no fill
+    assert str(d.index[-1].date()) == "2026-10-08"
+    for f in tmp_path.iterdir():
+        f.unlink()
+    live = payload(1791560000)                                          # mid-session
+    live["chart"]["result"][0]["meta"]["currentTradingPeriod"] = {"regular": {"end": 1791576000}}
+    assert str(P.daily("ZZZ", 3, http=lambda url: live).index[-1].date()) == "2026-10-08"
