@@ -2163,8 +2163,12 @@ def assistant_stream_endpoint():
     if len(q) > 500:
         return jsonify({"error": "Message too long (500 characters max)"}), 400
     history = data.get("history") if isinstance(data.get("history"), list) else None
-    events = assistant.stream(assistant_team.run_stream(q, data.get("session_id")), q,
-                              assistant_team.APP_DESCRIPTION, history=history)
+    holdings = data.get("holdings") if isinstance(data.get("holdings"), list) else None
+    # The user's own portfolio is only ever written up by a local model.
+    from mas.converse.quant_agents import is_personal
+    events = assistant.stream(assistant_team.run_stream(q, data.get("session_id"), holdings=holdings), q,
+                              assistant_team.APP_DESCRIPTION, history=history,
+                              local_only=bool(holdings) and is_personal(q))
     return Response(stream_with_context(sse(events)), mimetype="text/event-stream",
                     headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
 

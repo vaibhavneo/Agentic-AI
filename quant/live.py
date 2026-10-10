@@ -85,7 +85,7 @@ def backtest_today(symbols: Optional[Sequence[str]] = None, http=None) -> Dict[s
 
 def scan_all(symbols: Optional[Sequence[str]] = None, http=None, now: Optional[pd.Timestamp] = None) -> Dict[str, Any]:
     syms = [s.upper() for s in (symbols or SCAN)]
-    bt = backtest_today(syms if symbols else None, http=http)
+    bt = backtest_today(None, http=http)        # each rule's record: the broad scan list, not one name's thin sample
     rows, missing, last_bar = [], [], None
     fetched = _bars(syms, http)
     for s in syms:

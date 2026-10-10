@@ -4,6 +4,8 @@ orchestrator (mas/converse/agent_core.py), then grounded synthesis
 (mas/converse/assistant.py).
 
     question ─► guardrails (the desk won't pick names; no orders)
+            ─► quant  the quant lab (mas/converse/quant_agents.py): the user's portfolio risk, optimizer
+                      and projection; the intraday scanner's setups with each rule's record
             ─► desk   the whole multi-agent desk (mas.converse.turn): research,
                       options, regime, the live market, its knowledge layer
             ─► web    web research in parallel: search results and the top
@@ -17,17 +19,25 @@ import re
 from typing import Any, Dict, List, Optional
 
 from . import agent_core as ac
+from . import quant_agents
 
 
 class DeskAgent(ac.Agent):
     name, role, priority, timeout_s = "desk", "the full desk: research, options, regime, live market, knowledge", 10, 75.0
 
     def bid(self, task):
+        # "Any intraday setups?" names no stock: that is the scanner's, and the
+        # desk would only answer it with a web snippet about setups in general.
+        if quant_agents.wants_signals(task.question) and not quant_agents.named_symbols(task.question):
+            return 0.0
         return 0.9
 
     def run(self, task, board):
         from . import turn
-        out = turn(task.question, session_id=task.ctx.get("desk_session"))
+        # The screen's holdings (shares only) reach the desk's portfolio review too.
+        held = [{"ticker": h["symbol"], "shares": h["shares"]} for h in quant_agents.holdings_from(task.ctx)
+                if h.get("shares")]
+        out = turn(task.question, session_id=task.ctx.get("desk_session"), holdings=held or None)
         reply = out.get("reply") or {}
         kind = reply.get("kind")
         lines: List[str] = []
@@ -56,6 +66,7 @@ class DeskAgent(ac.Agent):
 
 class WebResearchAgent(ac.Agent):
     name, role, priority, timeout_s = "web", "web research: search results and the top pages, cited", 40, 25.0
+    yields_to = ("quant_portfolio", "quant_signals")      # the user's own portfolio / today's setups aren't web questions
 
     def bid(self, task):
         from .knowledge import lk
@@ -98,16 +109,18 @@ _sessions = ac.SessionMemory()
 
 
 def build() -> ac.Orchestrator:
-    return ac.Orchestrator([DeskAgent(), WebResearchAgent()], guardrails=[DeskGuardrail()],
-                           critics=[ac.ForbiddenClaimsCritic()], threshold=0.5, max_agents=2, budget_s=90,
+    return ac.Orchestrator([quant_agents.QuantPortfolioAgent(), quant_agents.QuantSignalsAgent(), DeskAgent(),
+                            WebResearchAgent()], guardrails=[DeskGuardrail()],
+                           critics=[ac.ForbiddenClaimsCritic()], threshold=0.5, max_agents=3, budget_s=90,
                            session_memory=_sessions,
                            empty_text="Neither the desk nor a web search had an answer for that. Try naming a "
                                       "symbol, or ask about the market, a concept, or the news.")
 
 
-def run_stream(question: str, session_id: Optional[str] = None):
-    return build().run_stream(question, session_id=session_id)
+def run_stream(question: str, session_id: Optional[str] = None, holdings: Optional[List[Dict[str, Any]]] = None):
+    return build().run_stream(question, {"holdings": holdings} if holdings else None, session_id=session_id)
 
 
 APP_DESCRIPTION = ("the Stock Desk — a multi-agent stock research desk (research reads, options structures, market "
-                   "regime, live market data, SEC filings fundamentals) plus web research")
+                   "regime, live market data, SEC filings fundamentals, a quant lab for portfolio risk, optimization, "
+                   "projections and intraday signals) plus web research")

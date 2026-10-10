@@ -477,8 +477,23 @@
 </div>
 <script>
 (function () {
-  const AI_TRY = ["Should I buy NVDA?", "What's moving today?", "What is a stock buyback and why do companies do it?",
-                  "Latest news on AAPL", "What is the 10-year Treasury yield?", "What are analysts saying about Tesla?"];
+  const AI_TRY = ["Should I buy NVDA?", "What's moving today?", "How risky is my portfolio?", "Any intraday setups?",
+                  "What could my portfolio be worth in 10 years with $500 a month?",
+                  "What is a stock buyback and why do companies do it?", "Latest news on AAPL",
+                  "What is the 10-year Treasury yield?", "What are analysts saying about Tesla?"];
+  // Holdings for portfolio questions: 💼 My Portfolio (manual or Robinhood), else the ⚡ Quant Lab's list.
+  // They live in this browser and travel only with a question.
+  const aiHoldings = () => {
+    try {
+      const src = localStorage.getItem('stockAgentPortfolioSource') || 'manual';
+      const pf = (JSON.parse(localStorage.getItem(src === 'robinhood' ? 'stockAgentPortfolioRobinhood' : 'stockAgentPortfolio')) || [])
+        .filter((h) => h && h.ticker && +h.shares > 0).map((h) => ({symbol: String(h.ticker).toUpperCase(), shares: +h.shares}));
+      if (pf.length) return pf;
+      return (localStorage.getItem('quant.holdings') || '').split('\n').map((l) => l.trim().replace(/,/g, ' ')
+        .match(/^([A-Za-z0-9.\-^=]{1,10})\s+(\$)?\s*([\d.]+)$/)).filter(Boolean)
+        .map((m) => m[2] ? {symbol: m[1].toUpperCase(), value: +m[3]} : {symbol: m[1].toUpperCase(), shares: +m[3]});
+    } catch (e) { return []; }
+  };
   const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const md = (t) => esc(t).replace(/\*\*([^*\n]+)\*\*/g, '<b>$1</b>');
   let session = null, history = [];
@@ -513,7 +528,7 @@
     const m = box('bot', '…'); document.getElementById('aiChatSend').disabled = true;
     try {
       const res = await fetch((window.API_BASE || '') + '/api/assistant/stream', {method: 'POST', headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({question: q, session_id: session, history: history.slice(-6)})});
+        body: JSON.stringify({question: q, session_id: session, history: history.slice(-6), holdings: aiHoldings()})});
       const reader = res.body.getReader(), dec = new TextDecoder();
       let buf = '', waiting = [], parts = {}, final = null, writing = null;
       const render = () => { m.innerHTML = Object.values(parts).map((p) => md(p.lines.join('\n'))).join('\n\n')
